@@ -10,10 +10,10 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>org.sonarlint.eclipse.cdt</artifactId>
+  <artifactId>org.sonarlint.eclipse.pdt</artifactId>
   <packaging>eclipse-plugin</packaging>
 
-  <name>SonarLint for Eclipse CDT</name>
+  <name>SonarLint for Eclipse PDT</name>
 
   <build>
     <sourceDirectory>src</sourceDirectory>
