@@ -39,6 +39,19 @@
     <maven>3.0</maven>
   </prerequisites>
 
+  <repositories>
+          <repository>
+                  <id>PDS-plugins</id>
+                  <layout>p2</layout>
+                  <url>file://${ARCHITECT_P2_DIR}</url>
+           </repository>
+           <repository>
+                   <id>PDS-dependencies</id>
+                   <layout>p2</layout>
+                   <url>file://${ARCHITECT_DEPS_P2_DIR}</url>
+            </repository>
+    </repositories>
+
   <modules>
     <module>org.sonarlint.eclipse.core</module>
     <module>org.sonarlint.eclipse.ui</module>
@@ -46,7 +59,10 @@
 
     <module>org.sonarlint.eclipse.m2e</module>
     <module>org.sonarlint.eclipse.jdt</module>
+
     <module>org.sonarlint.eclipse.cdt</module>
+
+    <module>org.sonarlint.eclipse.pdt</module>
 
     <module>org.sonarlint.eclipse.site</module>
 
@@ -73,7 +89,7 @@
     <tycho.version>1.0.0</tycho.version>
     <tycho-extras.version>${tycho.version}</tycho-extras.version>
     <target.platform>e47</target.platform>
-    <sonarlint.version>3.0.0.1140</sonarlint.version>
+    <sonarlint.version>3.0-RSSW</sonarlint.version>
     <protobuf.version>3.1.0</protobuf.version>
     
     <!-- ================== -->
