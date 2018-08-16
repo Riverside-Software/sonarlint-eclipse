@@ -84,6 +84,12 @@
                   <version>2.2.5</version>
                   <type>jar</type>
                 </artifactItem>
+                <artifactItem>
+                  <groupId>eu.rssw.sonar.openedge</groupId>
+                  <artifactId>progress-rules-plugin</artifactId>
+                  <version>1.0.1-SNAPSHOT</version>
+                  <type>jar</type>
+                </artifactItem>
                </artifactItems>
               <outputDirectory>${project.basedir}/plugins</outputDirectory>
               <overWriteReleases>false</overWriteReleases>
