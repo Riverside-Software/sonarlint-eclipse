@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin>
-     <extension
-         point="org.sonarlint.eclipse.core.projectConfigurators">
-      <configurator
-            class="org.sonarlint.eclipse.pdt.internal.OEProjectConfigurator">
-      </configurator>
-   </extension>
+  <extension point="org.sonarlint.eclipse.core.analysisConfigurator">
+    <configurator class="org.sonarlint.eclipse.pdt.internal.OEProjectConfiguratorExtension" />
+  </extension>
+  <extension point="org.sonarlint.eclipse.core.languageProvider">
+    <provider class="org.sonarlint.eclipse.pdt.internal.OEProjectConfiguratorExtension" />
+  </extension>
 </plugin>

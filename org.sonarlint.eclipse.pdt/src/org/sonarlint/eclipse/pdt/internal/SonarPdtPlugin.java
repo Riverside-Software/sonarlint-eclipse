@@ -42,13 +42,4 @@ public class SonarPdtPlugin extends AbstractPlugin {
     return plugin;
   }
 
-  public static boolean hasOENature(IProject project) {
-    try {
-      return project.hasNature(OENature.PROGRESS_NATURE_ID);
-    } catch (CoreException e) {
-      SonarLintLogger.get().error(e.getMessage(), e);
-      return false;
-    }
-  }
-
 }
