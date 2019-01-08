@@ -55,7 +55,6 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     SonarLintLogger.get().debug("Entering canConfigure...");
     try {
       IProject underlyingProject = project.getResource() instanceof IProject ? (IProject) project.getResource() : null;
-      // SonarLintLogger.get().info("   ... " + (underlyingProject != null && (underlyingProject.hasNature(OENature.PROGRESS_NATURE_ID))));
       return underlyingProject != null && (underlyingProject.hasNature(OENature.PROGRESS_NATURE_ID));
     } catch (CoreException t) {
       return false;
@@ -64,8 +63,6 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
   @Override
   public void configure(IPreAnalysisContext context, IProgressMonitor monitor) {
-    SonarLintLogger.get().debug("Configure");
-    
     IProject underlyingProject = context.getProject().getResource() instanceof IProject ? (IProject) context.getProject().getResource() : null;
     if (underlyingProject == null)
       return;
