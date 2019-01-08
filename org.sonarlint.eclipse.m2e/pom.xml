@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>3.6.1002</version>
+    <version>3.6.1003</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
