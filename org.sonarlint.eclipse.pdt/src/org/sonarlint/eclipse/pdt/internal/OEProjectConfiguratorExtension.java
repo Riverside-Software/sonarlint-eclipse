@@ -19,8 +19,17 @@
  */
 package org.sonarlint.eclipse.pdt.internal;
 
+import java.util.Comparator;
+import java.io.IOException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.BufferedWriter;
+import java.io.OutputStreamWriter;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -30,10 +39,19 @@ import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import com.openedge.core.runtime.IDatabaseSchemaReference;
+import com.openedge.core.runtime.IDatabaseAlias;
+import com.openedge.core.runtime.IDatabaseField;
+import com.openedge.core.runtime.IDatabaseIndex;
+import com.openedge.core.runtime.IDatabaseIndexField;
+import com.openedge.core.runtime.IDatabaseTable;
 import com.openedge.pdt.project.OENature;
 import com.openedge.pdt.project.OEProject;
+import com.openedge.pdt.project.OEProjectPlugin;
 import com.openedge.pdt.project.PropathEntry;
 import com.openedge.pdt.project.PropathConstants;
+import com.openedge.pdt.project.connection.DatabaseConnectionManager;
+import java.util.stream.Collectors;
 
 public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider {
 
@@ -100,6 +118,16 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
       context.setAnalysisProperty("sonar.oe.binaries", rCodePath.toOSString());
     if (xrefPath != null)
       context.setAnalysisProperty("sonar.oe.lint.xref", xrefPath.toOSString());
+
+    String slintDB = "";
+    File workDir = underlyingProject.getLocation().toFile();
+    DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
+    for (IDatabaseSchemaReference ref : mgr.getSchemasForProject(oeProject)) {
+      File f = generateSchemaFile(underlyingProject, ref, workDir);
+      slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
+    }
+    if (slintDB.length() > 0)
+      context.setAnalysisProperty("sonar.oe.lint.databases", slintDB);
   }
 
   @Override
@@ -118,4 +146,50 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     return null;
   }
 
+  private File generateSchemaFile(IProject prj, IDatabaseSchemaReference ref, File workDir) {
+    File serFile = new File(workDir, ".sonarlint/" + ref.getDatabaseName() + ".schema");
+    Object lastTS = null;
+    try {
+      lastTS = prj.getSessionProperty(new QualifiedName(null, ref.getDatabaseGUID()));
+    } catch (CoreException uncaught) {
+      SonarLintLogger.get().error("Couldn't retrieve DB timestamp session property");
+    }
+    if (ref.getDatabaseTimeStamp().equals(lastTS) && serFile.exists()) {
+      SonarLintLogger.get().debug("DB schema file already present for: " + ref.getDatabaseName());
+      return serFile;
+    }
+
+    SonarLintLogger.get().debug("Generating schema file for: " + ref.getDatabaseName());
+    try (OutputStream out = new FileOutputStream(serFile); OutputStreamWriter osw = new OutputStreamWriter(out, Charset.forName("utf-8")); BufferedWriter writer = new BufferedWriter(osw)) {
+      writer.write("## " + ref.getDatabaseTimeStamp());
+      writer.newLine();
+      // Sort by table name name
+      for (IDatabaseTable tbl : ref.getSchemaRoot().getTables().stream().sorted((o1, o2) -> o1.getTable().compareTo(o2.getTable())).collect(Collectors.toList())) {
+        writer.write("T" + tbl.getTable());
+        writer.newLine();
+        // Sort by field order
+        for (IDatabaseField fld : tbl.getFields().stream().sorted(Comparator.comparingInt(IDatabaseField::getOrder)).collect(Collectors.toList())) {
+          writer.write("F" + fld.getField() + ":" + fld.getDataType().getDataTypeName() + ":" + fld.getExtent());
+          writer.newLine();
+        }
+        // Exclude indexes without any field (i.e. default table index)
+        for (IDatabaseIndex idx : tbl.getIndexes().stream().filter(o -> ((o.getIndexFieldObjects().length > 0) && !"".equals(o.getIndexFieldObjects()[0].getFieldName()))).collect(Collectors.toList())) {
+          writer.write("I" + idx.getIndex() + ":" + (idx.isPrimary() ? "P" : "") + (idx.isUnique() ? "U" : ""));
+          for (IDatabaseIndexField fld : idx.getIndexFieldObjects()) {
+            writer.write(":" + (fld.isAscedning() ? 'A' : 'D') + fld.getFieldName());
+          }
+          writer.newLine();
+        }
+      }
+    } catch (IOException caught) {
+      SonarLintLogger.get().error("Unable to serialize database schema: " + ref.getDatabaseName());
+    }
+    try {
+      prj.setSessionProperty(new QualifiedName(null, ref.getDatabaseGUID()), ref.getDatabaseTimeStamp());
+    } catch (CoreException uncaught) {
+      SonarLintLogger.get().error("Couldn't set DB timestamp session property");
+    }
+
+    return serFile;
+  }
 }
