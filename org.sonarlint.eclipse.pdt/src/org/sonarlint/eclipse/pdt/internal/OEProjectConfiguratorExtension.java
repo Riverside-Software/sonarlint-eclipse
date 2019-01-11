@@ -120,14 +120,23 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
       context.setAnalysisProperty("sonar.oe.lint.xref", xrefPath.toOSString());
 
     String slintDB = "";
+    String aliases = "";
     File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
     for (IDatabaseSchemaReference ref : mgr.getSchemasForProject(oeProject)) {
       File f = generateSchemaFile(underlyingProject, ref, workDir);
       slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
+      if ((ref.getAlias() != null) && !ref.getAlias().isEmpty()) {
+        aliases = aliases + (aliases.length() > 0 ? ";" : "") + ref.getDatabaseName();
+        for (IDatabaseAlias alias : ref.getAlias()) {
+          aliases = aliases + "," + alias.getAlias();
+        }
+      }
     }
     if (slintDB.length() > 0)
       context.setAnalysisProperty("sonar.oe.lint.databases", slintDB);
+    if (aliases.length() > 0)
+      context.setAnalysisProperty("sonar.oe.aliases", aliases);
   }
 
   @Override
