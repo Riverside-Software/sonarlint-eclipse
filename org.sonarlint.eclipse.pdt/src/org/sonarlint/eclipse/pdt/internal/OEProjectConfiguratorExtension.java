@@ -29,6 +29,7 @@ import java.io.OutputStream;
 import java.nio.charset.Charset;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -122,7 +123,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
     for (IDatabaseSchemaReference ref : mgr.getSchemasForProject(oeProject)) {
-      File f = generateSchemaFile(ref, workDir);
+      File f = generateSchemaFile(underlyingProject, ref, workDir);
       slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
     }
     if (slintDB.length() > 0)
@@ -145,8 +146,19 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     return null;
   }
 
-  private File generateSchemaFile(IDatabaseSchemaReference ref, File workDir) {
+  private File generateSchemaFile(IProject prj, IDatabaseSchemaReference ref, File workDir) {
     File serFile = new File(workDir, ".sonarlint/" + ref.getDatabaseName() + ".schema");
+    Object lastTS = null;
+    try {
+      lastTS = prj.getSessionProperty(new QualifiedName(null, ref.getDatabaseGUID()));
+    } catch (CoreException uncaught) {
+      SonarLintLogger.get().error("Couldn't retrieve DB timestamp session property");
+    }
+    if (ref.getDatabaseTimeStamp().equals(lastTS) && serFile.exists()) {
+      SonarLintLogger.get().debug("DB schema file already present for: " + ref.getDatabaseName());
+      return serFile;
+    }
+
     SonarLintLogger.get().debug("Generating schema file for: " + ref.getDatabaseName());
     try (OutputStream out = new FileOutputStream(serFile); OutputStreamWriter osw = new OutputStreamWriter(out, Charset.forName("utf-8")); BufferedWriter writer = new BufferedWriter(osw)) {
       writer.write("## " + ref.getDatabaseTimeStamp());
@@ -171,6 +183,11 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
       }
     } catch (IOException caught) {
       SonarLintLogger.get().error("Unable to serialize database schema: " + ref.getDatabaseName());
+    }
+    try {
+      prj.setSessionProperty(new QualifiedName(null, ref.getDatabaseGUID()), ref.getDatabaseTimeStamp());
+    } catch (CoreException uncaught) {
+      SonarLintLogger.get().error("Couldn't set DB timestamp session property");
     }
 
     return serFile;
