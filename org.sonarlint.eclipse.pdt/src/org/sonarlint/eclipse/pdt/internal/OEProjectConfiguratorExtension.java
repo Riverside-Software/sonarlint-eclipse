@@ -176,6 +176,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     }
 
     SonarLintLogger.get().debug("Generating schema file for: " + ref.getDatabaseName());
+    serFile.getParentFile().mkdirs();
     try (OutputStream out = new FileOutputStream(serFile); OutputStreamWriter osw = new OutputStreamWriter(out, Charset.forName("utf-8")); BufferedWriter writer = new BufferedWriter(osw)) {
       writer.write("## " + ref.getDatabaseTimeStamp());
       writer.newLine();
