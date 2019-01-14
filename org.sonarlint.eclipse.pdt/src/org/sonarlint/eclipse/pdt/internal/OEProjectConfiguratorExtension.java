@@ -88,11 +88,6 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     if (oeProject == null)
       return;
 
-    IPath rCodePath = oeProject.getConfiguration().getRCodePath();
-    if (rCodePath != null) {
-      SonarLintLogger.get().debug("RCodePath: " + rCodePath.toOSString());
-    }
-
     SonarLintLogger.get().debug("useXrefXML: " + oeProject.getConfiguration().useXrefXML());
     IPath xrefPath = oeProject.getConfiguration().getXREFXMLPath();
     if (xrefPath != null) {
@@ -100,8 +95,20 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     }
 
     String src = "";
-    for (IPath entry : oeProject.getPropathHandler().translateEntriesToPaths(oeProject.getPropathHandler().getPropathEntriesByKind(PropathConstants.SOURCE_DIRECTORY))) {
-      src = src + (src = src.length() == 0 ? "" : ",") + entry.toOSString();
+    String rCodePath = "";
+    for (PropathEntry entry : oeProject.getPropathHandler().getPropathEntriesByKind(PropathConstants.SOURCE_DIRECTORY)) {
+      // Get real path of source entry
+      IPath[] srcEntry = oeProject.getPropathHandler().translateEntriesToPaths(new PropathEntry[] { entry });
+      if ((srcEntry != null) && (srcEntry.length > 0))
+        src = src + (src.length() == 0 ? "" : ",") + srcEntry[0].toOSString();
+
+      // And see if build directory set for this entry
+      String buildEntry = oeProject.getOEProjectPropathHandler().getRealPath(entry.getBuild().getPath());
+      if ((buildEntry != null) && !"".equals(buildEntry))
+        rCodePath = rCodePath + (rCodePath.length() == 0 ? "" : ",") + buildEntry;
+    }
+    if (oeProject.getConfiguration().getRCodePath() != null) {
+      rCodePath = rCodePath + (rCodePath.length() == 0 ? "" : ",") + oeProject.getConfiguration().getRCodePath().toOSString();
     }
 
     String propath = "";
@@ -114,8 +121,8 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     context.setAnalysisProperty("sonar.sources", src);
     context.setAnalysisProperty("sonar.oe.propath", propath);
-    if (rCodePath != null)
-      context.setAnalysisProperty("sonar.oe.binaries", rCodePath.toOSString());
+    if ((rCodePath != null) && !"".equals(rCodePath))
+      context.setAnalysisProperty("sonar.oe.binaries", rCodePath);
     if (xrefPath != null)
       context.setAnalysisProperty("sonar.oe.lint.xref", xrefPath.toOSString());
 
