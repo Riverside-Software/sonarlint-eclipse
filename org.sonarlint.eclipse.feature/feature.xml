@@ -2,7 +2,7 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="3.6.1006"
+      version="3.6.1008"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
