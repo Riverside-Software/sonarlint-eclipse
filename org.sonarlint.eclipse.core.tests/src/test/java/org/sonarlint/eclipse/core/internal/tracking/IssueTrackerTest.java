@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,9 +26,11 @@ import java.util.Collections;
 import org.junit.Before;
 import org.junit.Test;
 import org.sonarlint.eclipse.core.internal.markers.TextRange;
+import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue;
 import org.sonarsource.sonarlint.core.client.api.connected.ServerIssue;
 
+import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.mock;
@@ -36,11 +38,13 @@ import static org.mockito.Mockito.when;
 
 public class IssueTrackerTest {
 
+  private static final String DUMMY_FILE1_PATH = "dummyFile1";
+
   private final IssueTrackerCache cache = new InMemoryIssueTrackerCache();
 
   private final IssueTracker tracker = new IssueTracker(cache);
 
-  private final String file1 = "dummyFile1";
+  private ISonarLintFile file1;
 
   // note: these mock trackables are used by many test cases,
   // with their line numbers to distinguish their identities.
@@ -175,6 +179,9 @@ public class IssueTrackerTest {
   @Before
   public void setUp() {
     cache.clear();
+
+    file1 = mock(ISonarLintFile.class);
+    when(file1.getProjectRelativePath()).thenReturn(DUMMY_FILE1_PATH);
   }
 
   @Test
@@ -186,10 +193,10 @@ public class IssueTrackerTest {
   @Test
   public void should_preserve_known_standalone_trackables_with_null_date() {
     Collection<Trackable> trackables = Arrays.asList(trackable1, trackable2);
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, trackables));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, trackables));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, trackables));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, trackables));
 
-    Collection<Trackable> next = cache.getCurrentTrackables(file1);
+    Collection<Trackable> next = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
     assertThat(next).extracting(t -> t.getLine()).containsExactlyInAnyOrder(trackable1.getLine(), trackable2.getLine());
     assertThat(next).extracting(t -> t.getCreationDate()).containsExactlyInAnyOrder(null, null);
   }
@@ -198,10 +205,10 @@ public class IssueTrackerTest {
   public void should_add_creation_date_for_leaked_trackables() {
     long start = System.currentTimeMillis();
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable1)));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Arrays.asList(trackable1, trackable2)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable1)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Arrays.asList(trackable1, trackable2)));
 
-    Collection<Trackable> next = cache.getCurrentTrackables(file1);
+    Collection<Trackable> next = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
     assertThat(next).extracting(t -> t.getLine()).contains(trackable1.getLine(), trackable2.getLine());
 
     assertThat(next).extracting(t -> t.getCreationDate()).containsOnlyOnce((Long) null);
@@ -213,10 +220,10 @@ public class IssueTrackerTest {
 
   @Test
   public void should_drop_disappeared_issues() {
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Arrays.asList(trackable1, trackable2)));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable1)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Arrays.asList(trackable1, trackable2)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable1)));
 
-    Collection<Trackable> next = cache.getCurrentTrackables(file1);
+    Collection<Trackable> next = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
     assertThat(next).extracting(t -> t.getLine()).containsExactly(trackable1.getLine());
   }
 
@@ -233,18 +240,18 @@ public class IssueTrackerTest {
       .creationDate(17L)
       .assignee("dummy assignee");
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.ruleKey(ruleKey + "x").build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.ruleKey(ruleKey + "x").build())));
   }
 
   @Test
   public void should_treat_new_issues_as_leak_when_old_issues_disappeared() {
     long start = System.currentTimeMillis();
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable1)));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable2)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable1)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable2)));
 
-    Collection<Trackable> next = cache.getCurrentTrackables(file1);
+    Collection<Trackable> next = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
     assertThat(next).extracting(t -> t.getLine()).containsExactly(trackable2.getLine());
 
     Trackable leaked = next.stream().filter(t -> t.getCreationDate() != null).findFirst().get();
@@ -258,15 +265,15 @@ public class IssueTrackerTest {
     int textRangeHash = 11;
     // note: (ab)using the assignee field to uniquely identify the trackable
     String id = "dummy id";
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(line).textRangeHash(textRangeHash).assignee(id).build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(line).textRangeHash(textRangeHash).assignee(id).build())));
 
     Trackable differentLine = base.line(line + 1).textRangeHash(textRangeHash).build();
     Trackable differentTextRangeHash = base.line(line).textRangeHash(textRangeHash + 1).build();
     Trackable differentBoth = base.line(line + 1).textRangeHash(textRangeHash + 1).build();
     Trackable same = base.line(line).textRangeHash(textRangeHash).build();
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Arrays.asList(differentLine, differentTextRangeHash, differentBoth, same)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Arrays.asList(differentLine, differentTextRangeHash, differentBoth, same)));
 
-    Collection<Trackable> current = cache.getCurrentTrackables(file1);
+    Collection<Trackable> current = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
     assertThat(current).hasSize(4);
     assertThat(current).extracting("assignee").containsOnlyOnce(id);
     assertThat(current).extracting("line", "textRangeHash", "assignee").containsOnlyOnce(tuple(line, textRangeHash, id));
@@ -280,15 +287,15 @@ public class IssueTrackerTest {
     // note: (ab)using the assignee field to uniquely identify the trackable
     String id = "dummy id";
     int c = 1;
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(line).message(message).assignee(id).textRangeHash(c++).build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(line).message(message).assignee(id).textRangeHash(c++).build())));
 
     Trackable differentLine = base.line(line + 1).message(message).textRangeHash(c++).build();
     Trackable differentMessage = base.line(line).message(message + "x").textRangeHash(c++).build();
     Trackable differentBoth = base.line(line + 1).message(message + "x").textRangeHash(c++).build();
     Trackable same = base.line(line).message(message).textRangeHash(c++).build();
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Arrays.asList(differentLine, differentMessage, differentBoth, same)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Arrays.asList(differentLine, differentMessage, differentBoth, same)));
 
-    Collection<Trackable> current = cache.getCurrentTrackables(file1);
+    Collection<Trackable> current = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
     assertThat(current).hasSize(4);
     assertThat(current).extracting("assignee").containsOnlyOnce(id);
     assertThat(current).extracting("line", "message", "assignee").containsOnlyOnce(tuple(line, message, id));
@@ -301,10 +308,10 @@ public class IssueTrackerTest {
     String id = "dummy id";
     int newLine = 7;
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(newLine + 3).assignee(id).build())));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.line(newLine).build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(newLine + 3).assignee(id).build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.line(newLine).build())));
 
-    assertThat(cache.getCurrentTrackables(file1)).extracting("line", "assignee").containsExactly(tuple(newLine, id));
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("line", "assignee").containsExactly(tuple(newLine, id));
   }
 
   @Test
@@ -314,10 +321,10 @@ public class IssueTrackerTest {
     String id = "dummy id";
     int newLine = 7;
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(newLine + 3).assignee(id).build())));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.line(newLine).build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(newLine + 3).assignee(id).build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.line(newLine).build())));
 
-    assertThat(cache.getCurrentTrackables(file1)).extracting("line", "assignee").containsExactly(tuple(newLine, id));
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("line", "assignee").containsExactly(tuple(newLine, id));
   }
 
   @Test
@@ -335,13 +342,13 @@ public class IssueTrackerTest {
     Trackable movedTrackable = new RawIssueTrackable(movedIssue, mock(TextRange.class), null, lineContent);
     Trackable nonMatchingTrackable = new RawIssueTrackable(mockIssue(), mock(TextRange.class), null, lineContent + "x");
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable)));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Arrays.asList(movedTrackable, nonMatchingTrackable)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Arrays.asList(movedTrackable, nonMatchingTrackable)));
 
     assertThat(movedTrackable.getLineHash()).isEqualTo(trackable.getLineHash());
     assertThat(movedTrackable.getLineHash()).isNotEqualTo(nonMatchingTrackable.getLineHash());
 
-    Collection<Trackable> next = cache.getCurrentTrackables(file1);
+    Collection<Trackable> next = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
 
     // matched trackable has no date
     assertThat(next.stream().filter(t -> t.getCreationDate() == null)).extracting("line", "lineHash").containsOnly(
@@ -378,27 +385,73 @@ public class IssueTrackerTest {
 
     Trackable nonMatchingTrackable = new RawIssueTrackable(mockIssue(), mock(TextRange.class), null, lineContent + "x");
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable)));
-    cache.put(file1, tracker.matchAndTrackServerIssues(file1, Arrays.asList(movedTrackable, nonMatchingTrackable)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(trackable)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1, Arrays.asList(movedTrackable, nonMatchingTrackable)));
 
     assertThat(movedTrackable.getLineHash()).isEqualTo(trackable.getLineHash());
     assertThat(movedTrackable.getLineHash()).isNotEqualTo(nonMatchingTrackable.getLineHash());
 
-    assertThat(cache.getCurrentTrackables(file1)).extracting("line", "lineHash", "serverIssueKey", "resolved").containsOnly(
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("line", "lineHash", "serverIssueKey", "resolved").containsOnly(
       tuple(newLine, movedTrackable.getLineHash(), movedTrackable.getServerIssueKey(), movedTrackable.isResolved()));
   }
 
   @Test
-  public void should_match_by_server_issue_key() {
-    MockTrackableBuilder base = builder().ruleKey("dummy ruleKey").serverIssueKey("dummy server issue key");
-    // note: (ab)using the assignee field to uniquely identify the trackable
-    String id = "dummy id";
-    int newLine = 7;
+  public void should_match_first_by_server_issue_key() {
+    String ruleKey = "dummy ruleKey";
+    String message = "dummy message";
+    String lineContent = "dummy content";
+    String serverIssueKey1 = "dummy serverIssueKey 1";
+    String serverIssueKey2 = "dummy serverIssueKey 2";
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().line(newLine + 3).assignee(id).build())));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.line(newLine).build())));
+    Issue issue1 = mock(Issue.class);
+    when(issue1.getRuleKey()).thenReturn(ruleKey);
+    when(issue1.getMessage()).thenReturn(message);
+    when(issue1.getStartLine()).thenReturn(1);
+    Trackable trackable1 = new RawIssueTrackable(issue1, mock(TextRange.class), null, lineContent);
 
-    assertThat(cache.getCurrentTrackables(file1)).extracting("line", "assignee").containsExactly(tuple(newLine, id));
+    Issue issue2 = mock(Issue.class);
+    when(issue2.getRuleKey()).thenReturn(ruleKey);
+    when(issue2.getMessage()).thenReturn(message);
+    when(issue2.getStartLine()).thenReturn(2);
+    Trackable trackable2 = new RawIssueTrackable(issue2, mock(TextRange.class), null, lineContent);
+
+    ServerIssue serverIssue1 = mock(ServerIssue.class);
+    when(serverIssue1.ruleKey()).thenReturn(ruleKey);
+    when(serverIssue1.message()).thenReturn(message);
+    when(serverIssue1.checksum()).thenReturn(DigestUtils.digest(lineContent));
+    when(serverIssue1.line()).thenReturn(1);
+    when(serverIssue1.creationDate()).thenReturn(Instant.now());
+    when(serverIssue1.key()).thenReturn(serverIssueKey1);
+    when(serverIssue1.resolution()).thenReturn("");
+    Trackable serverTrackable1 = new ServerIssueTrackable(serverIssue1);
+
+    ServerIssue serverIssue2 = mock(ServerIssue.class);
+    when(serverIssue2.ruleKey()).thenReturn(ruleKey);
+    when(serverIssue2.message()).thenReturn(message);
+    when(serverIssue2.checksum()).thenReturn(DigestUtils.digest(lineContent));
+    when(serverIssue2.line()).thenReturn(2);
+    when(serverIssue2.creationDate()).thenReturn(Instant.now());
+    when(serverIssue2.key()).thenReturn(serverIssueKey2);
+    when(serverIssue2.resolution()).thenReturn("");
+    Trackable serverTrackable2 = new ServerIssueTrackable(serverIssue2);
+
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, asList(trackable1, trackable2)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1, asList(serverTrackable1, serverTrackable2)));
+
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("line", "lineHash", "serverIssueKey").containsOnly(
+      tuple(1, serverTrackable1.getLineHash(), serverTrackable1.getServerIssueKey()),
+      tuple(2, serverTrackable2.getLineHash(), serverTrackable2.getServerIssueKey()));
+
+    // Emulate code shifted by one line
+    when(issue1.getStartLine()).thenReturn(2);
+    when(issue2.getStartLine()).thenReturn(3);
+
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, asList(trackable1, trackable2)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1, asList(serverTrackable1, serverTrackable2)));
+
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("line", "lineHash", "serverIssueKey").containsOnly(
+      tuple(2, serverTrackable1.getLineHash(), serverTrackable1.getServerIssueKey()),
+      tuple(3, serverTrackable2.getLineHash(), serverTrackable2.getServerIssueKey()));
   }
 
   @Test
@@ -408,10 +461,10 @@ public class IssueTrackerTest {
     String id = "dummy id";
     long creationDate = 123;
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().creationDate(creationDate).assignee(id).build())));
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().creationDate(creationDate).assignee(id).build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
 
-    assertThat(cache.getCurrentTrackables(file1)).extracting("creationDate", "assignee").containsExactly(tuple(creationDate, id));
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("creationDate", "assignee").containsExactly(tuple(creationDate, id));
   }
 
   @Test
@@ -420,12 +473,12 @@ public class IssueTrackerTest {
     Trackable leak = builder().ruleKey("dummy ruleKey").line(7).textRangeHash(11).creationDate(leakCreationDate).build();
 
     // fake first analysis, trackable has a date
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(leak)));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(leak)));
 
     // fake server issue tracking
-    cache.put(file1, tracker.matchAndTrackServerIssues(file1, Collections.emptyList()));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1, Collections.emptyList()));
 
-    assertThat(cache.getCurrentTrackables(file1).iterator().next().getCreationDate()).isEqualTo(leakCreationDate);
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH).iterator().next().getCreationDate()).isEqualTo(leakCreationDate);
   }
 
   @Test
@@ -436,13 +489,14 @@ public class IssueTrackerTest {
     String serverIssueKey = "dummy serverIssueKey";
     boolean resolved = true;
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
-    cache.put(file1,
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH,
       tracker.matchAndTrackServerIssues(file1, Collections.singletonList(base.copy().serverIssueKey(serverIssueKey).resolved(resolved).assignee(id).severity("BLOCKER").build())));
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
 
-    assertThat(cache.getCurrentTrackables(file1)).extracting("serverIssueKey", "resolved", "assignee", "severity").containsExactly(tuple(serverIssueKey, resolved, id, "BLOCKER"));
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("serverIssueKey", "resolved", "assignee", "severity")
+      .containsExactly(tuple(serverIssueKey, resolved, id, "BLOCKER"));
   }
 
   @Test
@@ -452,10 +506,10 @@ public class IssueTrackerTest {
     String assignee = "dummy assignee";
     MockTrackableBuilder base = builder().ruleKey("dummy ruleKey").serverIssueKey(serverIssueKey).resolved(resolved).assignee(assignee);
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().resolved(!resolved).assignee(assignee + "x").build())));
-    cache.put(file1, tracker.matchAndTrackServerIssues(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.copy().resolved(!resolved).assignee(assignee + "x").build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1, Collections.singletonList(base.build())));
 
-    assertThat(cache.getCurrentTrackables(file1)).extracting("serverIssueKey", "resolved", "assignee").containsExactly(tuple(serverIssueKey, resolved, assignee));
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).extracting("serverIssueKey", "resolved", "assignee").containsExactly(tuple(serverIssueKey, resolved, assignee));
   }
 
   @Test
@@ -468,15 +522,15 @@ public class IssueTrackerTest {
     long start = System.currentTimeMillis();
 
     // First analysis
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
-    cache.put(file1, tracker.matchAndTrackServerIssues(file1,
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1,
       Collections.singletonList(base.copy().serverIssueKey(serverIssueKey).resolved(true).assignee(assignee).severity("BLOCKER").build())));
 
     // Second analysis with no more issue on server side
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
-    cache.put(file1, tracker.matchAndTrackServerIssues(file1, Collections.emptyList()));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1, Collections.emptyList()));
 
-    Collection<Trackable> trackables = cache.getCurrentTrackables(file1);
+    Collection<Trackable> trackables = cache.getCurrentTrackables(DUMMY_FILE1_PATH);
     assertThat(trackables)
       .extracting("serverIssueKey", "resolved", "assignee", "severity")
       .containsExactly(tuple(null, !resolved, "", "CRITICAL"));
@@ -490,9 +544,9 @@ public class IssueTrackerTest {
     String assignee = "dummy assignee";
     MockTrackableBuilder base = builder().ruleKey("dummy ruleKey").serverIssueKey(serverIssueKey).resolved(resolved).assignee(assignee);
 
-    cache.put(file1, tracker.matchAndTrackAsNew(file1, Collections.emptyList()));
-    cache.put(file1, tracker.matchAndTrackServerIssues(file1, Collections.singletonList(base.build())));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackAsNew(file1, Collections.emptyList()));
+    cache.put(DUMMY_FILE1_PATH, tracker.matchAndTrackServerIssues(file1, Collections.singletonList(base.build())));
 
-    assertThat(cache.getCurrentTrackables(file1)).isEmpty();
+    assertThat(cache.getCurrentTrackables(DUMMY_FILE1_PATH)).isEmpty();
   }
 }

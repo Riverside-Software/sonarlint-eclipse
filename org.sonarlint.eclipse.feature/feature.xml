@@ -2,21 +2,47 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="3.6.1008"
+      version="4.1.1100"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
-   <description url="http://www.sonarlint.org/">
+   <description url="https://www.sonarlint.org/">
       %description
    </description>
 
-   <copyright url="http://www.sonarlint.org/">
+   <copyright url="https://www.sonarlint.org/">
       %copyright
    </copyright>
 
    <license url="http://www.gnu.org/licenses/lgpl.txt">
       %license
    </license>
+
+   <requires>
+      <import plugin="org.eclipse.equinox.security"/>
+      <import plugin="org.eclipse.core.runtime"/>
+      <import plugin="org.eclipse.core.resources"/>
+      <import plugin="org.eclipse.core.expressions"/>
+      <import plugin="org.eclipse.core.filebuffers"/>
+      <import plugin="org.eclipse.jface.text"/>
+      <import plugin="org.eclipse.core.net"/>
+      <import plugin="org.eclipse.core.filesystem"/>
+      <import plugin="org.eclipse.team.core"/>
+      <import plugin="org.eclipse.core.databinding"/>
+      <import plugin="org.eclipse.core.databinding.beans"/>
+      <import plugin="org.eclipse.core.databinding.property"/>
+      <import plugin="org.eclipse.ui"/>
+      <import plugin="org.eclipse.ui.ide"/>
+      <import plugin="org.eclipse.ui.console"/>
+      <import plugin="org.eclipse.ui.workbench.texteditor"/>
+      <import plugin="org.eclipse.jface.databinding"/>
+      <import plugin="org.eclipse.ui.navigator"/>
+      <import plugin="org.eclipse.ui.editors"/>
+      <import plugin="org.eclipse.ui.forms"/>
+      <import plugin="org.sonarsource.sonarlint.core.sonarlint-client-api"/>
+      <import plugin="org.sonarsource.sonarlint.core.sonarlint-core"/>
+      <import plugin="org.eclipse.mylyn.commons.ui"/>
+   </requires>
 
    <plugin
          id="org.sonarlint.eclipse.core"

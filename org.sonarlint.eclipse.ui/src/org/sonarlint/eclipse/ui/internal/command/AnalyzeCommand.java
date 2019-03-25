@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -44,7 +44,7 @@ import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.adapter.Adapters;
-import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectJob;
+import org.sonarlint.eclipse.core.internal.jobs.AbstractAnalyzeProjectJob;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDocument;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectsJob;
@@ -85,14 +85,14 @@ public class AnalyzeCommand extends AbstractHandler {
     if (filesPerProject.size() == 1) {
       Entry<ISonarLintProject, Collection<FileWithDocument>> entry = filesPerProject.entrySet().iterator().next();
       AnalyzeProjectRequest req = new AnalyzeProjectRequest(entry.getKey(), entry.getValue(), TriggerType.MANUAL, true);
-      int fileCount = req.getFilesToAnalyze().size();
+      int fileCount = req.getFiles().size();
       String reportTitle;
       if (fileCount == 1) {
-        reportTitle = "File " + req.getFilesToAnalyze().iterator().next().getFile().getName();
+        reportTitle = "File " + req.getFiles().iterator().next().getFile().getName();
       } else {
         reportTitle = fileCount + " files of project " + entry.getKey().getName();
       }
-      AnalyzeProjectJob job = new AnalyzeProjectJob(req);
+      AbstractAnalyzeProjectJob<?> job = AbstractAnalyzeProjectJob.create(req);
       AnalyzeChangeSetCommand.registerJobListener(job, reportTitle);
       job.schedule();
     } else {

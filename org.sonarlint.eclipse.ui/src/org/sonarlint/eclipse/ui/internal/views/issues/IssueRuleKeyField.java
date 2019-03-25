@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,6 +19,7 @@
  */
 package org.sonarlint.eclipse.ui.internal.views.issues;
 
+import javax.annotation.Nullable;
 import org.eclipse.ui.views.markers.MarkerField;
 import org.eclipse.ui.views.markers.MarkerItem;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
@@ -29,7 +30,7 @@ import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 public class IssueRuleKeyField extends MarkerField {
 
   @Override
-  public String getValue(MarkerItem item) {
+  public String getValue(@Nullable MarkerItem item) {
     if (item == null) {
       return null;
     }

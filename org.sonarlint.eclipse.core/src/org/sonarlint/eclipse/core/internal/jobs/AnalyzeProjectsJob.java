@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -61,7 +61,7 @@ public class AnalyzeProjectsJob extends WorkspaceJob {
         }
         global.setTaskName("Analyzing project " + project.getName());
         AnalyzeProjectRequest req = new AnalyzeProjectRequest(project, entry.getValue(), TriggerType.MANUAL);
-        AnalyzeProjectJob job = new AnalyzeProjectJob(req);
+        AbstractAnalyzeProjectJob<?> job = AbstractAnalyzeProjectJob.create(req);
         SubMonitor subMonitor = analysisMonitor.newChild(1);
         job.runInWorkspace(subMonitor);
         subMonitor.done();

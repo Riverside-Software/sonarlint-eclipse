@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,6 +26,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import org.eclipse.core.net.proxy.IProxyData;
 import org.eclipse.core.net.proxy.IProxyService;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -35,6 +36,7 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.resources.ProjectsProviderUtils;
+import org.sonarlint.eclipse.core.internal.server.IServer;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarsource.sonarlint.core.client.api.common.TelemetryClientConfig;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryClient;
@@ -98,7 +100,7 @@ public class SonarLintTelemetry {
 
   // visible for testing
   public TelemetryManager newTelemetryManager(Path path, TelemetryClient client) {
-    return new TelemetryManager(path, client);
+    return new TelemetryManager(path, client, SonarLintTelemetry::isAnyProjectConnected, SonarLintTelemetry::isAnyServerSonarCloud);
   }
 
   private class TelemetryJob extends Job {
@@ -144,9 +146,12 @@ public class SonarLintTelemetry {
   // visible for testing
   public void upload() {
     if (enabled()) {
-      telemetry.usedConnectedMode(isAnyProjectConnected());
       telemetry.uploadLazily();
     }
+  }
+
+  private static boolean isAnyServerSonarCloud() {
+    return SonarLintCorePlugin.getServersManager().getServers().stream().anyMatch(IServer::isSonarCloud);
   }
 
   public void analysisDoneOnMultipleFiles() {
@@ -155,9 +160,9 @@ public class SonarLintTelemetry {
     }
   }
 
-  public void analysisDoneOnSingleFile(String fileExtension, int time) {
+  public void analysisDoneOnSingleFile(@Nullable String language, int time) {
     if (enabled()) {
-      telemetry.analysisDoneOnSingleFile(fileExtension, time);
+      telemetry.analysisDoneOnSingleLanguage(language, time);
     }
   }
 
@@ -172,7 +177,7 @@ public class SonarLintTelemetry {
   }
 
   private static boolean isAnyProjectConnected() {
-    return ProjectsProviderUtils.allProjects().stream().anyMatch(p -> p.isOpen() && p.isBound());
+    return ProjectsProviderUtils.allProjects().stream().anyMatch(p -> p.isOpen() && SonarLintCorePlugin.loadConfig(p).isBound());
   }
 
   // visible for testing

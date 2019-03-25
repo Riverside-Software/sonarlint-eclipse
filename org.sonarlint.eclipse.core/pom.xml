@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>3.6.1008</version>
+    <version>4.1.1100</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -57,19 +57,19 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>5.4.0.14284</version>
+                  <version>5.10.2.17019</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>4.1.0.6085</version>
+                  <version>4.2.1.6529</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>2.13.0.3107</version>
+                  <version>2.16.0.4355</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -115,7 +115,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.4.1.Final</version>
+        <version>1.6.0</version>
       </extension>
     </extensions>
   </build>

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -51,7 +51,7 @@ public class PreferencesUtils {
   public static final String PREF_RULE_INCLUSIONS = "ruleInclusions"; //$NON-NLS-1$
   public static final String PREF_DEFAULT = ""; //$NON-NLS-1$
   public static final String PREF_TEST_FILE_REGEXPS = "testFileRegexps"; //$NON-NLS-1$
-  public static final String PREF_TEST_FILE_REGEXPS_DEFAULT = "**/*Test.*,**/test/**/*"; //$NON-NLS-1$
+  public static final String PREF_TEST_FILE_REGEXPS_DEFAULT = ""; //$NON-NLS-1$
   public static final String PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES = "skipConfirmAnalyzeMultipleFiles"; //$NON-NLS-1$
 
   private PreferencesUtils() {
@@ -73,7 +73,7 @@ public class PreferencesUtils {
     props.addAll(deserializeExtraProperties(globalExtraArgs));
 
     // Then add project properties
-    SonarLintProjectConfiguration sonarProject = SonarLintProjectConfiguration.read(project.getScopeContext());
+    SonarLintProjectConfiguration sonarProject = SonarLintCorePlugin.loadConfig(project);
     if (sonarProject.getExtraProperties() != null) {
       props.addAll(sonarProject.getExtraProperties());
     }

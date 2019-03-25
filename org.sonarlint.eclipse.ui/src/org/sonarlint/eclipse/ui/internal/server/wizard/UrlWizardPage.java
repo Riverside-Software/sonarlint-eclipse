@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -33,7 +33,7 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.sonarlint.eclipse.ui.internal.Messages;
 
-public class UrlWizardPage extends AbstractGridLayoutWizardPage {
+public class UrlWizardPage extends AbstractServerConnectionWizardPage {
 
   private Binding serverUrlTextBinding;
 

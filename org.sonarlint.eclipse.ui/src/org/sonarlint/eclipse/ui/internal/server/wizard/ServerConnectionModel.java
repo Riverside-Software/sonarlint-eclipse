@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,6 +21,7 @@ package org.sonarlint.eclipse.ui.internal.server.wizard;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
 import org.eclipse.equinox.security.storage.StorageException;
@@ -31,6 +32,8 @@ import org.sonarlint.eclipse.core.internal.server.IServer;
 import org.sonarlint.eclipse.core.internal.server.Server;
 import org.sonarlint.eclipse.core.internal.server.ServersManager;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
+import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarlint.eclipse.ui.internal.util.wizard.ModelObject;
 import org.sonarsource.sonarlint.core.client.api.connected.RemoteOrganization;
 import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
 
@@ -63,9 +66,12 @@ public class ServerConnectionModel extends ModelObject {
   private String organization;
   private String username;
   private String password;
-  private TextSearchIndex<RemoteOrganization> organizationsIndex;
+  private List<RemoteOrganization> userOrgs;
+  private TextSearchIndex<RemoteOrganization> userOrgsIndex;
   private boolean notificationsSupported;
   private boolean notificationsEnabled;
+
+  private List<ISonarLintProject> selectedProjects;
 
   public ServerConnectionModel() {
     this.edit = false;
@@ -176,16 +182,26 @@ public class ServerConnectionModel extends ModelObject {
   }
 
   @CheckForNull
-  public TextSearchIndex<RemoteOrganization> getOrganizationsIndex() {
-    return organizationsIndex;
+  public List<RemoteOrganization> getUserOrgs() {
+    return userOrgs;
   }
 
   public boolean hasOrganizations() {
-    return organizationsIndex != null && organizationsIndex.size() > 1;
+    return userOrgs != null && userOrgs.size() > 1;
   }
 
-  public void setOrganizationsIndex(@Nullable TextSearchIndex<RemoteOrganization> organizationsIndex) {
-    this.organizationsIndex = organizationsIndex;
+  public void setUserOrgs(@Nullable List<RemoteOrganization> userOrgs) {
+    this.userOrgs = userOrgs;
+    TextSearchIndex<RemoteOrganization> index = new TextSearchIndex<>();
+    for (RemoteOrganization org : userOrgs) {
+      index.index(org, org.getKey() + " " + org.getName());
+    }
+    this.userOrgsIndex = index;
+  }
+
+  @CheckForNull
+  public TextSearchIndex<RemoteOrganization> getUserOrgsIndex() {
+    return userOrgsIndex;
   }
 
   private void suggestServerId() {
@@ -224,5 +240,14 @@ public class ServerConnectionModel extends ModelObject {
     boolean old = this.notificationsEnabled;
     this.notificationsEnabled = value;
     firePropertyChange(PROPERTY_NOTIFICATIONS_ENABLED, old, this.notificationsEnabled);
+  }
+
+  public void setSelectedProjects(List<ISonarLintProject> selectedProjects) {
+    this.selectedProjects = selectedProjects;
+  }
+
+  @CheckForNull
+  public List<ISonarLintProject> getSelectedProjects() {
+    return selectedProjects;
   }
 }

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,11 +19,11 @@
  */
 package org.sonarlint.eclipse.core.internal.tracking;
 
-import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 @FunctionalInterface
-public interface IssueTrackerCacheFactory extends BiFunction<ISonarLintProject, String, IssueTrackerCache> {
+public interface IssueTrackerCacheFactory extends Function<ISonarLintProject, IssueTrackerCache> {
   @Override
-  IssueTrackerCache apply(ISonarLintProject project, String localModuleKey);
+  IssueTrackerCache apply(ISonarLintProject project);
 }

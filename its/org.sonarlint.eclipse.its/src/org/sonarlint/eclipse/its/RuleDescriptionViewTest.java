@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2018 SonarSource SA
+ * Copyright (C) 2009-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -25,13 +25,11 @@ import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.jdt.ui.JavaUI;
-import org.eclipse.swt.browser.Browser;
+import org.eclipse.swtbot.eclipse.finder.SWTWorkbenchBot;
 import org.eclipse.swtbot.eclipse.finder.widgets.SWTBotView;
-import org.eclipse.swtbot.swt.finder.finders.UIThreadRunnable;
-import org.eclipse.swtbot.swt.finder.results.Result;
-import org.hamcrest.CoreMatchers;
+import org.eclipse.swtbot.swt.finder.waits.DefaultCondition;
+import org.eclipse.swtbot.swt.finder.widgets.SWTBotBrowser;
 import org.junit.Test;
-import org.osgi.framework.Version;
 import org.sonarlint.eclipse.its.bots.JavaPackageExplorerBot;
 import org.sonarlint.eclipse.its.bots.OnTheFlyViewBot;
 import org.sonarlint.eclipse.its.utils.JobHelpers;
@@ -39,11 +37,13 @@ import org.sonarlint.eclipse.its.utils.SwtBotUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.junit.Assume.assumeTrue;
 
 public class RuleDescriptionViewTest extends AbstractSonarLintTest {
 
   @Test
   public void openRuleDescription() throws Exception {
+    assumeTrue(isPhotonOrGreater());
     SwtBotUtils.openPerspective(bot, JavaUI.ID_PERSPECTIVE);
 
     SWTBotView view = new OnTheFlyViewBot(bot).show();
@@ -65,17 +65,25 @@ public class RuleDescriptionViewTest extends AbstractSonarLintTest {
 
     view.bot().tree().select(0).contextMenu("Rule description").click();
 
-    SWTBotView descView = bot.viewById("org.sonarlint.eclipse.ui.views.RuleDescriptionWebView");
-    assertThat(descView.isActive()).isTrue();
-    descView.show();
+    bot.waitUntil(new DefaultCondition() {
+      @Override
+      public boolean test() throws Exception {
+        String html = loadHtml();
+        return html.contains("squid:S106") && html.contains("Sensitive data must only be logged securely") && html.contains("CERT, ERR02-J");
+      }
 
-    if (platformVersion().compareTo(new Version("4.4")) >= 0) {
-      Browser b = (Browser) bot.getFinder().findControls(descView.getWidget(), CoreMatchers.instanceOf(Browser.class), true).get(0);
+      private String loadHtml() {
+        SWTBotView descView = ((SWTWorkbenchBot) bot).viewById("org.sonarlint.eclipse.ui.views.RuleDescriptionWebView");
+        SWTBotBrowser browser = descView.bot().browser();
+        return browser.getText();
+      }
 
-      String text = UIThreadRunnable.syncExec(bot.getDisplay(), (Result<String>) b::getText);
-      assertThat(text).contains("squid:S106",
-        "Sensitive data must only be logged securely", "CERT, ERR02-J");
-    }
+      @Override
+      public String getFailureMessage() {
+        return "Rule description content is: " + loadHtml();
+      }
+    }, 20_000, 1_000);
+
   }
 
 }

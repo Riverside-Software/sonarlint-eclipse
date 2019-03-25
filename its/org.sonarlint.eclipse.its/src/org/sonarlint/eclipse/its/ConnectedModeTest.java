@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2018 SonarSource SA
+ * Copyright (C) 2009-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -30,7 +30,6 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.sonar.wsclient.services.PropertyCreateQuery;
 import org.sonarlint.eclipse.its.bots.ServerConnectionWizardBot;
 import org.sonarqube.ws.client.WsClient;
 import org.sonarqube.ws.client.setting.SetRequest;
@@ -44,9 +43,7 @@ public class ConnectedModeTest extends AbstractSonarLintTest {
 
   @ClassRule
   public static Orchestrator orchestrator = Orchestrator.builderEnv()
-    // Need at least one plugin to avoid bug SONAR-8918
-    .setOrchestratorProperty("javaVersion", "LATEST_RELEASE")
-    .addPlugin("java")
+    .setSonarVersion(System.getProperty("sonar.runtimeVersion", "LATEST_RELEASE[6.7]"))
     .build();
 
   private static WsClient adminWsClient;
@@ -54,11 +51,7 @@ public class ConnectedModeTest extends AbstractSonarLintTest {
   @BeforeClass
   public static void prepare() {
     adminWsClient = newAdminWsClient(orchestrator);
-    if (orchestrator.getServer().version().isGreaterThanOrEquals("6.3")) {
-      adminWsClient.settingsService().set(SetRequest.builder().setKey("sonar.forceAuthentication").setValue("true").build());
-    } else {
-      orchestrator.getServer().getAdminWsClient().create(new PropertyCreateQuery("sonar.forceAuthentication", "true"));
-    }
+    adminWsClient.settingsService().set(SetRequest.builder().setKey("sonar.forceAuthentication").setValue("true").build());
   }
 
   @Test
@@ -99,11 +92,7 @@ public class ConnectedModeTest extends AbstractSonarLintTest {
     assertThat(wizardBot.isNextEnabled()).isTrue();
 
     wizardBot.clickNext();
-    if (orchestrator.getServer().version().isGreaterThanOrEquals("6.0")) {
-      wizardBot.assertErrorMessage("Authentication failed");
-    } else {
-      wizardBot.assertErrorMessage("Not authorized. Please check server credentials.");
-    }
+    wizardBot.assertErrorMessage("Authentication failed");
 
     wizardBot.setPassword(Server.ADMIN_PASSWORD);
     wizardBot.clickNext();
@@ -129,11 +118,11 @@ public class ConnectedModeTest extends AbstractSonarLintTest {
         return UIThreadRunnable.syncExec(new BoolResult() {
           @Override
           public Boolean run() {
-            return serverCell.getText().matches("test \\[Version: " + orchestrator.getServer().version() + "(.*), Last update: (.*)\\]");
+            return serverCell.getText().matches("test \\[Version: " + orchestrator.getServer().version() + "(.*), Last storage update: (.*)\\]");
           }
         });
       };
-      
+
       @Override
       public String getFailureMessage() {
         return "Server status is: " + serverCell.getText();

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,13 +20,11 @@
 package org.sonarlint.eclipse.ui.internal.server;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuManager;
-import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
@@ -43,21 +41,27 @@ import org.eclipse.ui.navigator.ICommonViewerWorkbenchSite;
 import org.sonarlint.eclipse.core.internal.server.IServer;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
-import org.sonarlint.eclipse.ui.internal.bind.BindProjectsWizard;
+import org.sonarlint.eclipse.ui.internal.bind.wizard.ProjectBindingWizard;
 import org.sonarlint.eclipse.ui.internal.server.actions.NewServerWizardAction;
 import org.sonarlint.eclipse.ui.internal.server.actions.ProjectChangeBindingAction;
+import org.sonarlint.eclipse.ui.internal.server.actions.ProjectUnbindAction;
+import org.sonarlint.eclipse.ui.internal.server.actions.ServerBindProjectsAction;
+import org.sonarlint.eclipse.ui.internal.server.actions.ServerDeleteAction;
 import org.sonarlint.eclipse.ui.internal.server.actions.ServerEditAction;
-import org.sonarlint.eclipse.ui.internal.server.actions.ServerOrProjectDeleteAction;
 import org.sonarlint.eclipse.ui.internal.server.actions.ServerUpdateAction;
+
+import static java.util.Arrays.asList;
 
 public class ServerActionProvider extends CommonActionProvider {
   public static final String NEW_MENU_ID = "org.sonarlint.eclipse.ui.server.newMenuId";
 
   private ICommonActionExtensionSite actionSite;
-  protected Action deleteAction;
+  protected Action deleteServerAction;
   protected Action editAction;
   protected Action updateAction;
   protected Action updateBindingAction;
+  protected Action bindProjectsAction;
+  protected Action unbindProjectsAction;
 
   public ServerActionProvider() {
     super();
@@ -87,9 +91,7 @@ public class ServerActionProvider extends CommonActionProvider {
         IServer server = (IServer) data;
         ServerEditAction.openEditWizard(tableViewer.getTree().getShell(), server);
       } else if (data instanceof ISonarLintProject) {
-        BindProjectsWizard wizard = new BindProjectsWizard(Arrays.asList((ISonarLintProject) data));
-        final WizardDialog dialog = new WizardDialog(tableViewer.getTree().getShell(), wizard);
-        dialog.setHelpAvailable(true);
+        final WizardDialog dialog = ProjectBindingWizard.createDialog(tableViewer.getTree().getShell(), asList((ISonarLintProject) data));
         dialog.open();
       }
     });
@@ -97,16 +99,18 @@ public class ServerActionProvider extends CommonActionProvider {
 
   private void makeServerActions(CommonViewer tableViewer, ISelectionProvider provider) {
     Shell shell = tableViewer.getTree().getShell();
-    deleteAction = new ServerOrProjectDeleteAction(shell, provider);
+    deleteServerAction = new ServerDeleteAction(shell, provider);
     editAction = new ServerEditAction(shell, provider);
     updateAction = new ServerUpdateAction(provider);
     updateBindingAction = new ProjectChangeBindingAction(shell, provider);
+    bindProjectsAction = new ServerBindProjectsAction(shell, provider);
+    unbindProjectsAction = new ProjectUnbindAction(shell, provider);
   }
 
   @Override
   public void fillActionBars(IActionBars actionBars) {
     actionBars.updateActionBars();
-    actionBars.setGlobalActionHandler(ActionFactory.DELETE.getId(), deleteAction);
+    actionBars.setGlobalActionHandler(ActionFactory.DELETE.getId(), deleteServerAction);
     actionBars.setGlobalActionHandler(ActionFactory.RENAME.getId(), editAction);
     actionBars.setGlobalActionHandler(ActionFactory.REFRESH.getId(), updateAction);
   }
@@ -127,23 +131,28 @@ public class ServerActionProvider extends CommonActionProvider {
     List<ISonarLintProject> projects = new ArrayList<>();
     populateServersAndProjects(selection, servers, projects);
 
-    if (projects.isEmpty()) {
-      addTopSection(menu);
+    if (!servers.isEmpty() && projects.isEmpty()) {
+      menu.add(updateAction);
+      if (servers.size() == 1) {
+        menu.add(bindProjectsAction);
+      }
+      menu.add(new Separator());
+      if (servers.size() == 1) {
+        menu.add(editAction);
+      }
+      menu.add(deleteServerAction);
       menu.add(new Separator());
     }
 
-    if (servers.size() == 1 && projects.isEmpty()) {
-      menu.add(editAction);
-    }
-    if (!servers.isEmpty() && projects.isEmpty()) {
-      menu.add(updateAction);
-    }
-    if (servers.isEmpty() && !projects.isEmpty()) {
+    if (projects.isEmpty()) {
+      IAction newServerAction = new NewServerWizardAction();
+      newServerAction.setText(Messages.actionNewServer);
+      menu.add(newServerAction);
+    } else if (servers.isEmpty()) {
       menu.add(updateBindingAction);
+      menu.add(unbindProjectsAction);
     }
-    if (servers.isEmpty() != projects.isEmpty()) {
-      menu.add(deleteAction);
-    }
+
   }
 
   private static void populateServersAndProjects(IStructuredSelection selection, List<IServer> servers, List<ISonarLintProject> projects) {
@@ -158,14 +167,6 @@ public class ServerActionProvider extends CommonActionProvider {
         }
       }
     }
-  }
-
-  protected void addTopSection(IMenuManager menu) {
-    MenuManager newMenu = new MenuManager(Messages.actionNew, NEW_MENU_ID);
-    IAction newServerAction = new NewServerWizardAction();
-    newServerAction.setText(Messages.actionNewServer);
-    newMenu.add(newServerAction);
-    menu.add(newMenu);
   }
 
 }

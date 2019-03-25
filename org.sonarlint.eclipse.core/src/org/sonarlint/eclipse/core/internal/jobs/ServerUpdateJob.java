@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -32,67 +32,58 @@ import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.resources.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.server.IServer;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.client.api.connected.RemoteModule;
 import org.sonarsource.sonarlint.core.client.api.exceptions.CanceledException;
 
 public class ServerUpdateJob extends Job {
   private final IServer server;
 
   public ServerUpdateJob(IServer server) {
-    super("Update data from SonarQube server '" + server.getId() + "'");
+    super("Update SonarLint binding data from '" + server.getId() + "'");
     this.server = server;
   }
 
   @Override
   protected IStatus run(IProgressMonitor monitor) {
     List<ISonarLintProject> projectsToUpdate = server.getBoundProjects();
-    monitor.beginTask("Update server and all associated projects", projectsToUpdate.size() + 1);
+    monitor.beginTask("Update SonarLint binding data for all associated projects", projectsToUpdate.size() + 1);
     try {
       server.updateStorage(monitor);
     } catch (Exception e) {
       if (e instanceof CanceledException && monitor.isCanceled()) {
         return Status.CANCEL_STATUS;
       }
-      return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, "Unable to update data from server '" + server.getId() + "'", e);
+      return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, "Unable to update binding data from '" + server.getId() + "'", e);
     }
     monitor.worked(1);
 
-    Set<String> seenModuleKeys = new HashSet<>();
+    Set<String> seenProjectKeys = new HashSet<>();
     List<IStatus> failures = new ArrayList<>();
     for (ISonarLintProject projectToUpdate : projectsToUpdate) {
       if (monitor.isCanceled()) {
         return Status.CANCEL_STATUS;
       }
       try {
-        SonarLintProjectConfiguration config = SonarLintProjectConfiguration.read(projectToUpdate.getScopeContext());
-        fixProjectKeyIfMissing(config);
-        if (seenModuleKeys.add(config.getModuleKey())) {
-          server.updateProjectStorage(config.getModuleKey(), monitor);
-        }
+        SonarLintProjectConfiguration config = SonarLintCorePlugin.loadConfig(projectToUpdate);
+        config.getProjectBinding().ifPresent(b -> {
+          if (seenProjectKeys.add(b.projectKey())) {
+            server.updateProjectStorage(b.projectKey(), monitor);
+          }
+        });
+
       } catch (Exception e) {
         if (e instanceof CanceledException && monitor.isCanceled()) {
           return Status.CANCEL_STATUS;
         }
-        failures.add(new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, "Unable to update binding for project '" + projectToUpdate.getName() + "'", e));
+        failures.add(new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, "Unable to update binding data for project '" + projectToUpdate.getName() + "'", e));
       }
       monitor.worked(1);
     }
     monitor.done();
     if (!failures.isEmpty()) {
-      return new MultiStatus(SonarLintCorePlugin.PLUGIN_ID, IStatus.ERROR, failures.toArray(new IStatus[0]), "Failed to update binding for " + failures.size() + " project(s)",
+      return new MultiStatus(SonarLintCorePlugin.PLUGIN_ID, IStatus.ERROR, failures.toArray(new IStatus[0]), "Failed to update binding data for " + failures.size() + " project(s)",
         null);
     }
     return Status.OK_STATUS;
   }
 
-  // note: this is only necessary for projects bound before SQ 6.6
-  private void fixProjectKeyIfMissing(SonarLintProjectConfiguration config) {
-    if (config.getProjectKey() == null) {
-      RemoteModule remoteModule = server.getRemoteModules().get(config.getModuleKey());
-      if (remoteModule != null) {
-        config.setProjectKey(remoteModule.getProjectKey());
-        config.save();
-      }
-    }
-  }
 }

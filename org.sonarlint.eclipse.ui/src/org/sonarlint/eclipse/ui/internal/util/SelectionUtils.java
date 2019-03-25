@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -31,6 +31,8 @@ import org.sonarlint.eclipse.core.internal.adapter.Adapters;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.core.resource.ISonarLintProjectContainer;
+
+import static java.util.stream.Collectors.toList;
 
 public final class SelectionUtils {
 
@@ -74,11 +76,11 @@ public final class SelectionUtils {
   private static void collectProjects(Set<ISonarLintProject> selectedProjects, Object elem) {
     ISonarLintProjectContainer container = Adapters.adapt(elem, ISonarLintProjectContainer.class);
     if (container != null) {
-      selectedProjects.addAll(container.projects());
+      selectedProjects.addAll(container.projects().stream().filter(ISonarLintProject::isOpen).collect(toList()));
       return;
     }
     ISonarLintProject project = Adapters.adapt(elem, ISonarLintProject.class);
-    if (project != null) {
+    if (project != null && project.isOpen()) {
       selectedProjects.add(project);
       return;
     }
