@@ -123,7 +123,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     context.setAnalysisProperty("sonar.oe.propath", propath);
     if ((rCodePath != null) && !"".equals(rCodePath))
       context.setAnalysisProperty("sonar.oe.binaries", rCodePath);
-    if (xrefPath != null)
+    if (oeProject.getConfiguration().useXrefXML() && (xrefPath != null))
       context.setAnalysisProperty("sonar.oe.lint.xref", xrefPath.toOSString());
 
     String slintDB = "";
