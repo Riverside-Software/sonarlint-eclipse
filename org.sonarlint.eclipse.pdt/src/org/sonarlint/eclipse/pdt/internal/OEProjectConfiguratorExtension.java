@@ -128,9 +128,12 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     String slintDB = "";
     String aliases = "";
+    SonarLintLogger.get().debug("Set of DB configured for project: '" + oeProject.getAVMProperty(OEProject.ID_DATABASES) + "'");
+    SonarLintLogger.get().debug("Set of GUID for project: '" + oeProject.getAVMProperty(OEProject.GUID_DATABASES) + "'");
     File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
     for (IDatabaseSchemaReference ref : mgr.getSchemasForProject(oeProject)) {
+      SonarLintLogger.get().debug("Schema reference: '" + ref.getDatabaseGUID() + "'");
       File f = generateSchemaFile(underlyingProject, ref, workDir);
       slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
       if ((ref.getAlias() != null) && !ref.getAlias().isEmpty()) {
@@ -144,6 +147,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
       context.setAnalysisProperty("sonar.oe.lint.databases", slintDB);
     if (aliases.length() > 0)
       context.setAnalysisProperty("sonar.oe.aliases", aliases);
+    SonarLintLogger.get().debug("DB schema task completed");
   }
 
   @Override
