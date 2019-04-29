@@ -132,8 +132,16 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     SonarLintLogger.get().debug("Set of GUID for project: '" + oeProject.getAVMProperty(OEProject.GUID_DATABASES) + "'");
     File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
-    for (IDatabaseSchemaReference ref : mgr.getSchemasForProject(oeProject)) {
-      SonarLintLogger.get().debug("Schema reference: '" + ref.getDatabaseGUID() + "'");
+    String guidList = oeProject.getAVMProperty(OEProject.GUID_DATABASES);
+    if (guidList == null)
+      guidList = "";
+    for (String str : guidList.split(",")) {
+      SonarLintLogger.get().debug("Schema reference: '" + str + "'");
+      IDatabaseSchemaReference ref = mgr.getSchemaCacheByGuid(str);
+      if (ref == null) {
+        SonarLintLogger.get().error("Database schema for '" + str + "' not yet available in cache (probably because AVM is not connected to this DB), code analysis is likely to fail at this stage");
+        continue;
+      }
       File f = generateSchemaFile(underlyingProject, ref, workDir);
       slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
       if ((ref.getAlias() != null) && !ref.getAlias().isEmpty()) {
