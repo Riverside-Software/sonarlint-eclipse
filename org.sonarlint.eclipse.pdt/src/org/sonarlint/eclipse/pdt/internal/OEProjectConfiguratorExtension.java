@@ -123,14 +123,25 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     context.setAnalysisProperty("sonar.oe.propath", propath);
     if ((rCodePath != null) && !"".equals(rCodePath))
       context.setAnalysisProperty("sonar.oe.binaries", rCodePath);
-    if (xrefPath != null)
+    if (oeProject.getConfiguration().useXrefXML() && (xrefPath != null))
       context.setAnalysisProperty("sonar.oe.lint.xref", xrefPath.toOSString());
 
     String slintDB = "";
     String aliases = "";
+    SonarLintLogger.get().debug("Set of DB configured for project: '" + oeProject.getAVMProperty(OEProject.ID_DATABASES) + "'");
+    SonarLintLogger.get().debug("Set of GUID for project: '" + oeProject.getAVMProperty(OEProject.GUID_DATABASES) + "'");
     File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
-    for (IDatabaseSchemaReference ref : mgr.getSchemasForProject(oeProject)) {
+    String guidList = oeProject.getAVMProperty(OEProject.GUID_DATABASES);
+    if (guidList == null)
+      guidList = "";
+    for (String str : guidList.split(",")) {
+      SonarLintLogger.get().debug("Schema reference: '" + str + "'");
+      IDatabaseSchemaReference ref = mgr.getSchemaCacheByGuid(str);
+      if (ref == null) {
+        SonarLintLogger.get().error("Database schema for '" + str + "' not yet available in cache (probably because AVM is not connected to this DB), code analysis is likely to fail at this stage");
+        continue;
+      }
       File f = generateSchemaFile(underlyingProject, ref, workDir);
       slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
       if ((ref.getAlias() != null) && !ref.getAlias().isEmpty()) {
@@ -144,6 +155,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
       context.setAnalysisProperty("sonar.oe.lint.databases", slintDB);
     if (aliases.length() > 0)
       context.setAnalysisProperty("sonar.oe.aliases", aliases);
+    SonarLintLogger.get().debug("DB schema task completed");
   }
 
   @Override
