@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -39,7 +39,7 @@ public class SonarLintMarkerImageProvider implements IAnnotationImageProvider {
 
   @Override
   public Image getManagedImage(Annotation annotation) {
-    return SonarLintImages.IMG_ISSUE;
+    return SonarLintImages.ISSUE_ANNOTATION;
   }
 
 }

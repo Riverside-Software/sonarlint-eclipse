@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,8 +22,11 @@ package org.sonarlint.eclipse.ui.internal.server;
 import org.eclipse.jface.viewers.IDecoration;
 import org.eclipse.jface.viewers.ILightweightLabelDecorator;
 import org.eclipse.jface.viewers.LabelProvider;
+import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.resources.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.server.IServer;
+import org.sonarlint.eclipse.core.internal.server.RemoteSonarProject;
+import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class ServerDecorator extends LabelProvider implements ILightweightLabelDecorator {
@@ -35,14 +38,18 @@ public class ServerDecorator extends LabelProvider implements ILightweightLabelD
     if (element instanceof IServer) {
       IServer server = (IServer) element;
       addSuffix(decoration, server.getSonarLintEngineState());
+    } else if (element instanceof RemoteSonarProject) {
+      addSuffix(decoration, ((RemoteSonarProject) element).getProjectKey());
     } else if (element instanceof ISonarLintProject) {
-      SonarLintProjectConfiguration projectConfig = SonarLintProjectConfiguration.read(((ISonarLintProject) element).getScopeContext());
-      addSuffix(decoration, projectConfig.getModuleKey());
+      SonarLintProjectConfiguration projectConfig = SonarLintCorePlugin.loadConfig(((ISonarLintProject) element));
+      projectConfig.getProjectBinding().ifPresent(b -> decoration.addSuffix(" /" + b.sqPathPrefix()));
     }
   }
 
   private static void addSuffix(IDecoration decoration, String suffix) {
-    decoration.addSuffix(" [" + suffix + "]");
+    if (StringUtils.isNotBlank(suffix)) {
+      decoration.addSuffix(" [" + suffix + "]");
+    }
   }
 
 }

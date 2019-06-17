@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -50,7 +50,7 @@ public class NotificationsTrackerTest {
     ZonedDateTime pivot = ZonedDateTime.now().minus(1, ChronoUnit.HOURS);
     tracker.setLastEventPolling(pivot);
 
-    assertThat(new NotificationsTracker(basedir).getLastEventPolling()).isEqualTo(pivot);
+    assertThat(new NotificationsTracker(basedir).getLastEventPolling()).isEqualTo(pivot.truncatedTo(ChronoUnit.MILLIS));
   }
 
   @Test

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -23,12 +23,10 @@ import java.nio.file.Path;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.sonarlint.eclipse.core.internal.event.AnalysisEvent;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryClient;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -113,7 +111,6 @@ public class SonarLintTelemetryTest {
     when(engine.isEnabled()).thenReturn(true);
     telemetry.upload();
     verify(engine).isEnabled();
-    verify(engine).usedConnectedMode(anyBoolean());
     verify(engine).uploadLazily();
   }
 
@@ -144,19 +141,19 @@ public class SonarLintTelemetryTest {
   @Test
   public void analysisDoneOnSingleFile_should_trigger_analysisDoneOnSingleFile_when_enabled() {
     when(engine.isEnabled()).thenReturn(true);
-    String fileExtension = "java";
+    String language = "java";
     int time = 123;
-    telemetry.analysisDoneOnSingleFile(fileExtension, time);
+    telemetry.analysisDoneOnSingleFile(language, time);
     verify(engine).isEnabled();
-    verify(engine).analysisDoneOnSingleFile(fileExtension, time);
+    verify(engine).analysisDoneOnSingleLanguage(language, time);
   }
 
   @Test
   public void analysisDoneOnSingleFile_should_not_trigger_analysisDoneOnSingleFile_when_disabled() {
     when(engine.isEnabled()).thenReturn(false);
-    String fileExtension = "java";
+    String language = "java";
     int time = 123;
-    telemetry.analysisDoneOnSingleFile(fileExtension, time);
+    telemetry.analysisDoneOnSingleFile(language, time);
     verify(engine).isEnabled();
     verifyNoMoreInteractions(engine);
   }

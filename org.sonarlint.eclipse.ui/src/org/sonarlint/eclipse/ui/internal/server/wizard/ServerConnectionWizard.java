@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,15 +20,14 @@
 package org.sonarlint.eclipse.ui.internal.server.wizard;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.core.runtime.jobs.JobChangeAdapter;
 import org.eclipse.jface.dialogs.IMessageProvider;
 import org.eclipse.jface.dialogs.IPageChangingListener;
 import org.eclipse.jface.dialogs.PageChangingEvent;
@@ -52,13 +51,14 @@ import org.sonarlint.eclipse.core.internal.server.Server;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
+import org.sonarlint.eclipse.ui.internal.bind.wizard.ProjectBindingWizard;
 import org.sonarlint.eclipse.ui.internal.server.ServersView;
 import org.sonarlint.eclipse.ui.internal.server.actions.JobUtils;
 import org.sonarlint.eclipse.ui.internal.server.wizard.ServerConnectionModel.AuthMethod;
 import org.sonarlint.eclipse.ui.internal.server.wizard.ServerConnectionModel.ConnectionType;
+import org.sonarlint.eclipse.ui.internal.util.wizard.WizardDialogWithoutHelp;
 import org.sonarsource.sonarlint.core.client.api.connected.RemoteOrganization;
 import org.sonarsource.sonarlint.core.client.api.exceptions.UnsupportedServerException;
-import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
 
 public class ServerConnectionWizard extends Wizard implements INewWizard, IPageChangingListener {
 
@@ -94,12 +94,11 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
    * Should remain public for File -> New -> SonarQube Server
    */
   public ServerConnectionWizard() {
-    this("Connect to a SonarQube Server", new ServerConnectionModel(), null);
+    this(new ServerConnectionModel());
   }
 
-  private ServerConnectionWizard(String serverId) {
-    this();
-    model.setServerId(serverId);
+  private ServerConnectionWizard(ServerConnectionModel model) {
+    this("Connect to a SonarQube Server", model, null);
   }
 
   private ServerConnectionWizard(IServer sonarServer) {
@@ -107,15 +106,23 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
   }
 
   public static WizardDialog createDialog(Shell parent) {
-    return new WizardDialog(parent, new ServerConnectionWizard());
+    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard());
+  }
+
+  public static WizardDialog createDialog(Shell parent, List<ISonarLintProject> selectedProjects) {
+    ServerConnectionModel model = new ServerConnectionModel();
+    model.setSelectedProjects(selectedProjects);
+    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard(model));
   }
 
   public static WizardDialog createDialog(Shell parent, String serverId) {
-    return new WizardDialog(parent, new ServerConnectionWizard(serverId));
+    ServerConnectionModel model = new ServerConnectionModel();
+    model.setServerId(serverId);
+    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard(model));
   }
 
   public static WizardDialog createDialog(Shell parent, IServer sonarServer) {
-    return new WizardDialog(parent, new ServerConnectionWizard(sonarServer));
+    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard(sonarServer));
   }
 
   @Override
@@ -197,23 +204,6 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
       editedServer.updateConfig(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(), model.getNotificationsEnabled());
       server = editedServer;
 
-      Job job = new ServerUpdateJob(server);
-
-      List<ISonarLintProject> boundProjects = server.getBoundProjects();
-      if (model.getNotificationsSupported() && model.getNotificationsEnabled() && !boundProjects.isEmpty()) {
-        Job subscribeToNotificationsJob = new Job("Subscribe to notifications") {
-          @Override
-          protected IStatus run(IProgressMonitor monitor) {
-            boundProjects.forEach(SonarLintUiPlugin::subscribeToNotifications);
-            return Status.OK_STATUS;
-          }
-        };
-        JobUtils.scheduleAfterSuccess(job, subscribeToNotificationsJob::schedule);
-      } else {
-        boundProjects.forEach(SonarLintUiPlugin::unsubscribeToNotifications);
-      }
-
-      job.schedule();
     } else {
       server = SonarLintCorePlugin.getServersManager().create(model.getServerId(), model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(),
         model.getNotificationsEnabled());
@@ -224,17 +214,30 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
         SonarLintLogger.get().error("Unable to open server view", e);
       }
     }
+    Job job = new ServerUpdateJob(server);
 
-    Job j = new ServerUpdateJob(server);
-    j.addJobChangeListener(new JobChangeAdapter() {
-      @Override
-      public void done(IJobChangeEvent event) {
-        if (event.getResult().isOK()) {
-          JobUtils.scheduleAnalysisOfOpenFilesInBoundProjects(server, TriggerType.BINDING_CHANGE);
+    List<ISonarLintProject> boundProjects = server.getBoundProjects();
+    if (model.getNotificationsSupported() && model.getNotificationsEnabled() && !boundProjects.isEmpty()) {
+      Job subscribeToNotificationsJob = new Job("Subscribe to notifications") {
+        @Override
+        protected IStatus run(IProgressMonitor monitor) {
+          boundProjects.forEach(SonarLintUiPlugin::subscribeToNotifications);
+          return Status.OK_STATUS;
         }
-      }
-    });
-    j.schedule();
+      };
+      JobUtils.scheduleAfterSuccess(job, subscribeToNotificationsJob::schedule);
+    } else {
+      boundProjects.forEach(SonarLintUiPlugin::unsubscribeToNotifications);
+    }
+
+    JobUtils.scheduleAfterSuccess(job, () -> JobUtils.scheduleAnalysisOfOpenFilesInBoundProjects(server, TriggerType.BINDING_CHANGE));
+    job.schedule();
+    List<ISonarLintProject> selectedProjects = model.getSelectedProjects();
+    if (selectedProjects != null && !selectedProjects.isEmpty()) {
+      ProjectBindingWizard.createDialogSkipServerSelection(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), selectedProjects, (Server) server).open();
+    } else if (boundProjects.isEmpty()) {
+      ProjectBindingWizard.createDialogSkipServerSelection(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), Collections.emptyList(), (Server) server).open();
+    }
     return true;
   }
 
@@ -272,10 +275,10 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
         @Override
         public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
           try {
-            TextSearchIndex<RemoteOrganization> organizationsIndex = Server.getOrganizationsIndex(model.getServerUrl(), model.getUsername(), model.getPassword(), monitor);
-            model.setOrganizationsIndex(organizationsIndex);
+            List<RemoteOrganization> userOrgs = Server.listUserOrganizations(model.getServerUrl(), model.getUsername(), model.getPassword(), monitor);
+            model.setUserOrgs(userOrgs);
           } catch (UnsupportedServerException e) {
-            model.setOrganizationsIndex(null);
+            model.setUserOrgs(null);
           } finally {
             monitor.done();
           }
@@ -284,10 +287,10 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     } catch (InvocationTargetException e) {
       SonarLintLogger.get().debug("Unable to download organizations", e.getCause());
       currentPage.setMessage(e.getCause().getMessage(), IMessageProvider.ERROR);
-      model.setOrganizationsIndex(null);
+      model.setUserOrgs(null);
       return false;
     } catch (InterruptedException e) {
-      model.setOrganizationsIndex(null);
+      model.setUserOrgs(null);
       return false;
     }
     return true;

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -64,7 +64,6 @@ public final class Messages extends NLS {
   public static String actionUpdate;
   public static String actionChangeBinding;
   public static String actionEdit;
-  public static String actionNew;
   public static String actionNewServer;
   public static String actionSetNewServer;
 

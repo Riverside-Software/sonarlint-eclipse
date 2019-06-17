@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2018 SonarSource SA
+ * Copyright (C) 2009-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -50,6 +50,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.osgi.framework.Version;
+import org.sonarlint.eclipse.its.bots.ConsoleViewBot;
 import org.sonarlint.eclipse.its.utils.CaptureScreenshotOnFailure;
 import org.sonarlint.eclipse.its.utils.SwtBotUtils;
 import org.sonarlint.eclipse.its.utils.WorkspaceHelpers;
@@ -98,6 +99,10 @@ public abstract class AbstractSonarLintTest {
     SwtBotUtils.closeViewQuietly(bot, "org.eclipse.mylyn.tasks.ui.views.tasks");
 
     SwtBotUtils.openPerspective(bot, JavaUI.ID_PERSPECTIVE);
+
+    new ConsoleViewBot(bot)
+      .openSonarLintConsole()
+      .enableVerboseLogs();
   }
 
   @AfterClass
@@ -184,7 +189,7 @@ public abstract class AbstractSonarLintTest {
 
   public static class MarkerAttributesExtractor implements Extractor<IMarker, Tuple> {
 
-    private String[] attributes;
+    private final String[] attributes;
 
     public MarkerAttributesExtractor(String... attributes) {
       this.attributes = attributes;
@@ -192,16 +197,16 @@ public abstract class AbstractSonarLintTest {
 
     @Override
     public Tuple extract(IMarker marker) {
-      Tuple result = new Tuple();
-      result.addData(marker.getResource().getFullPath().toPortableString());
-      for (String attribute : attributes) {
+      Object[] tupleAttributes = new Object[attributes.length + 1];
+      tupleAttributes[0] = marker.getResource().getFullPath().toPortableString();
+      for (int i = 0; i < attributes.length; i++) {
         try {
-          result.addData(marker.getAttribute(attribute));
+          tupleAttributes[i + 1] = marker.getAttribute(attributes[i]);
         } catch (CoreException e) {
-          throw new IllegalStateException("Unable to get attribute '" + attribute + "'");
+          throw new IllegalStateException("Unable to get attribute '" + attributes[i] + "'");
         }
       }
-      return result;
+      return new Tuple(tupleAttributes);
     }
   }
 
@@ -217,6 +222,10 @@ public abstract class AbstractSonarLintTest {
    */
   protected boolean supportJunit() {
     return platformVersion().compareTo(new Version("4.4")) >= 0;
+  }
+
+  public static boolean isPhotonOrGreater() {
+    return platformVersion().compareTo(new Version("4.8")) >= 0;
   }
 
   public static boolean isOxygenOrGreater() {

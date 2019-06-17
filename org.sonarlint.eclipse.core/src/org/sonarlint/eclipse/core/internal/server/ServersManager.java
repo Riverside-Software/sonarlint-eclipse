@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,7 +26,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.CheckForNull;
+import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import org.eclipse.core.runtime.preferences.DefaultScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
@@ -39,8 +40,11 @@ import org.eclipse.equinox.security.storage.SecurePreferencesFactory;
 import org.eclipse.equinox.security.storage.StorageException;
 import org.osgi.service.prefs.BackingStoreException;
 import org.osgi.service.prefs.Preferences;
+import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.resources.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
+import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedGlobalConfiguration;
 
 public class ServersManager {
@@ -149,7 +153,7 @@ public class ServersManager {
         serversById.putAll(loadServersList(DefaultScope.INSTANCE.getNode(SonarLintCorePlugin.PLUGIN_ID).node(PREF_SERVERS)));
       }
     } catch (BackingStoreException e) {
-      throw new IllegalStateException("Unable to load server list", e);
+      throw unableToLoadServerList(e);
     }
   }
 
@@ -166,7 +170,7 @@ public class ServersManager {
         }
       }
     } catch (BackingStoreException e) {
-      throw new IllegalStateException("Unable to load server list", e);
+      throw unableToLoadServerList(e);
     }
     serverListeners.clear();
   }
@@ -217,9 +221,13 @@ public class ServersManager {
         result.put(s.getId(), s);
       }
     } catch (BackingStoreException e) {
-      throw new IllegalStateException("Unable to load server list", e);
+      throw unableToLoadServerList(e);
     }
     return result;
+  }
+
+  private static IllegalStateException unableToLoadServerList(BackingStoreException e) {
+    return new IllegalStateException("Unable to load server list", e);
   }
 
   private static void loadServer(Preferences serverNode, Server server) {
@@ -245,7 +253,7 @@ public class ServersManager {
     if (serversById.containsKey(server.getId())) {
       throw new IllegalStateException("There is already a server with id '" + server.getId() + "'");
     }
-    if (server.hasAuth()) {
+    if (hasAuth(username, password)) {
       storeCredentials(server, username, password);
     }
     addOrUpdateProperties(server);
@@ -295,10 +303,6 @@ public class ServersManager {
    * @return an array containing all servers
    */
   public List<IServer> getServers() {
-    return getServersNoInit();
-  }
-
-  public List<IServer> getServersNoInit() {
     return Collections.unmodifiableList(new ArrayList<>(serversById.values()));
   }
 
@@ -306,21 +310,31 @@ public class ServersManager {
    * Returns the server with the given id.
    * 
    * @param id a server id
-   * @return a server or null if id is null
+   * @return a server or empty
    */
-  @CheckForNull
-  public IServer getServer(@Nullable String id) {
-    if (id == null) {
-      return null;
-    }
-    return serversById.get(id);
+  public Optional<IServer> findById(String id) {
+    return Optional.ofNullable(serversById.get(Objects.requireNonNull(id)));
+  }
+
+  public Optional<IServer> forProject(ISonarLintProject project) {
+    return forProject(project, SonarLintCorePlugin.loadConfig(project));
+  }
+
+  public Optional<IServer> forProject(ISonarLintProject project, SonarLintProjectConfiguration config) {
+    return config
+      .getProjectBinding()
+      .flatMap(b -> {
+        Optional<IServer> server = findById(b.serverId());
+        if (!server.isPresent()) {
+          SonarLintLogger.get().error("Project '" + project.getName() + "' is bound to an unknown server: '" + b.serverId()
+            + "'. Please fix project binding or unbind project.");
+          return Optional.empty();
+        }
+        return server;
+      });
   }
 
   public void updateServer(IServer server, String username, String password) {
-    if (server == null) {
-      return;
-    }
-
     if (!serversById.containsKey(server.getId())) {
       throw new IllegalStateException("There is no server with id '" + server.getId() + "'");
     }
@@ -332,7 +346,7 @@ public class ServersManager {
         Collection<IServer> defaultServers = new ArrayList<>(serversById.values());
         serversById.clear();
         for (IServer iServer : defaultServers) {
-          addServer(iServer, null, null);
+          addServer(iServer, "", "");
         }
       }
     } catch (BackingStoreException e) {
@@ -415,7 +429,11 @@ public class ServersManager {
   }
 
   public IServer create(String id, String url, @Nullable String organization, String username, String password, boolean notificationsEnabled) {
-    return update(new Server(id), url, organization, StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password), notificationsEnabled);
+    return update(new Server(id), url, organization, hasAuth(username, password), notificationsEnabled);
+  }
+
+  private static boolean hasAuth(@Nullable String username, @Nullable String password) {
+    return StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password);
   }
 
   private static Server update(Server server, String url, @Nullable String organization, boolean hasAuth, boolean notificationsEnabled) {

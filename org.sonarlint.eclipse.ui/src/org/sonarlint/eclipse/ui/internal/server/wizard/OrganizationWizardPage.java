@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -36,7 +36,7 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.fieldassist.ContentAssistCommandAdapter;
 import org.eclipse.ui.texteditor.ITextEditorActionDefinitionIds;
 
-public class OrganizationWizardPage extends AbstractGridLayoutWizardPage {
+public class OrganizationWizardPage extends AbstractServerConnectionWizardPage {
 
   private Binding orgaTextBinding;
 
@@ -60,7 +60,7 @@ public class OrganizationWizardPage extends AbstractGridLayoutWizardPage {
       WidgetProperties.text(SWT.Modify).observe(organizationText),
       BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_ORGANIZATION)
         .observe(model),
-      new UpdateValueStrategy().setBeforeSetValidator(new MandatoryValidator("You must select an organization")),
+      new UpdateValueStrategy().setBeforeSetValidator(new MandatoryStringValidator("You must select an organization")),
       null);
 
     WizardPageSupport.create(this, dbc);

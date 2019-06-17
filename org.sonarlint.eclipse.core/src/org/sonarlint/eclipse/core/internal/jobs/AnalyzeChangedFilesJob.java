@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -83,7 +83,7 @@ public class AnalyzeChangedFilesJob extends WorkspaceJob {
           .map(f -> new FileWithDocument(f, null))
           .collect(Collectors.toList());
         AnalyzeProjectRequest req = new AnalyzeProjectRequest(project, filesToAnalyze, TriggerType.MANUAL_CHANGESET);
-        AnalyzeProjectJob job = new AnalyzeProjectJob(req);
+        AbstractAnalyzeProjectJob<?> job = AbstractAnalyzeProjectJob.create(req);
         SubMonitor subMonitor = analysisMonitor.newChild(1);
         job.runInWorkspace(subMonitor);
         subMonitor.done();

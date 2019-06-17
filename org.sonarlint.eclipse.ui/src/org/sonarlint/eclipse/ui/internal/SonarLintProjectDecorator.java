@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -40,13 +40,12 @@ public class SonarLintProjectDecorator implements ILightweightLabelDecorator {
   public void decorate(Object element, IDecoration decoration) {
     ISonarLintProject project = Adapters.adapt(element, ISonarLintProject.class);
     if (project != null && project.isOpen()) {
-      SonarLintProjectConfiguration p = SonarLintProjectConfiguration.read(project.getScopeContext());
+      SonarLintProjectConfiguration p = SonarLintCorePlugin.loadConfig(project);
       if (!p.isAutoEnabled()) {
         return;
       }
-      if (p.getServerId() != null && SonarLintCorePlugin.getServersManager().getServer(p.getServerId()) != null) {
-        decoration.addOverlay(SonarLintImages.SQ_LABEL_DECORATOR);
-      }
+      SonarLintCorePlugin.getServersManager().forProject(project)
+        .ifPresent(s -> decoration.addOverlay(SonarLintImages.SQ_LABEL_DECORATOR));
     }
   }
 

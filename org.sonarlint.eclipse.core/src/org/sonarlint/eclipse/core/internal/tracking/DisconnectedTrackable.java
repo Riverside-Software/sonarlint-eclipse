@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,7 +22,7 @@ package org.sonarlint.eclipse.core.internal.tracking;
 /**
  * A trackable that used to match a server issue but it no longer does.
  */
-public class DisconnectedTrackable extends LeakedTrackable {
+public class DisconnectedTrackable extends WrappedTrackable {
 
   private final String severity;
   private final String type;

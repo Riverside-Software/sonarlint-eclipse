@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -30,6 +30,7 @@ import org.eclipse.ui.IWorkbenchCommandConstants;
 import org.eclipse.ui.actions.SelectionProviderAction;
 import org.sonarlint.eclipse.core.internal.server.IServer;
 import org.sonarlint.eclipse.ui.internal.Messages;
+import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.server.wizard.ServerConnectionWizard;
 
 public class ServerEditAction extends SelectionProviderAction {
@@ -39,6 +40,7 @@ public class ServerEditAction extends SelectionProviderAction {
   public ServerEditAction(Shell shell, ISelectionProvider selectionProvider) {
     super(selectionProvider, Messages.actionEdit);
     this.shell = shell;
+    setImageDescriptor(SonarLintImages.EDIT_SERVER);
     setActionDefinitionId(IWorkbenchCommandConstants.FILE_RENAME);
   }
 

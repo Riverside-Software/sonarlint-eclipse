@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2018 SonarSource SA
+ * Copyright (C) 2015-2019 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,10 +19,14 @@
  */
 package org.sonarlint.eclipse.ui.internal.server;
 
+import java.util.Optional;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.resources.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.server.IServer;
+import org.sonarlint.eclipse.core.internal.server.RemoteSonarProject;
+import org.sonarlint.eclipse.core.internal.server.Server;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class ServerContentProvider extends BaseContentProvider implements ITreeContentProvider {
@@ -35,7 +39,12 @@ public class ServerContentProvider extends BaseContentProvider implements ITreeC
   @Override
   public Object[] getChildren(Object element) {
     if (element instanceof IServer) {
-      return ((IServer) element).getBoundProjects().toArray();
+      Server server = (Server) element;
+      return server.getBoundRemoteProjects(new NullProgressMonitor()).toArray();
+    }
+    if (element instanceof RemoteSonarProject) {
+      RemoteSonarProject project = (RemoteSonarProject) element;
+      return ((Server) getParent(element)).getBoundProjects(project.getProjectKey()).toArray();
     }
     return new Object[0];
   }
@@ -43,8 +52,18 @@ public class ServerContentProvider extends BaseContentProvider implements ITreeC
   @Override
   public Object getParent(Object element) {
     if (element instanceof ISonarLintProject) {
-      String serverId = SonarLintProjectConfiguration.read(((ISonarLintProject) element).getScopeContext()).getServerId();
-      return SonarLintCorePlugin.getServersManager().getServer(serverId);
+      ISonarLintProject project = (ISonarLintProject) element;
+      SonarLintProjectConfiguration config = SonarLintCorePlugin.loadConfig(project);
+      Optional<IServer> server = SonarLintCorePlugin.getServersManager().forProject(project, config);
+      if (server.isPresent()) {
+        return server.get()
+          .getRemoteProject(config.getProjectBinding().get().projectKey(), new NullProgressMonitor())
+          .orElse(null);
+      }
+      return null;
+    }
+    if (element instanceof RemoteSonarProject) {
+      return SonarLintCorePlugin.getServersManager().findById(((RemoteSonarProject) element).getServerId()).orElse(null);
     }
     return null;
   }
@@ -53,6 +72,10 @@ public class ServerContentProvider extends BaseContentProvider implements ITreeC
   public boolean hasChildren(Object element) {
     if (element instanceof IServer) {
       return !((IServer) element).getBoundProjects().isEmpty();
+    }
+    if (element instanceof RemoteSonarProject) {
+      RemoteSonarProject project = (RemoteSonarProject) element;
+      return !((Server) getParent(element)).getBoundProjects(project.getProjectKey()).isEmpty();
     }
     return false;
   }
