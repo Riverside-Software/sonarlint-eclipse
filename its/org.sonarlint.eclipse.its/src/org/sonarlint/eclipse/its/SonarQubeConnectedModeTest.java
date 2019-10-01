@@ -21,11 +21,6 @@ package org.sonarlint.eclipse.its;
 
 import com.sonar.orchestrator.Orchestrator;
 import com.sonar.orchestrator.container.Server;
-import org.eclipse.swtbot.eclipse.finder.widgets.SWTBotView;
-import org.eclipse.swtbot.swt.finder.finders.UIThreadRunnable;
-import org.eclipse.swtbot.swt.finder.results.BoolResult;
-import org.eclipse.swtbot.swt.finder.waits.DefaultCondition;
-import org.eclipse.swtbot.swt.finder.widgets.SWTBotTreeItem;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -36,7 +31,7 @@ import org.sonarqube.ws.client.setting.SetRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class ConnectedModeTest extends AbstractSonarLintTest {
+public class SonarQubeConnectedModeTest extends AbstractSonarLintTest {
 
   @ClassRule
   public static TemporaryFolder temp = new TemporaryFolder();
@@ -59,7 +54,7 @@ public class ConnectedModeTest extends AbstractSonarLintTest {
     ServerConnectionWizardBot wizardBot = new ServerConnectionWizardBot(bot);
     wizardBot.openFromFileNewWizard();
 
-    wizardBot.assertTitle("Connect to a SonarQube Server");
+    wizardBot.assertTitle("Connect to SonarQube or SonarCloud");
 
     wizardBot.selectSonarQube();
     wizardBot.clickNext();
@@ -110,24 +105,7 @@ public class ConnectedModeTest extends AbstractSonarLintTest {
     assertThat(wizardBot.isNextEnabled()).isFalse();
     wizardBot.clickFinish();
 
-    SWTBotView serversView = bot.viewById("org.sonarlint.eclipse.ui.ServersView");
-    final SWTBotTreeItem serverCell = serversView.bot().tree().getAllItems()[0];
-    bot.waitUntil(new DefaultCondition() {
-      @Override
-      public boolean test() throws Exception {
-        return UIThreadRunnable.syncExec(new BoolResult() {
-          @Override
-          public Boolean run() {
-            return serverCell.getText().matches("test \\[Version: " + orchestrator.getServer().version() + "(.*), Last storage update: (.*)\\]");
-          }
-        });
-      };
-
-      @Override
-      public String getFailureMessage() {
-        return "Server status is: " + serverCell.getText();
-      }
-    }, 20_000);
+    waitForServerUpdate("test", orchestrator, false);
   }
 
 }

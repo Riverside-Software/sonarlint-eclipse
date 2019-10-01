@@ -20,9 +20,10 @@
 package org.sonarlint.eclipse.ui.internal.properties;
 
 import java.util.Collection;
+import java.util.Map;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.IWorkbench;
@@ -54,14 +55,19 @@ public class RulesConfigurationPage extends PropertyPage implements IWorkbenchPr
 
   @Override
   protected Control createContents(Composite parent) {
-    Composite pageComponent = new Composite(parent, SWT.NULL);
-    FillLayout layout = new FillLayout();
+    Composite pageComponent = new Composite(parent, SWT.NONE);
+    GridLayout layout = new GridLayout();
+    layout.marginWidth = 0;
     pageComponent.setLayout(layout);
 
-    rulesConfigurationPart = new RulesConfigurationPart(loadRuleDetails(), getExcludedRules(), getIncludedRules());
+    rulesConfigurationPart = new RulesConfigurationPart(loadLanguages(), loadRuleDetails(), getExcludedRules(), getIncludedRules());
     rulesConfigurationPart.createControls(pageComponent);
     Dialog.applyDialogFont(pageComponent);
     return pageComponent;
+  }
+
+  private Map<String, String> loadLanguages() {
+    return SonarLintCorePlugin.getInstance().getDefaultSonarLintClientFacade().getAllLanguagesNameByKey();
   }
 
   private static Collection<RuleDetails> loadRuleDetails() {
@@ -88,6 +94,5 @@ public class RulesConfigurationPage extends PropertyPage implements IWorkbenchPr
   @Override
   protected void performDefaults() {
     rulesConfigurationPart.resetToDefaults();
-    rulesConfigurationPart.refresh();
   }
 }

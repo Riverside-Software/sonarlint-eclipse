@@ -70,16 +70,16 @@ import org.sonarlint.eclipse.core.internal.utils.PreferencesUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarsource.sonarlint.core.client.api.common.AbstractAnalysisConfiguration;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.AnalysisResults;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.ClientInputFile;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue;
 import org.sonarsource.sonarlint.core.client.api.exceptions.CanceledException;
-import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneAnalysisConfiguration;
 import org.sonarsource.sonarlint.core.client.api.util.FileUtils;
 
 import static java.text.MessageFormat.format;
 
-public abstract class AbstractAnalyzeProjectJob<CONFIG extends StandaloneAnalysisConfiguration> extends AbstractSonarProjectJob {
+public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisConfiguration> extends AbstractSonarProjectJob {
   private final List<SonarLintProperty> extraProps;
   private final TriggerType triggerType;
   private final boolean shouldClearReport;
@@ -141,11 +141,13 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends StandaloneAnalysi
         .collect(HashMap::new, (m, fWithDoc) -> m.put(fWithDoc.getFile(), fWithDoc.getDocument()), HashMap::putAll);
 
       SonarLintLogger.get().debug("Clear markers on " + excludedFiles.size() + " excluded files");
-      excludedFiles.forEach(SonarLintMarkerUpdater::clearMarkers);
+      ResourcesPlugin.getWorkspace().run(m -> {
+        excludedFiles.forEach(SonarLintMarkerUpdater::clearMarkers);
 
-      if (shouldClearReport) {
-        SonarLintMarkerUpdater.deleteAllMarkersFromReport();
-      }
+        if (shouldClearReport) {
+          SonarLintMarkerUpdater.deleteAllMarkersFromReport();
+        }
+      }, monitor);
 
       if (filesToAnalyze.isEmpty()) {
         return Status.OK_STATUS;
@@ -297,7 +299,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends StandaloneAnalysi
       .filter(e -> e.getKey() instanceof ISonarLintFile)
       .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
-    trackIssues(docPerFile, successfulFiles, triggerType, monitor);
+    ResourcesPlugin.getWorkspace().run(m -> trackIssues(docPerFile, successfulFiles, triggerType, m), monitor);
   }
 
   protected void trackIssues(Map<ISonarLintFile, IDocument> docPerFile, Map<ISonarLintIssuable, List<Issue>> rawIssuesPerResource, TriggerType triggerType,

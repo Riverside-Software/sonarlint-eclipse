@@ -4,14 +4,15 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.sonarsource.sonarlint.eclipse.its</groupId>
-    <artifactId>sonarlint-eclipse-its-parent</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <groupId>org.sonarsource.sonarlint.eclipse</groupId>
+    <artifactId>sonarlint-eclipse-parent</artifactId>
+    <version>4.2.1201</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>target-platform-its-e43</artifactId>
+  <artifactId>target-platform-2019-06</artifactId>
   <packaging>eclipse-target-definition</packaging>
 
-  <name>SonarLint for Eclipse (target-platform for Kepler)</name>
+  <name>target-platform for Eclipse 4.12 (2019-06)</name>
 
 </project>
