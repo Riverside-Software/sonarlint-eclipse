@@ -6,13 +6,13 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>49</version>
+    <version>52</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>4.1.1102</version>
+  <version>4.2.1200</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse (parent)</name>
@@ -43,12 +43,22 @@
           <repository>
                   <id>PDS-plugins</id>
                   <layout>p2</layout>
-                  <url>file://${ARCHITECT_P2_DIR}</url>
+                  <url>file://${ARCHITECT_P2_DIR}/kepler</url>
            </repository>
            <repository>
                    <id>PDS-dependencies</id>
                    <layout>p2</layout>
-                   <url>file://${ARCHITECT_DEPS_P2_DIR}</url>
+                   <url>file://${ARCHITECT_DEPS_P2_DIR}/kepler-dependencies</url>
+            </repository>
+          <repository>
+                  <id>PDS-plugins-2</id>
+                  <layout>p2</layout>
+                  <url>file://${ARCHITECT_P2_DIR}/2018-09</url>
+           </repository>
+           <repository>
+                   <id>PDS-dependencies-2</id>
+                   <layout>p2</layout>
+                   <url>file://${ARCHITECT_DEPS_P2_DIR}/2018-09-dependencies</url>
             </repository>
     </repositories>
 
@@ -66,7 +76,7 @@
 
     <module>org.sonarlint.eclipse.site</module>
 
-    <module>target-platform-e48</module>
+    <module>target-platform-2019-06</module>
 
     <module>org.sonarlint.eclipse.core.tests</module>
   </modules>
@@ -86,10 +96,10 @@
     <license.title>SonarLint for Eclipse</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <tycho.version>1.2.0</tycho.version>
+    <tycho.version>1.4.0</tycho.version>
     <tycho-extras.version>${tycho.version}</tycho-extras.version>
-    <target.platform>e48</target.platform>
-    <sonarlint-core.version>4.1-RSSW</sonarlint-core.version>
+    <target.platform>2019-06</target.platform>
+    <sonarlint-core.version>4.5-RSSW</sonarlint-core.version>
     <protobuf.version>3.6.1</protobuf.version>
 
     <!-- ================== -->
@@ -98,7 +108,6 @@
     <sonar.java.source>1.8</sonar.java.source>
     <sonar.java.target>1.8</sonar.java.target>
     <sonar.scm.ignoreLocalModifications>true</sonar.scm.ignoreLocalModifications>
-    <sonar.jacoco.reportPaths>../target/jacoco.exec,../its/target/jacoco-it.exec</sonar.jacoco.reportPaths>
     <jarsigner.skip>true</jarsigner.skip>
 
     <gitRepositoryName>sonarlint-eclipse</gitRepositoryName>
@@ -120,12 +129,12 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>2.23.4</version>
+      <version>2.28.2</version>
     </dependency>
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
-      <version>3.11.1</version>
+      <version>3.12.2</version>
     </dependency>
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
@@ -284,7 +293,7 @@
           </execution>
         </executions>
         <configuration>
-          <alias>sonarsource-codesign-2017-2019</alias>
+          <alias>sonarsource-codesign-2019-2021</alias>
           <keystore>${sonarsource.keystore.path}</keystore>
           <storepass>${sonarsource.keystore.password}</storepass>
           <skip>${jarsigner.skip}</skip>
@@ -349,29 +358,6 @@
   </build>
 
   <profiles>
-    <profile>
-      <id>coverage</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.jacoco</groupId>
-            <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.2</version>
-            <configuration>
-              <append>true</append>
-              <destFile>../target/jacoco.exec</destFile>
-            </configuration>
-            <executions>
-              <execution>
-                <goals>
-                  <goal>prepare-agent</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
     <!-- This profile is used to sign artifacts -->
     <profile>
       <id>sign</id>

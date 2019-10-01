@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>4.1.1102</version>
+    <version>4.2.1200</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -57,7 +57,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>5.10.2.17019</version>
+                  <version>5.14.0.18788</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -69,7 +69,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>2.16.0.4355</version>
+                  <version>3.2.0.4868</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -79,12 +79,18 @@
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
+                  <groupId>org.sonarsource.html</groupId>
+                  <artifactId>sonar-html-plugin</artifactId>
+                  <version>3.2.0.2082</version>
+                  <type>jar</type>
+                </artifactItem>
+                <artifactItem>
                   <groupId>eu.rssw.sonar.openedge</groupId>
                   <artifactId>sonar-openedge-plugin</artifactId>
                   <version>2.5.2</version>
                   <type>jar</type>
                 </artifactItem>
-               </artifactItems>
+              </artifactItems>
               <outputDirectory>${project.basedir}/plugins</outputDirectory>
               <overWriteReleases>false</overWriteReleases>
               <overWriteSnapshots>true</overWriteSnapshots>

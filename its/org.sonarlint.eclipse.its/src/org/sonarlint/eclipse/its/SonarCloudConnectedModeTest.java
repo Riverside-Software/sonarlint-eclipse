@@ -21,25 +21,20 @@ package org.sonarlint.eclipse.its;
 
 import com.sonar.orchestrator.Orchestrator;
 import com.sonar.orchestrator.http.HttpMethod;
-import org.eclipse.swtbot.eclipse.finder.widgets.SWTBotView;
-import org.eclipse.swtbot.swt.finder.finders.UIThreadRunnable;
-import org.eclipse.swtbot.swt.finder.results.BoolResult;
-import org.eclipse.swtbot.swt.finder.waits.DefaultCondition;
-import org.eclipse.swtbot.swt.finder.widgets.SWTBotTreeItem;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.sonar.wsclient.user.UserParameters;
 import org.sonarlint.eclipse.its.bots.ServerConnectionWizardBot;
 import org.sonarqube.ws.WsUserTokens.GenerateWsResponse;
 import org.sonarqube.ws.client.WsClient;
 import org.sonarqube.ws.client.organization.CreateWsRequest;
+import org.sonarqube.ws.client.user.CreateRequest;
 import org.sonarqube.ws.client.usertoken.GenerateWsRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class ConnectedModeWithOrgaTest extends AbstractSonarLintTest {
+public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
 
   private static final String SONARLINT_USER = "sonarlint";
   private static final String SONARLINT_PWD = "sonarlintpwd";
@@ -60,14 +55,15 @@ public class ConnectedModeWithOrgaTest extends AbstractSonarLintTest {
 
   @BeforeClass
   public static void prepare() {
+    // Fake SonarCloud
+    System.setProperty("sonarlint.internal.sonarcloud.url", orchestrator.getServer().getUrl());
     adminWsClient = newAdminWsClient(orchestrator);
 
-    orchestrator.getServer().adminWsClient().userClient()
-      .create(UserParameters.create()
-        .login(SONARLINT_USER)
-        .password(SONARLINT_PWD)
-        .passwordConfirmation(SONARLINT_PWD)
-        .name("SonarLint"));
+    adminWsClient.users().create(CreateRequest.builder()
+      .setLogin(SONARLINT_USER)
+      .setPassword(SONARLINT_PWD)
+      .setName("SonarLint")
+      .build());
 
     enableOrganizationsSupport();
     createOrganization();
@@ -83,15 +79,9 @@ public class ConnectedModeWithOrgaTest extends AbstractSonarLintTest {
     ServerConnectionWizardBot wizardBot = new ServerConnectionWizardBot(bot);
     wizardBot.openFromFileNewWizard();
 
-    wizardBot.assertTitle("Connect to a SonarQube Server");
+    wizardBot.assertTitle("Connect to SonarQube or SonarCloud");
 
-    wizardBot.selectSonarQube();
-    wizardBot.clickNext();
-
-    wizardBot.setServerUrl(orchestrator.getServer().getUrl());
-    wizardBot.clickNext();
-
-    wizardBot.selectToken();
+    wizardBot.selectSonarCloud();
     wizardBot.clickNext();
 
     assertThat(wizardBot.isNextEnabled()).isFalse();
@@ -110,31 +100,14 @@ public class ConnectedModeWithOrgaTest extends AbstractSonarLintTest {
     assertThat(wizardBot.isNextEnabled()).isTrue();
     wizardBot.clickNext();
 
-    assertThat(wizardBot.getConnectionName()).isEqualTo("127.0.0.1/" + ORGANIZATION_KEY);
+    assertThat(wizardBot.getConnectionName()).isEqualTo("SonarCloud/" + ORGANIZATION_KEY);
     wizardBot.setConnectionName("testWithOrga");
     wizardBot.clickNext();
 
     assertThat(wizardBot.isNextEnabled()).isFalse();
     wizardBot.clickFinish();
 
-    SWTBotView serversView = bot.viewById("org.sonarlint.eclipse.ui.ServersView");
-    final SWTBotTreeItem serverCell = serversView.bot().tree().getAllItems()[0];
-    bot.waitUntil(new DefaultCondition() {
-      @Override
-      public boolean test() throws Exception {
-        return UIThreadRunnable.syncExec(new BoolResult() {
-          @Override
-          public Boolean run() {
-            return serverCell.getText().matches("testWithOrga \\[Version: " + orchestrator.getServer().version() + "(.*), Last storage update: (.*)\\]");
-          }
-        });
-      };
-
-      @Override
-      public String getFailureMessage() {
-        return "Server status is: " + serverCell.getText();
-      }
-    }, 20_000);
+    waitForServerUpdate("testWithOrga", orchestrator, true);
   }
 
   public static void enableOrganizationsSupport() {

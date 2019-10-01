@@ -20,19 +20,14 @@
 package org.sonarlint.eclipse.its;
 
 import com.sonar.orchestrator.Orchestrator;
-import org.eclipse.swtbot.eclipse.finder.widgets.SWTBotView;
-import org.eclipse.swtbot.swt.finder.finders.UIThreadRunnable;
-import org.eclipse.swtbot.swt.finder.results.BoolResult;
-import org.eclipse.swtbot.swt.finder.waits.DefaultCondition;
-import org.eclipse.swtbot.swt.finder.widgets.SWTBotTreeItem;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.sonar.wsclient.user.UserParameters;
 import org.sonarlint.eclipse.its.bots.ServerConnectionWizardBot;
 import org.sonarqube.ws.WsUserTokens.GenerateWsResponse;
 import org.sonarqube.ws.client.WsClient;
+import org.sonarqube.ws.client.user.CreateRequest;
 import org.sonarqube.ws.client.usertoken.GenerateWsRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,12 +52,11 @@ public class NotificationsCheckboxTest extends AbstractSonarLintTest {
   public static void prepare() {
     adminWsClient = newAdminWsClient(orchestrator);
 
-    orchestrator.getServer().adminWsClient().userClient()
-      .create(UserParameters.create()
-        .login(SONARLINT_USER)
-        .password(SONARLINT_PWD)
-        .passwordConfirmation(SONARLINT_PWD)
-        .name("SonarLint"));
+    adminWsClient.users().create(CreateRequest.builder()
+      .setLogin(SONARLINT_USER)
+      .setPassword(SONARLINT_PWD)
+      .setName("SonarLint")
+      .build());
 
     GenerateWsResponse wsResponse = adminWsClient.userTokens().generate(new GenerateWsRequest()
       .setLogin(SONARLINT_USER)
@@ -74,8 +68,6 @@ public class NotificationsCheckboxTest extends AbstractSonarLintTest {
   public void configureServerWithoutNotifications() {
     ServerConnectionWizardBot wizardBot = new ServerConnectionWizardBot(bot);
     wizardBot.openFromFileNewWizard();
-
-    wizardBot.assertTitle("Connect to a SonarQube Server");
 
     wizardBot.selectSonarQube();
     wizardBot.clickNext();
@@ -98,23 +90,6 @@ public class NotificationsCheckboxTest extends AbstractSonarLintTest {
     assertThat(wizardBot.isNextEnabled()).isFalse();
     wizardBot.clickFinish();
 
-    SWTBotView serversView = bot.viewById("org.sonarlint.eclipse.ui.ServersView");
-    final SWTBotTreeItem serverCell = serversView.bot().tree().getAllItems()[0];
-    bot.waitUntil(new DefaultCondition() {
-      @Override
-      public boolean test() throws Exception {
-        return UIThreadRunnable.syncExec(new BoolResult() {
-          @Override
-          public Boolean run() {
-            return serverCell.getText().matches(connectionName + " \\[Version: " + orchestrator.getServer().version() + "(.*), Last storage update: (.*)\\]");
-          }
-        });
-      };
-
-      @Override
-      public String getFailureMessage() {
-        return "Server status is: " + serverCell.getText();
-      }
-    }, 20_000);
+    waitForServerUpdate(connectionName, orchestrator, false);
   }
 }

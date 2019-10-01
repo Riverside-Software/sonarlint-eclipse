@@ -5,7 +5,7 @@ node ('master') {
   gitClean()
   checkout scm
   withEnv(["PATH+MAVEN=${tool name: 'Maven 3', type: 'hudson.tasks.Maven$MavenInstallation'}/bin"]) {
-    sh "mvn -Dmaven.test.skip=true -DARCHITECT_P2_DIR=/architect_p2/kepler -DARCHITECT_DEPS_P2_DIR=/architect_p2/kepler-dependencies clean package"
+    sh "mvn -Dmaven.test.skip=true -DARCHITECT_P2_DIR=/architect_p2 -DARCHITECT_DEPS_P2_DIR=/architect_p2 clean package"
   }
   archiveArtifacts artifacts: 'org.sonarlint.eclipse.site/target/*.zip'
 }
