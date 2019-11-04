@@ -19,39 +19,44 @@
  */
 package org.sonarlint.eclipse.pdt.internal;
 
-import java.util.Comparator;
-import java.io.IOException;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.openedge.core.runtime.IDatabaseAlias;
+import com.openedge.core.runtime.IDatabaseField;
+import com.openedge.core.runtime.IDatabaseIndex;
+import com.openedge.core.runtime.IDatabaseIndexField;
+import com.openedge.core.runtime.IDatabaseSchemaReference;
+import com.openedge.core.runtime.IDatabaseTable;
+import com.openedge.pdt.project.OENature;
+import com.openedge.pdt.project.OEProject;
+import com.openedge.pdt.project.OEProjectPlugin;
+import com.openedge.pdt.project.PropathConstants;
+import com.openedge.pdt.project.PropathEntry;
+import com.openedge.pdt.project.connection.DatabaseConnectionManager;
+import com.openedge.pdt.project.connection.DatabaseConnectionProfile;
+
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.runtime.IPath;
-import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.QualifiedName;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import com.openedge.core.runtime.IDatabaseSchemaReference;
-import com.openedge.core.runtime.IDatabaseAlias;
-import com.openedge.core.runtime.IDatabaseField;
-import com.openedge.core.runtime.IDatabaseIndex;
-import com.openedge.core.runtime.IDatabaseIndexField;
-import com.openedge.core.runtime.IDatabaseTable;
-import com.openedge.pdt.project.OENature;
-import com.openedge.pdt.project.OEProject;
-import com.openedge.pdt.project.OEProjectPlugin;
-import com.openedge.pdt.project.PropathEntry;
-import com.openedge.pdt.project.PropathConstants;
-import com.openedge.pdt.project.connection.DatabaseConnectionManager;
-import java.util.stream.Collectors;
 
 public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider {
 
@@ -128,20 +133,14 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     String slintDB = "";
     String aliases = "";
-    SonarLintLogger.get().debug("Set of DB configured for project: '" + oeProject.getAVMProperty(OEProject.ID_DATABASES) + "'");
-    SonarLintLogger.get().debug("Set of GUID for project: '" + oeProject.getAVMProperty(OEProject.GUID_DATABASES) + "'");
     File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
     String guidList = oeProject.getAVMProperty(OEProject.GUID_DATABASES);
-    if (guidList == null)
-      guidList = "";
-    for (String str : guidList.split(",")) {
-      SonarLintLogger.get().debug("Schema reference: '" + str + "'");
-      IDatabaseSchemaReference ref = mgr.getSchemaCacheByGuid(str);
-      if (ref == null) {
-        SonarLintLogger.get().error("Database schema for '" + str + "' not yet available in cache (probably because AVM is not connected to this DB), code analysis is likely to fail at this stage");
-        continue;
-      }
+    List<IDatabaseSchemaReference> list = mgr.getSchemasForProject(oeProject);
+    if (list == null)
+      list = new ArrayList();
+    SonarLintLogger.get().debug("Number of DB references for project: '" + list.size() + "' - '" + guidList.split(",").length + "'");
+    for (IDatabaseSchemaReference ref : list) {
       File f = generateSchemaFile(underlyingProject, ref, workDir);
       slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
       if ((ref.getAlias() != null) && !ref.getAlias().isEmpty()) {
@@ -151,6 +150,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
         }
       }
     }
+
     if (slintDB.length() > 0)
       context.setAnalysisProperty("sonar.oe.lint.databases", slintDB);
     if (aliases.length() > 0)
