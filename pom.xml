@@ -43,22 +43,12 @@
           <repository>
                   <id>PDS-plugins</id>
                   <layout>p2</layout>
-                  <url>file://${ARCHITECT_P2_DIR}/kepler</url>
+                  <url>file://${ARCHITECT_P2_DIR}/2018-09</url>
            </repository>
            <repository>
                    <id>PDS-dependencies</id>
                    <layout>p2</layout>
-                   <url>file://${ARCHITECT_DEPS_P2_DIR}/kepler-dependencies</url>
-            </repository>
-          <repository>
-                  <id>PDS-plugins-2</id>
-                  <layout>p2</layout>
-                  <url>file://${ARCHITECT_P2_DIR}/2018-09</url>
-           </repository>
-           <repository>
-                   <id>PDS-dependencies-2</id>
-                   <layout>p2</layout>
-                   <url>file://${ARCHITECT_DEPS_P2_DIR}/2018-09-dependencies</url>
+                   <url>file://${ARCHITECT_P2_DIR}/2018-09-dependencies</url>
             </repository>
     </repositories>
 
