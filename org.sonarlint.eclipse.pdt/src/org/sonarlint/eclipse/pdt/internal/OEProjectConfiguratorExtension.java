@@ -133,7 +133,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     String slintDB = "";
     String aliases = "";
-    File workDir = underlyingProject.getLocation().toFile();
+    /* File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
     String guidList = oeProject.getAVMProperty(OEProject.GUID_DATABASES);
     List<IDatabaseSchemaReference> list = mgr.getSchemasForProject(oeProject);
@@ -149,7 +149,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
           aliases = aliases + "," + alias.getAlias();
         }
       }
-    }
+    } */
 
     if (slintDB.length() > 0)
       context.setAnalysisProperty("sonar.oe.lint.databases", slintDB);
