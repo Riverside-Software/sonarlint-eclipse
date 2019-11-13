@@ -32,7 +32,7 @@ public class SonarLintProjectConfiguration {
   private List<ExclusionItem> fileExclusions = new ArrayList<>();
   @Nullable
   private EclipseProjectBinding projectBinding;
-  private boolean autoEnabled = true;
+  private boolean autoEnabled = false;
 
   public List<ExclusionItem> getFileExclusions() {
     return fileExclusions;
