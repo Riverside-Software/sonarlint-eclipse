@@ -6,16 +6,16 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>52</version>
+    <version>53</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>4.2.1202</version>
+  <version>4.3.1300</version>
   <packaging>pom</packaging>
 
-  <name>SonarLint for Eclipse (parent)</name>
+  <name>SonarLint for Eclipse</name>
   <description></description>
   <url>https://www.sonarlint.org/eclipse</url>
   <inceptionYear>2015</inceptionYear>
@@ -72,9 +72,9 @@
   </modules>
 
   <scm>
-    <connection>scm:git:git@github.com:SonarSource/sonar-eclipse.git</connection>
-    <developerConnection>scm:git:git@github.com:SonarSource/sonar-eclipse.git</developerConnection>
-    <url>https://github.com/SonarSource/sonar-eclipse</url>
+    <connection>scm:git:git@github.com:SonarSource/sonarlint-eclipse.git</connection>
+    <developerConnection>scm:git:git@github.com:SonarSource/sonarlint-eclipse.git</developerConnection>
+    <url>https://github.com/SonarSource/sonarlint-eclipse</url>
   </scm>
 
   <issueManagement>
@@ -89,7 +89,7 @@
     <tycho.version>1.4.0</tycho.version>
     <tycho-extras.version>${tycho.version}</tycho-extras.version>
     <target.platform>2019-06</target.platform>
-    <sonarlint-core.version>4.5-RSSW</sonarlint-core.version>
+    <sonarlint-core.version>4.7-RSSW</sonarlint-core.version>
     <protobuf.version>3.6.1</protobuf.version>
 
     <!-- ================== -->
@@ -201,6 +201,13 @@
           <configuration>
             <!-- Disable standard Maven source generation since we are already generating sources with Tycho -->
             <skipSource>true</skipSource>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <configuration>
+            <source>8</source>
           </configuration>
         </plugin>
       </plugins>
@@ -346,7 +353,6 @@
       </plugin>
     </plugins>
   </build>
-
   <profiles>
     <!-- This profile is used to sign artifacts -->
     <profile>
@@ -354,6 +360,32 @@
       <properties>
         <jarsigner.skip>false</jarsigner.skip>
       </properties>
+    </profile>
+    <profile>
+      <id>coverage</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.4</version>
+            <executions>
+              <execution>
+                <id>prepare-agent</id>
+                <goals>
+                  <goal>prepare-agent</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>report</id>
+                <goals>
+                  <goal>report</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

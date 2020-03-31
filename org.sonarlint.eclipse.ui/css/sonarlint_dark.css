@@ -17,10 +17,8 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.core.internal.server;
 
-import java.util.function.Consumer;
-
-@FunctionalInterface
-public interface IServerListener extends Consumer<IServer> {
+IEclipsePreferences#org-eclipse-ui-editors:org-sonarlint-eclipse-ui-themes { /* pseudo attribute added to allow contributions without replacing this node, see Bug 466075 */
+  preferences:
+    'org.sonarlint.eclipse.ui.issueFlow.color=82,62,62'
 }
