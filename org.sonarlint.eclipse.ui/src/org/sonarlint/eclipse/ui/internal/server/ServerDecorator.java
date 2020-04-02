@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -37,7 +37,7 @@ public class ServerDecorator extends LabelProvider implements ILightweightLabelD
   public void decorate(Object element, IDecoration decoration) {
     if (element instanceof IServer) {
       IServer server = (IServer) element;
-      addSuffix(decoration, server.getSonarLintEngineState());
+      addSuffix(decoration, server.getSonarLintStorageStateLabel());
     } else if (element instanceof RemoteSonarProject) {
       addSuffix(decoration, ((RemoteSonarProject) element).getProjectKey());
     } else if (element instanceof ISonarLintProject) {

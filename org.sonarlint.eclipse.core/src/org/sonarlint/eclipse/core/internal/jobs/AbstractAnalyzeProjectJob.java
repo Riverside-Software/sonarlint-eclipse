@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -54,6 +54,7 @@ import org.sonarlint.eclipse.core.configurator.ProjectConfigurationRequest;
 import org.sonarlint.eclipse.core.configurator.ProjectConfigurator;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
+import org.sonarlint.eclipse.core.internal.extension.SonarLintExtensionTracker;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDocument;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.internal.markers.TextRange;
@@ -238,7 +239,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
   @CheckForNull
   private static String tryDetectLanguage(ISonarLintFile file) {
     String language = null;
-    for (IFileLanguageProvider languageProvider : SonarLintCorePlugin.getExtensionTracker().getLanguageProviders()) {
+    for (IFileLanguageProvider languageProvider : SonarLintExtensionTracker.getInstance().getLanguageProviders()) {
       String detectedLanguage = languageProvider.language(file);
       if (detectedLanguage != null) {
         if (language == null) {
@@ -262,7 +263,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
           .filter(Objects::nonNull)
           .collect(Collectors.toList()),
         extraProperties);
-      Collection<ProjectConfigurator> configurators = SonarLintCorePlugin.getExtensionTracker().getConfigurators();
+      Collection<ProjectConfigurator> configurators = SonarLintExtensionTracker.getInstance().getConfigurators();
       for (ProjectConfigurator configurator : configurators) {
         if (configurator.canConfigure((IProject) project.getResource())) {
           configurator.configure(configuratorRequest, monitor);
@@ -277,7 +278,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
   private static Collection<IAnalysisConfigurator> configure(final ISonarLintProject project, List<ClientInputFile> filesToAnalyze,
     final Map<String, String> extraProperties, Path tempDir, final IProgressMonitor monitor) {
     Collection<IAnalysisConfigurator> usedConfigurators = new ArrayList<>();
-    Collection<IAnalysisConfigurator> configurators = SonarLintCorePlugin.getExtensionTracker().getAnalysisConfigurators();
+    Collection<IAnalysisConfigurator> configurators = SonarLintExtensionTracker.getInstance().getAnalysisConfigurators();
     DefaultPreAnalysisContext context = new DefaultPreAnalysisContext(project, extraProperties, filesToAnalyze, tempDir);
     for (IAnalysisConfigurator configurator : configurators) {
       if (configurator.canConfigure(project)) {
@@ -311,15 +312,20 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
       }
       ISonarLintFile file = (ISonarLintFile) entry.getKey();
       Optional<IDocument> openedDocument = Optional.ofNullable(docPerFile.get((ISonarLintFile) file));
-      IDocument document = openedDocument.orElse(file.getDocument());
-      List<Issue> rawIssues = entry.getValue();
-      List<Trackable> trackables = rawIssues.stream().map(issue -> transform(issue, file, document)).collect(Collectors.toList());
       IssueTracker issueTracker = SonarLintCorePlugin.getOrCreateIssueTracker(getProject());
+      List<Issue> rawIssues = entry.getValue();
+      List<Trackable> trackables;
+      if (!rawIssues.isEmpty()) {
+        IDocument document = openedDocument.orElse(file.getDocument());
+        trackables = rawIssues.stream().map(issue -> transform(issue, file, document)).collect(Collectors.toList());
+      } else {
+        trackables = Collections.emptyList();
+      }
       Collection<Trackable> tracked = trackFileIssues(file, trackables, issueTracker, triggerType, rawIssuesPerResource.size());
       ISchedulingRule markerRule = ResourcesPlugin.getWorkspace().getRuleFactory().markerRule(file.getResource());
       try {
         getJobManager().beginRule(markerRule, monitor);
-        SonarLintMarkerUpdater.createOrUpdateMarkers(file, document, tracked, triggerType, openedDocument.isPresent());
+        SonarLintMarkerUpdater.createOrUpdateMarkers(file, openedDocument, tracked, triggerType);
       } finally {
         getJobManager().endRule(markerRule);
       }

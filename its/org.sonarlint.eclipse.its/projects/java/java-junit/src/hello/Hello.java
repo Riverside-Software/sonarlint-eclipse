@@ -7,7 +7,8 @@ public class Hello {
   private Hello() {
   }
 
-  public static void main(String... args) {
+  public static void main(String... args) throws InterruptedException {
+    Thread.sleep(1);
     System.out.println("Hello");
   }
 

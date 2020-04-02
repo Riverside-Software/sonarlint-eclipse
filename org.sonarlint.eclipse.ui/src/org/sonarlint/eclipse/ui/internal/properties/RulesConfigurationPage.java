@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -66,7 +66,7 @@ public class RulesConfigurationPage extends PropertyPage implements IWorkbenchPr
     return pageComponent;
   }
 
-  private Map<String, String> loadLanguages() {
+  private static Map<String, String> loadLanguages() {
     return SonarLintCorePlugin.getInstance().getDefaultSonarLintClientFacade().getAllLanguagesNameByKey();
   }
 

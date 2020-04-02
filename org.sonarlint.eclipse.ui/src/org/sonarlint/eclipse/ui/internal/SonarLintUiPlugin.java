@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -51,8 +51,10 @@ import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.console.SonarLintConsole;
 import org.sonarlint.eclipse.ui.internal.job.CheckForUpdatesJob;
 import org.sonarlint.eclipse.ui.internal.popup.DeveloperNotificationPopup;
+import org.sonarlint.eclipse.ui.internal.popup.MissingNodePopup;
 import org.sonarlint.eclipse.ui.internal.popup.ServerStorageNeedUpdatePopup;
 import org.sonarlint.eclipse.ui.internal.server.actions.JobUtils;
+import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine.State;
 import org.sonarsource.sonarlint.core.client.api.notifications.SonarQubeNotification;
 import org.sonarsource.sonarlint.core.client.api.notifications.SonarQubeNotificationListener;
 
@@ -90,8 +92,22 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     @Override
     public void error(String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
-        getSonarConsole().error(msg, fromAnalyzer);
+        if (isNodeCommandException(msg)) {
+          getSonarConsole().info(msg, false);
+          Display.getDefault().asyncExec(() -> {
+            MissingNodePopup popup = new MissingNodePopup(Display.getCurrent());
+            popup.setFadingEnabled(false);
+            popup.setDelayClose(0L);
+            popup.open();
+          });
+        } else {
+          getSonarConsole().error(msg, fromAnalyzer);
+        }
       }
+    }
+
+    private boolean isNodeCommandException(String msg) {
+      return msg.contains("NodeCommandException");
     }
 
     @Override
@@ -124,26 +140,9 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
 
     getPreferenceStore().addPropertyChangeListener(prefListener);
 
-    SonarLintLogger.get().info("Starting SonarLint for Eclipse " + SonarLintUtils.getPluginVersion());
-
-    checkServersStatus();
-
     new CheckForUpdatesJob().schedule((long) 10 * 1000);
 
-    analyzeOpenedFiles();
-
-    subscribeToNotifications();
-  }
-
-  private static void checkServersStatus() {
-    for (final IServer server : SonarLintCorePlugin.getServersManager().getServers()) {
-      if (!server.isStorageUpdated()) {
-        Display.getDefault().asyncExec(() -> {
-          ServerStorageNeedUpdatePopup popup = new ServerStorageNeedUpdatePopup(Display.getCurrent(), server);
-          popup.open();
-        });
-      }
-    }
+    startupAsync();
   }
 
   @Override
@@ -206,14 +205,17 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     return listenerFactory;
   }
 
-  private static class AnalyzeOpenedFilesJob extends Job {
+  private static class StartupJob extends Job {
 
-    AnalyzeOpenedFilesJob() {
-      super("Analyze opened files");
+    StartupJob() {
+      super("SonarLint UI startup");
     }
 
     @Override
     public IStatus run(IProgressMonitor monitor) {
+      SonarLintLogger.get().info("Starting SonarLint for Eclipse " + SonarLintUtils.getPluginVersion());
+
+      checkServersStatus();
 
       JobUtils.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STARTUP);
 
@@ -225,7 +227,30 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
       // Handle future opened/closed windows
       PlatformUI.getWorkbench().addWindowListener(new WindowOpenCloseListener());
 
+      subscribeToNotifications();
+
       return Status.OK_STATUS;
+    }
+
+    private static void checkServersStatus() {
+      for (final IServer server : SonarLintCorePlugin.getServersManager().getServers()) {
+        if (server.getStorageState() != State.UPDATED) {
+          Display.getDefault().asyncExec(() -> {
+            ServerStorageNeedUpdatePopup popup = new ServerStorageNeedUpdatePopup(Display.getCurrent(), server);
+            popup.open();
+          });
+        }
+      }
+    }
+
+    private static void subscribeToNotifications() {
+      try {
+        ProjectsProviderUtils.allProjects().stream()
+          .filter(p -> SonarLintCorePlugin.loadConfig(p).isBound())
+          .forEach(SonarLintUiPlugin::subscribeToNotifications);
+      } catch (IllegalStateException e) {
+        SonarLintLogger.get().error("Could not subscribe to notifications", e);
+      }
     }
 
     static class WindowOpenCloseListener implements IWindowListener {
@@ -263,19 +288,9 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     }
   }
 
-  public static void analyzeOpenedFiles() {
+  public static void startupAsync() {
     // SLE-122 Delay a little bit to let the time to the workspace to initialize (and avoid NPE)
-    new AnalyzeOpenedFilesJob().schedule(2000);
-  }
-
-  private static void subscribeToNotifications() {
-    try {
-      ProjectsProviderUtils.allProjects().stream()
-        .filter(p -> SonarLintCorePlugin.loadConfig(p).isBound())
-        .forEach(SonarLintUiPlugin::subscribeToNotifications);
-    } catch (IllegalStateException e) {
-      SonarLintLogger.get().error("Could not subscribe to notifications", e);
-    }
+    new StartupJob().schedule(2000);
   }
 
   public static void subscribeToNotifications(ISonarLintProject project) {

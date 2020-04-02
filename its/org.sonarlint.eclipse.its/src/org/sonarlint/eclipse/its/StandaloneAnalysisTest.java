@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2019 SonarSource SA
+ * Copyright (C) 2009-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -40,9 +40,10 @@ import org.eclipse.swtbot.eclipse.finder.widgets.SWTBotEclipseEditor;
 import org.junit.Assume;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.rules.TemporaryFolder;
-import org.python.pydev.ui.perspective.PythonPerspectiveFactory;
 import org.sonarlint.eclipse.its.bots.JavaPackageExplorerBot;
+import org.sonarlint.eclipse.its.bots.ProjectExplorerBot;
 import org.sonarlint.eclipse.its.bots.PydevPackageExplorerBot;
 import org.sonarlint.eclipse.its.bots.SonarLintProjectPropertiesBot;
 import org.sonarlint.eclipse.its.utils.JobHelpers;
@@ -130,14 +131,30 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
     IProject project = importEclipseProject("java/java-junit", "java-junit");
     JobHelpers.waitForJobsToComplete(bot);
 
+    bot.menu("Window").menu("Preferences").click();
+    bot.shell("Preferences").activate();
+    bot.tree().getTreeItem("SonarLint").select();
+    bot.textWithLabel("Test file regular expressions:").setText("**/*TestUtil*");
+    bot.button("Apply and Close").click();
+    JobHelpers.waitForJobsToComplete(bot);
+
     new JavaPackageExplorerBot(bot)
       .expandAndDoubleClick("java-junit", "src", "hello", "Hello.java");
     JobHelpers.waitForJobsToComplete(bot);
 
     List<IMarker> markers = Arrays.asList(project.findMember("src/hello/Hello.java").findMarkers(MARKER_ON_THE_FLY_ID, true, IResource.DEPTH_ONE));
     assertThat(markers).extracting(markerAttributes(IMarker.LINE_NUMBER, IMarker.MESSAGE)).containsOnly(
-      tuple("/java-junit/src/hello/Hello.java", 11, "Replace this use of System.out or System.err by a logger."),
-      tuple("/java-junit/src/hello/Hello.java", 15, "Remove this unnecessary cast to \"int\".")); // Test that sonar.java.libraries is set
+      tuple("/java-junit/src/hello/Hello.java", 12, "Replace this use of System.out or System.err by a logger."),
+      tuple("/java-junit/src/hello/Hello.java", 16, "Remove this unnecessary cast to \"int\".")); // Test that sonar.java.libraries is set
+
+    new JavaPackageExplorerBot(bot)
+      .expandAndDoubleClick("java-junit", "src", "hello", "HelloTestUtil.java");
+    JobHelpers.waitForJobsToComplete(bot);
+  
+    List<IMarker> testUtilMarkers = Arrays.asList(project.findMember("src/hello/HelloTestUtil.java").findMarkers(MARKER_ON_THE_FLY_ID, true, IResource.DEPTH_ONE));
+    // File is flagged as test by regexp, only test rules are applied
+    assertThat(testUtilMarkers).extracting(markerAttributes(IMarker.LINE_NUMBER, IMarker.MESSAGE)).containsOnly(
+      tuple("/java-junit/src/hello/HelloTestUtil.java", 11, "Remove this use of \"Thread.sleep()\"."));
 
     new JavaPackageExplorerBot(bot)
       .expandAndDoubleClick("java-junit", "tests", "hello", "HelloTest.java");
@@ -195,11 +212,14 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
                                                                                                          // set on dependent project
   }
 
+  // Need PyDev
+  @Category(RequiresExtraDependency.class)
   @Test
   public void shouldAnalysePython() throws Exception {
     System.out.println("shouldAnalysePython");
 
-    SwtBotUtils.openPerspective(bot, PythonPerspectiveFactory.PERSPECTIVE_ID);
+    // PythonPerspectiveFactory.PERSPECTIVE_ID
+    SwtBotUtils.openPerspective(bot, "org.python.pydev.ui.PythonPerspective");
     IProject project = importEclipseProject("python", "python");
 
     bot.shell("Python not configured").activate();
@@ -219,8 +239,38 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
     assertThat(markers).extracting(markerAttributes(IMarker.LINE_NUMBER, IMarker.MESSAGE)).containsOnly(
       tuple("/python/src/root/nested/example.py", 9, "Merge this if statement with the enclosing one."),
       tuple("/python/src/root/nested/example.py", 10, "Replace print statement by built-in function."),
-      tuple("/python/src/root/nested/example.py", 9, "Replace \"<>\" by \"!=\"."),
-      tuple("/python/src/root/nested/example.py", 1, "Remove this commented out code."));
+      tuple("/python/src/root/nested/example.py", 9, "Replace \"<>\" by \"!=\"."));
+  }
+
+  // Need PDT
+  @Category(RequiresExtraDependency.class)
+  @Test
+  public void shouldAnalysePHP() throws Exception {
+    System.out.println("shouldAnalysePHP");
+
+    SwtBotUtils.openPerspective(bot, "org.eclipse.php.perspective");
+    IProject project = importEclipseProject("php", "php");
+
+    JobHelpers.waitForJobsToComplete(bot);
+
+    new ProjectExplorerBot(bot)
+      .expandAndOpen("php", "foo.php");
+
+    JobHelpers.waitForJobsToComplete(bot);
+
+    List<IMarker> markers = Arrays.asList(project.findMember("foo.php").findMarkers(MARKER_ON_THE_FLY_ID, true, IResource.DEPTH_ONE));
+    assertThat(markers).extracting(markerAttributes(IMarker.LINE_NUMBER, IMarker.MESSAGE)).containsOnly(
+      tuple("/php/foo.php", 9, "This branch duplicates the one on line 5."));
+
+    // SLE-342
+    new ProjectExplorerBot(bot)
+      .expandAndOpen("php", "foo.inc");
+
+    JobHelpers.waitForJobsToComplete(bot);
+
+    markers = Arrays.asList(project.findMember("foo.inc").findMarkers(MARKER_ON_THE_FLY_ID, true, IResource.DEPTH_ONE));
+    assertThat(markers).extracting(markerAttributes(IMarker.LINE_NUMBER, IMarker.MESSAGE)).containsOnly(
+      tuple("/php/foo.inc", 9, "This branch duplicates the one on line 5."));
   }
 
   @Test
@@ -245,6 +295,8 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
       tuple("/java-linked/src/hello/HelloLinked.java", 13, "Replace this use of System.out or System.err by a logger."));
   }
 
+  // Need RSE
+  @Category(RequiresExtraDependency.class)
   @Test
   public void shouldAnalyseVirtualProject() throws Exception {
     System.out.println("shouldAnalyseVirtualProject");

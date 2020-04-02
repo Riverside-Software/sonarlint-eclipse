@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,17 +19,11 @@
  */
 package org.sonarlint.eclipse.core.internal.server;
 
-import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
-import java.net.Proxy;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,8 +33,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.eclipse.core.net.proxy.IProxyData;
-import org.eclipse.core.net.proxy.IProxyService;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
@@ -51,6 +43,7 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.StoragePathManager;
+import org.sonarlint.eclipse.core.internal.extension.SonarLintExtensionTracker;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintAnalyzerLogOutput;
 import org.sonarlint.eclipse.core.internal.jobs.WrappedProgressMonitor;
 import org.sonarlint.eclipse.core.internal.resources.ProjectsProviderUtils;
@@ -70,6 +63,7 @@ import org.sonarsource.sonarlint.core.client.api.connected.ConnectedGlobalConfig
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine.State;
 import org.sonarsource.sonarlint.core.client.api.connected.GlobalStorageStatus;
+import org.sonarsource.sonarlint.core.client.api.connected.Language;
 import org.sonarsource.sonarlint.core.client.api.connected.ProjectBinding;
 import org.sonarsource.sonarlint.core.client.api.connected.RemoteOrganization;
 import org.sonarsource.sonarlint.core.client.api.connected.RemoteProject;
@@ -113,10 +107,11 @@ public class Server implements IServer, StateListener {
   Server(String id) {
     this.id = id;
 
-    Set<String> excludedPlugins = new HashSet<>(Arrays.asList("typescript", "java", "cpp"));
-    Collection<IAnalysisConfigurator> configurators = SonarLintCorePlugin.getExtensionTracker().getAnalysisConfigurators();
+    EnumSet<Language> languagesDisabledByDefault = EnumSet.of(Language.TS, Language.JAVA, Language.CPP, Language.C, Language.OBJC, Language.SWIFT);
+    EnumSet<Language> enabledLanguages = EnumSet.complementOf(languagesDisabledByDefault);
+    Collection<IAnalysisConfigurator> configurators = SonarLintExtensionTracker.getInstance().getAnalysisConfigurators();
     for (IAnalysisConfigurator configurator : configurators) {
-      excludedPlugins.removeAll(configurator.whitelistedPlugins());
+      enabledLanguages.addAll(configurator.whitelistedLanguages());
     }
 
     ConnectedGlobalConfiguration globalConfig = ConnectedGlobalConfiguration.builder()
@@ -124,7 +119,7 @@ public class Server implements IServer, StateListener {
       .setWorkDir(StoragePathManager.getServerWorkDir(getId()))
       .setStorageRoot(StoragePathManager.getServerStorageRoot())
       .setLogOutput(new SonarLintAnalyzerLogOutput())
-      .addExcludedCodeAnalyzers(excludedPlugins.toArray(new String[0]))
+      .addEnabledLanguages(enabledLanguages.toArray(new Language[0]))
       .build();
     this.client = new ConnectedSonarLintEngineImpl(globalConfig);
     this.client.addStateListener(this);
@@ -190,8 +185,8 @@ public class Server implements IServer, StateListener {
   }
 
   @Override
-  public boolean isStorageUpdated() {
-    return client.getState() == State.UPDATED;
+  public State getStorageState() {
+    return client.getState();
   }
 
   @Override
@@ -247,7 +242,7 @@ public class Server implements IServer, StateListener {
 
   @Override
   public String getServerVersion() {
-    if (!isStorageUpdated()) {
+    if (getStorageState() != State.UPDATED) {
       return NEED_UPDATE;
     }
     return updateStatus.getServerVersion();
@@ -255,19 +250,14 @@ public class Server implements IServer, StateListener {
 
   @Override
   public String getUpdateDate() {
-    if (!isStorageUpdated()) {
+    if (getStorageState() != State.UPDATED) {
       return NEED_UPDATE;
     }
     return new SimpleDateFormat().format(updateStatus.getLastUpdateDate());
   }
 
   @Override
-  public boolean isUpdating() {
-    return State.UPDATING == client.getState();
-  }
-
-  @Override
-  public String getSonarLintEngineState() {
+  public String getSonarLintStorageStateLabel() {
     switch (client.getState()) {
       case UNKNOW:
         return "Unknown";
@@ -478,23 +468,7 @@ public class Server implements IServer, StateListener {
       .organizationKey(organization)
       .userAgent("SonarLint Eclipse " + SonarLintUtils.getPluginVersion());
 
-    IProxyService proxyService = SonarLintCorePlugin.getInstance().getProxyService();
-    IProxyData[] proxyDataForHost;
-    try {
-      proxyDataForHost = proxyService.select(new URL(url).toURI());
-    } catch (MalformedURLException | URISyntaxException e) {
-      throw new IllegalStateException("Invalid URL for server: " + url, e);
-    }
-
-    for (IProxyData data : proxyDataForHost) {
-      if (data.getHost() != null) {
-        builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(data.getHost(), data.getPort())));
-        if (data.isRequiresAuthentication()) {
-          builder.proxyCredentials(data.getUserId(), data.getPassword());
-        }
-        break;
-      }
-    }
+    SonarLintUtils.configureProxy(url, builder::proxy, builder::proxyCredentials);
     return builder;
   }
 

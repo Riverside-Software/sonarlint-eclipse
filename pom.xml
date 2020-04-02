@@ -6,13 +6,13 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>53</version>
+    <version>54</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>4.3.1300</version>
+  <version>5.0.1400</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -89,8 +89,9 @@
     <tycho.version>1.4.0</tycho.version>
     <tycho-extras.version>${tycho.version}</tycho-extras.version>
     <target.platform>2019-06</target.platform>
-    <sonarlint-core.version>4.7-RSSW</sonarlint-core.version>
+    <sonarlint-core.version>4.8-RSSW</sonarlint-core.version>
     <protobuf.version>3.6.1</protobuf.version>
+    <jacoco.version>0.8.4</jacoco.version>
 
     <!-- ================== -->
     <!-- For SonarQube analysis -->
@@ -209,6 +210,11 @@
           <configuration>
             <source>8</source>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>${jacoco.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -368,7 +374,11 @@
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.4</version>
+            <configuration>
+              <includes>
+                <include>org/sonarlint/eclipse/**</include>
+              </includes>
+            </configuration>
             <executions>
               <execution>
                 <id>prepare-agent</id>

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -41,6 +41,7 @@ public class OrganizationWizardPage extends AbstractServerConnectionWizardPage {
 
   public OrganizationWizardPage(ServerConnectionModel model) {
     super("server_organization_page", "SonarCloud Organization", model, 2);
+    setDescription("Start typing to search among organizations you are member of, or enter any organization key");
   }
 
   @SuppressWarnings("unchecked")
@@ -59,7 +60,7 @@ public class OrganizationWizardPage extends AbstractServerConnectionWizardPage {
       WidgetProperties.text(SWT.Modify).observe(organizationText),
       BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_ORGANIZATION)
         .observe(model),
-      new UpdateValueStrategy().setBeforeSetValidator(new MandatoryStringValidator("You must select an organization")),
+      new UpdateValueStrategy().setBeforeSetValidator(new MandatoryStringValidator("You must enter a valid organization key")),
       null);
 
     WizardPageSupport.create(this, dbc);

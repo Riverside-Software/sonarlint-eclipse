@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,6 +20,7 @@
 package org.sonarlint.eclipse.cdt.internal;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Set;
 import org.eclipse.cdt.core.CCProjectNature;
 import org.eclipse.cdt.core.CProjectNature;
@@ -33,6 +34,7 @@ import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarsource.sonarlint.core.client.api.connected.Language;
 
 /**
  * Responsible for checking at runtime if CDT plugin is installed.
@@ -63,6 +65,15 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
   }
 
   @Override
+  public Set<Language> whitelistedLanguages() {
+    if (isCdtPresent()) {
+      // Objective-C is not supported by CDT
+      return EnumSet.of(Language.CPP, Language.C);
+    }
+    return Collections.emptySet();
+  }
+
+  @Override
   public boolean canConfigure(ISonarLintProject project) {
     try {
       IProject underlyingProject = project.getResource() instanceof IProject ? (IProject) project.getResource() : null;
@@ -83,9 +94,11 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
 
   @Override
   public String language(ISonarLintFile file) {
-    IFile iFile = file.getResource() instanceof IFile ? (IFile) file.getResource() : null;
-    if (cdtUtils != null && iFile != null) {
-      return cdtUtils.language(iFile);
+    if (canConfigure(file.getProject())) {
+      IFile iFile = file.getResource() instanceof IFile ? (IFile) file.getResource() : null;
+      if (cdtUtils != null && iFile != null) {
+        return cdtUtils.language(iFile);
+      }
     }
     return null;
   }

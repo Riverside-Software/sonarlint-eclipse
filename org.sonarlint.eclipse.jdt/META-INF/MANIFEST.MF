@@ -2,17 +2,17 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.jdt;singleton:=true
-Bundle-Version: 4.3.1300
+Bundle-Version: 5.0.1400
 Bundle-Vendor: %bundle_vendor
 Bundle-ClassPath: .
-Bundle-Activator: org.sonarlint.eclipse.jdt.internal.SonarJdtPlugin
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.resources,
  org.eclipse.jface.text,
  org.eclipse.core.filebuffers,
  org.eclipse.jdt.core;resolution:=optional,
  org.sonarlint.eclipse.core,
- org.jsr-305;resolution:=optional
+ org.jsr-305;resolution:=optional,
+ org.sonarsource.sonarlint.core.sonarlint-client-api
 Export-Package: org.sonarlint.eclipse.jdt.internal;x-friends:="org.sonarlint.eclipse.core.tests"
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Bundle-ActivationPolicy: lazy

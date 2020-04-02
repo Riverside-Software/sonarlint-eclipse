@@ -2,10 +2,9 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.cdt;singleton:=true
-Bundle-Version: 4.3.1300
+Bundle-Version: 5.0.1400
 Bundle-Vendor: %bundle_vendor
 Bundle-ClassPath: .
-Bundle-Activator: org.sonarlint.eclipse.cdt.internal.SonarCdtPlugin
 Require-Bundle: org.jsr-305;resolution:=optional,
  org.eclipse.core.runtime,
  org.eclipse.core.resources,

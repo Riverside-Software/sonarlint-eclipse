@@ -1,6 +1,6 @@
 /*
- * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * SonarLint for Eclipse ITs
+ * Copyright (C) 2009-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -17,25 +17,8 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.cdt.internal;
+package org.sonarlint.eclipse.its;
 
-import org.eclipse.core.runtime.Plugin;
-
-public class SonarCdtPlugin extends Plugin {
-
-  public static final String PLUGIN_ID = "org.sonarlint.eclipse.cdt"; //$NON-NLS-1$
-
-  private static SonarCdtPlugin plugin;
-
-  public SonarCdtPlugin() {
-    plugin = this;
-  }
-
-  /**
-   * @return the shared instance
-   */
-  public static SonarCdtPlugin getDefault() {
-    return plugin;
-  }
+public interface RequiresExtraDependency {
 
 }

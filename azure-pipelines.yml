@@ -9,7 +9,7 @@ resources:
     - repository: commonTemplates
       type: git
       name: pipelines-yaml-templates
-      ref:  refs/tags/v1.0.6
+      ref:  refs/tags/v1.0.8
 
 stages:
 - template: stage-with-burgr-notifications.yml@commonTemplates
@@ -28,10 +28,13 @@ stages:
       steps:
       - checkout: self
         fetchDepth: 1
-      - task: CacheBeta@0
+      - task: Cache@2
         displayName: Cache Maven local repo
         inputs:
-          key: maven | pom.xml
+          key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          restoreKeys: |
+            maven | "$(Agent.OS)"
+            maven
           path: $(MAVEN_CACHE_FOLDER)
       - task: DownloadSecureFile@1
         displayName: 'Download Maven settings'
@@ -105,10 +108,13 @@ stages:
       steps:
       - checkout: self
         fetchDepth: 1
-      - task: CacheBeta@0
+      - task: Cache@2
         displayName: Cache Maven local repo
         inputs:
-          key: maven | pom.xml
+          key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          restoreKeys: |
+            maven | "$(Agent.OS)"
+            maven
           path: $(MAVEN_CACHE_FOLDER)
       - task: DownloadSecureFile@1
         displayName: 'Download Maven settings'
@@ -160,31 +166,32 @@ stages:
             SQ_VERSION: 'LATEST_RELEASE[7.9]'
             JDKVersion: '1.11'
             imageName: 'ubuntu-18.04'
-            stagedP2Url: 'file://$(Agent.BuildDirectory)/staged-repository'
-          2019_06:
-            TARGET_PLATFORM: '2019-06'
-            SQ_VERSION: 'LATEST_RELEASE'
-            JDKVersion: '1.11'
-            imageName: 'ubuntu-18.04'
-            stagedP2Url: 'file://$(Agent.BuildDirectory)/staged-repository'
           2019_09:
             TARGET_PLATFORM: '2019-09'
             SQ_VERSION: 'DOGFOOD'
             JDKVersion: '1.11'
             imageName: 'ubuntu-18.04'
-            stagedP2Url: 'file://$(Agent.BuildDirectory)/staged-repository'
+          Milestone:
+            TARGET_PLATFORM: 'milestones'
+            SQ_VERSION: 'DOGFOOD'
+            JDKVersion: '1.11'
+            imageName: 'ubuntu-18.04'
       variables:
         MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
         MAVEN_OPTS: '-Xmx3072m -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
+        stagedP2Url: 'file://$(Agent.BuildDirectory)/staged-repository'
       pool:
         vmImage: $(imageName)
       steps:
       - checkout: self
         fetchDepth: 1
-      - task: CacheBeta@0
+      - task: Cache@2
         displayName: Cache Maven local repo
         inputs:
-          key: maven | its/pom.xml
+          key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          restoreKeys: |
+            maven | "$(Agent.OS)"
+            maven
           path: $(MAVEN_CACHE_FOLDER)
       - task: DownloadSecureFile@1
         displayName: 'Download Maven settings'
@@ -220,13 +227,6 @@ stages:
           sleep 10 # give metacity some time to start
         displayName: Setup Xvfb and Metacity
         condition: ne(variables['imageName'], 'windows-latest')
-      - bash: |
-          set -e
-          # workaround for https://github.com/microsoft/azure-pipelines-image-generation/pull/1337
-          curl -sL https://www-eu.apache.org/dist/maven/maven-3/3.6.2/binaries/apache-maven-3.6.2-bin.zip -o maven.zip
-          unzip -d '$(Agent.BuildDirectory)' maven.zip
-          rm maven.zip
-        displayName: Get latest Maven
       - task: Maven@3
         displayName: 'Run Maven ITs for Eclipse $(TARGET_PLATFORM) and SQ $(SQ_VERSION)'
         env:
@@ -237,9 +237,6 @@ stages:
           ARTIFACTORY_API_KEY: $(ARTIFACTORY_API_KEY)
           GITHUB_TOKEN: $(GITHUB_TOKEN)
         inputs:
-          # workaround for https://github.com/microsoft/azure-pipelines-image-generation/pull/1337
-          mavenVersionOption: 'Path'
-          mavenDirectory: '$(Agent.BuildDirectory)/apache-maven-3.6.2'
           goals: 'org.jacoco:jacoco-maven-plugin:prepare-agent verify'
           mavenPomFile: 'its/pom.xml'
           options: >-
@@ -247,13 +244,18 @@ stages:
             --settings $(mavenSettings.secureFilePath)
             -Pcoverage
             -Dtarget.platform=$(TARGET_PLATFORM) -Dtycho.localArtifacts=ignore -Dsonarlint-eclipse.p2.url=$(stagedP2Url) -Dsonar.runtimeVersion=$(SQ_VERSION)
-            -Djacoco.append=true
+            -Djacoco.append=true -Djacoco.destFile=$(Agent.BuildDirectory)/it-coverage.exec
           publishJUnitResults: true
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           testRunTitle: 'ITs $(TARGET_PLATFORM)'
           javaHomeOption: 'JDKVersion'
           jdkVersionOption: $(JDKVersion)
           mavenOptions: $(MAVEN_OPTS)
+      - task: PublishBuildArtifacts@1
+        displayName: Store coverage report as build artifact
+        inputs:
+          pathtoPublish: '$(Agent.BuildDirectory)/it-coverage.exec'
+          artifactName: 'ITCoverage_$(TARGET_PLATFORM)'
       - bash: git checkout .
         name: revertPomChanges
         displayName: Revert changes made to pom.xml to not break cache feature
@@ -271,10 +273,13 @@ stages:
         MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
         MAVEN_OPTS: '-Xmx3072m -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
       steps:
-      - task: CacheBeta@0
+      - task: Cache@2
         displayName: Cache Maven local repo
         inputs:
-          key: maven | pom.xml
+          key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          restoreKeys: |
+            maven | "$(Agent.OS)"
+            maven
           path: $(MAVEN_CACHE_FOLDER)
       - task: DownloadSecureFile@1
         displayName: 'Download Maven settings'
@@ -295,18 +300,28 @@ stages:
           metacity --sm-disable --replace &
           sleep 10 # give metacity some time to start
         displayName: Setup Xvfb and Metacity
+      - task: DownloadBuildArtifacts@0
+        displayName: 'Download IT Coverage report'
+        inputs:
+          artifactName: ITCoverage_2019-09
+          downloadPath: $(Agent.BuildDirectory)
+      - bash: |
+          set -e
+          mkdir $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/
+          mv $(Agent.BuildDirectory)/ITCoverage_2019-09/it-coverage.exec $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/
+        displayName: 'Move IT Coverage report to test target dir'
       - task: Maven@3
         env:
           ARTIFACTORY_PRIVATE_READER_USERNAME: $(ARTIFACTORY_PRIVATE_READER_USERNAME)
           ARTIFACTORY_PRIVATE_READER_PASSWORD: $(ARTIFACTORY_PRIVATE_READER_PASSWORD)
           DISPLAY: ":10"
         inputs:
-          goals: 'org.jacoco:jacoco-maven-plugin:prepare-agent verify'
+          goals: 'verify'
           options: >-
             -B -e
             --settings $(mavenSettings.secureFilePath)
             -Pcoverage
-            -Djacoco.append=true -Dsonar.jacoco.xmlReportPaths=$(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/site/jacoco/jacoco.xml
+            -Djacoco.append=true -Dsonar.coverage.jacoco.xmlReportPaths=$(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/site/jacoco-aggregate/jacoco.xml
           publishJUnitResults: false
           javaHomeOption: 'JDKVersion'
           jdkVersionOption: '1.11'
@@ -319,3 +334,48 @@ stages:
     - validate
     - qa
     - sonarqube
+- template: stage-with-burgr-notifications.yml@commonTemplates
+  parameters:
+    burgrName: 'dogfood'
+    burgrType: 'dogfood'
+    stageName: 'update_dogfood_repo'
+    stageDisplayName: Update internal dogfooding p2
+    stageCondition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'master'))
+    stageDependencies: promote
+    jobs:
+    - job: copyUpdateSite
+      displayName: Copy update site to dogfood repo on repox
+      steps:
+      - checkout: none
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.x'
+      - bash: pip3 install requests
+      - task: PythonScript@0
+        name: updateInternalSiteOnRepox
+        inputs:
+          scriptSource: 'inline'
+          script: |
+            import requests
+            import os
+            import sys
+            import json
+
+            githubSlug = '$(Build.Repository.ID)'
+            githubProject = githubSlug.split("/", 1)[1]
+            buildNumber = '$(Build.BuildId)'
+
+            buildInfoUrl = f'$(ARTIFACTORY_URL)/api/build/{githubProject}/{buildNumber}'
+            buildInfoResp = requests.get(url=buildInfoUrl, auth=('$(ARTIFACTORY_API_USER)', '$(ARTIFACTORY_API_KEY)'))
+            buildInfoJson = buildInfoResp.json()
+
+            buildInfo = buildInfoJson.get('buildInfo', {})
+            buildInfoProperties = buildInfo.get('properties', {})
+
+            # PROJECT_VERSION is set by the compute-build-version-step.yml
+            version = buildInfoProperties.get('buildInfo.env.PROJECT_VERSION', 'NOT_FOUND')
+
+            copyApiUrl = f"$(ARTIFACTORY_URL)/api/copy/sonarsource-public-builds/org/sonarsource/sonarlint/eclipse/org.sonarlint.eclipse.site/{version}/org.sonarlint.eclipse.site-{version}.zip?to=/sonarlint-eclipse-dogfood/org.sonarlint.eclipse.site-dogfood.zip\&suppressLayouts=1"
+            response = requests.post(url=copyApiUrl, auth=('$(ARTIFACTORY_API_USER)', '$(ARTIFACTORY_API_KEY)'))
+            if not response.status_code == 200:
+              sys.exit('[!] [{0}] Server Error: {1}'.format(response.status_code, response.text))

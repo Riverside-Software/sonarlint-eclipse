@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -82,6 +82,9 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
     container.setLayoutData(new GridData(GridData.FILL, GridData.FILL, true, true));
     layout.numColumns = 2;
     layout.verticalSpacing = 9;
+    // According to Javadoc of PreferencePage#createContents, child layout must have 0-width margins
+    layout.marginHeight = 0;
+    layout.marginWidth = 0;
 
     enabledBtn = new Button(container, SWT.CHECK);
     enabledBtn.setText("Run SonarLint automatically");

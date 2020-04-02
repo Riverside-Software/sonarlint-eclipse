@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -46,7 +46,7 @@ public class SonarLintProjectConfigurationManager {
   private static final String P_MODULE_KEY = "moduleKey";
   private static final String P_AUTO_ENABLED_KEY = "autoEnabled";
 
-  public SonarLintProjectConfiguration load(IScopeContext projectScope) {
+  public SonarLintProjectConfiguration load(IScopeContext projectScope, String projectName) {
     IEclipsePreferences projectNode = projectScope.getNode(SonarLintCorePlugin.PLUGIN_ID);
     SonarLintProjectConfiguration projectConfig = new SonarLintProjectConfiguration();
     if (projectNode == null) {
@@ -63,7 +63,7 @@ public class SonarLintProjectConfigurationManager {
     String projectKey = projectNode.get(P_PROJECT_KEY, "");
     String moduleKey = projectNode.get(P_MODULE_KEY, "");
     if (isBlank(projectKey) && isNotBlank(moduleKey)) {
-      SonarLintLogger.get().info("Project preference " + projectScope.toString() + " is outdated. Please rebind this project.");
+      SonarLintLogger.get().info("Binding configuration of project '" + projectName + "' is outdated. Please rebind this project.");
     }
     projectNode.remove(P_MODULE_KEY);
     String serverId = projectNode.get(P_SERVER_ID, "");
