@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2019 SonarSource SA
+ * Copyright (C) 2015-2020 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -27,8 +27,11 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.openedge.core.runtime.IDatabaseAlias;
@@ -57,6 +60,7 @@ import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarsource.sonarlint.core.client.api.connected.Language;
 
 public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider {
 
@@ -71,6 +75,14 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     } catch (ClassNotFoundException e) {
       return false;
     }
+  }
+
+  @Override
+  public Set<Language> whitelistedLanguages() {
+    if (isPdtPresent()) {
+      return EnumSet.of(Language.OPENEDGE);
+    }
+    return Collections.emptySet();
   }
 
   @Override
