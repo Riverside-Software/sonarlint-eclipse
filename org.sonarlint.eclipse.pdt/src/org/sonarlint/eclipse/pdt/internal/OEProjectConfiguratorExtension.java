@@ -148,6 +148,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     /* File workDir = underlyingProject.getLocation().toFile();
     DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
     String guidList = oeProject.getAVMProperty(OEProject.GUID_DATABASES);
+    guidList = guidList == null ? "" : guidList;
     List<IDatabaseSchemaReference> list = mgr.getSchemasForProject(oeProject);
     if (list == null)
       list = new ArrayList();
