@@ -1,7 +1,7 @@
 #!groovy
 
 stage 'Build sonarlint-eclipse'
-node ('master') {
+node ('Linux-Office') {
   gitClean()
   checkout scm
   withEnv(["PATH+MAVEN=${tool name: 'Maven 3', type: 'hudson.tasks.Maven$MavenInstallation'}/bin"]) {
