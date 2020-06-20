@@ -6,4 +6,9 @@
   <extension point="org.sonarlint.eclipse.core.languageProvider">
     <provider class="org.sonarlint.eclipse.pdt.internal.OEProjectConfiguratorExtension" />
   </extension>
+  <extension point="com.openedge.pdt.core.runtime">
+    <scope extract="true" id="eu.rssw.sonarlint.Schema" label="SonarLintSchema" programName="oe/slintsch.p">
+      <requires programName="oe/sch.p" />
+    </scope>
+  </extension>
 </plugin>

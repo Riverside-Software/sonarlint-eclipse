@@ -19,8 +19,10 @@
  */
 package org.sonarlint.eclipse.pdt.internal;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -31,12 +33,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.openedge.core.runtime.IAVMClient;
 import com.openedge.core.runtime.IDatabaseAlias;
 import com.openedge.core.runtime.IDatabaseField;
 import com.openedge.core.runtime.IDatabaseIndex;
 import com.openedge.core.runtime.IDatabaseIndexField;
 import com.openedge.core.runtime.IDatabaseSchemaReference;
 import com.openedge.core.runtime.IDatabaseTable;
+import com.openedge.core.runtime.ProgressCommand;
 import com.openedge.pdt.project.OENature;
 import com.openedge.pdt.project.OEProject;
 import com.openedge.pdt.project.OEProjectPlugin;
@@ -50,7 +54,10 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.QualifiedName;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
@@ -133,29 +140,102 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     String slintDB = "";
     String aliases = "";
-    /* File workDir = underlyingProject.getLocation().toFile();
-    DatabaseConnectionManager mgr = OEProjectPlugin.getDefault().getDatabaseConnectionManager();
-    String guidList = oeProject.getAVMProperty(OEProject.GUID_DATABASES);
-    List<IDatabaseSchemaReference> list = mgr.getSchemasForProject(oeProject);
-    if (list == null)
-      list = new ArrayList();
-    SonarLintLogger.get().debug("Number of DB references for project: '" + list.size() + "' - '" + guidList.split(",").length + "'");
-    for (IDatabaseSchemaReference ref : list) {
-      File f = generateSchemaFile(underlyingProject, ref, workDir);
-      slintDB = slintDB + (slintDB.length() > 0 ? "," : "") + f;
-      if ((ref.getAlias() != null) && !ref.getAlias().isEmpty()) {
-        aliases = aliases + (aliases.length() > 0 ? ";" : "") + ref.getDatabaseName();
-        for (IDatabaseAlias alias : ref.getAlias()) {
-          aliases = aliases + "," + alias.getAlias();
+
+    // Make sure .sonarlint is available in project directory
+    File sonarLintDir = new File(underlyingProject.getLocation().toFile(), ".sonarlint");
+    sonarLintDir.mkdirs();
+
+    if (oeProject.hasDatabases()) {
+      File slintReady = new File(sonarLintDir, "dblist.txt");
+      SonarLintLogger.get().debug("Project has DB connections, looking for file " + slintReady.getAbsolutePath());
+
+      boolean sendJob = false;
+      if (slintReady.canRead()) {
+        SonarLintLogger.get().debug("Reading dblist.txt");
+        try (FileReader reader = new FileReader(slintReady); BufferedReader reader2 = new BufferedReader(reader)) {
+          String tmp = reader2.readLine();
+          long timeStamp = 0L;
+          if (tmp != null)
+            timeStamp = Long.parseLong(tmp);
+          tmp = reader2.readLine();
+          if (tmp != null)
+            slintDB = tmp;
+          tmp = reader2.readLine();
+          if (tmp != null)
+            aliases = tmp;
+
+          if (timeStamp < System.currentTimeMillis() - 86400000L) {
+            SonarLintLogger.get().debug("Schema older than 24 hours, regenerating...");
+            sendJob = true;
+          }
+
+          boolean allFilesFound = true;
+          for (String str : slintDB.split(",")) {
+            File f = new File(str);
+            allFilesFound &= f.canRead();
+          }
+          if (!allFilesFound) {
+            SonarLintLogger.get().debug("At least one schema file couldn't be found, regenerating...");
+            sendJob = true;
+          }
+
+        } catch (IOException | NumberFormatException caught) {
+          SonarLintLogger.get().debug("Problem reading dblist.txt, regenerating...");
+          sendJob = true;
+        }
+      } else {
+        SonarLintLogger.get().debug("File not found, generating schema...");
+        sendJob = true;
+      }
+
+      if (sendJob) {
+        Job schemaJob = createJob(underlyingProject, oeProject);
+        try {
+          if (underlyingProject.getSessionProperty(new QualifiedName("org.sonarlint.eclipse.pdt", "slintdb")) == null) {
+            SonarLintLogger.get().debug("Scheduling schema job...");
+            underlyingProject.setSessionProperty(new QualifiedName("org.sonarlint.eclipse.pdt", "slintdb"), "1");
+            schemaJob.schedule();
+          }
+        } catch (CoreException uncaught) {
+          // Nothing
         }
       }
-    } */
+    } else {
+      SonarLintLogger.get().debug("No DB connection defined...");
+    }
 
     if (slintDB.length() > 0)
       context.setAnalysisProperty("sonar.oe.lint.databases", slintDB);
     if (aliases.length() > 0)
       context.setAnalysisProperty("sonar.oe.aliases", aliases);
-    SonarLintLogger.get().debug("DB schema task completed");
+  }
+
+  private Job createJob(IProject project, OEProject oeProject) {
+    return new Job("Generate SonarLint DB Structure for " + oeProject.getName()) {
+      protected final IStatus run(IProgressMonitor monitor) {
+        IAVMClient avm = oeProject.getRuntime();
+        if ((avm != null) && avm.isAvailable()) {
+          ProgressCommand progressCommand = new ProgressCommand("slintschema", new File(project.getLocation().toFile(), ".sonarlint").getAbsolutePath() , "eu.rssw.sonarlint.Schema");
+          avm.runProgressCommand(progressCommand);
+          try {
+            progressCommand.waitforResult();
+          }
+          catch (InterruptedException interruptedException) {
+            monitor.done();
+            return Status.CANCEL_STATUS;
+          }
+        }
+        monitor.done();
+
+        try {
+          project.setSessionProperty(new QualifiedName("org.sonarlint.eclipse.pdt", "slintdb"), null);
+        } catch (CoreException uncaught) {
+          // Nothing
+        }
+
+        return Status.OK_STATUS;
+      }
+    };
   }
 
   @Override
