@@ -1,5 +1,9 @@
 define stream s1.
 
+procedure destroyObject:
+  delete procedure this-procedure.
+end procedure.
+
 procedure slintschema:
   define input parameter ipSLintDir as character no-undo.
 
