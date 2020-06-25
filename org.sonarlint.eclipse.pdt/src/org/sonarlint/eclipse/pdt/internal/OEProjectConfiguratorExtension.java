@@ -30,6 +30,7 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -145,7 +146,14 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     File sonarLintDir = new File(underlyingProject.getLocation().toFile(), ".sonarlint");
     sonarLintDir.mkdirs();
 
-    if (oeProject.hasDatabases()) {
+    boolean hasDB = false;
+    try {
+      hasDB = oeProject.hasDatabases();
+    } catch (ConcurrentModificationException caught) {
+      SonarLintLogger.get().info("Trapped synchronization problem from DB list, please retry later");
+    }
+
+    if (hasDB) {
       File slintReady = new File(sonarLintDir, "dblist.txt");
       SonarLintLogger.get().debug("Project has DB connections, looking for file " + slintReady.getAbsolutePath());
 
