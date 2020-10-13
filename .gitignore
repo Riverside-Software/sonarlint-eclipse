@@ -10,6 +10,15 @@ target/
 *.iml
 .idea/
 
+# VSCode
+org.sonarlint.eclipse.cdt/bin/
+org.sonarlint.eclipse.core.tests/bin/
+org.sonarlint.eclipse.core/bin/
+org.sonarlint.eclipse.jdt/bin/
+org.sonarlint.eclipse.m2e/bin/
+org.sonarlint.eclipse.pdt/bin/
+org.sonarlint.eclipse.ui/bin/
+
 # build products
 org.sonarlint.eclipse.core/plugins/
 org.sonarlint.eclipse.core/lib/

@@ -71,7 +71,7 @@ public class SonarLintProjectConfigurationManager {
     if (isNotBlank(serverId) && isNotBlank(projectKey)) {
       projectConfig.setProjectBinding(new EclipseProjectBinding(serverId, projectKey, projectNode.get(P_SQ_PREFIX_KEY, ""), projectNode.get(P_IDE_PREFIX_KEY, "")));
     }
-    projectConfig.setAutoEnabled(projectNode.getBoolean(P_AUTO_ENABLED_KEY, true));
+    projectConfig.setAutoEnabled(projectNode.getBoolean(P_AUTO_ENABLED_KEY, false));
     return projectConfig;
   }
 

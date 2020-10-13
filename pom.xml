@@ -12,7 +12,7 @@
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>5.4.0-SNAPSHOT</version>
+  <version>5.4.1401</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -24,6 +24,19 @@
     <url>https://www.sonarsource.com</url>
   </organization>
 
+  <repositories>
+    <repository>
+      <id>PDS-plugins</id>
+      <layout>p2</layout>
+      <url>file://${ARCHITECT_P2_DIR}/2018-09</url>
+    </repository>
+    <repository>
+      <id>PDS-dependencies</id>
+      <layout>p2</layout>
+      <url>file://${ARCHITECT_P2_DIR}/2018-09-dependencies</url>
+    </repository>
+  </repositories>
+
   <modules>
     <module>org.sonarlint.eclipse.core</module>
     <module>org.sonarlint.eclipse.ui</module>
@@ -31,7 +44,10 @@
 
     <module>org.sonarlint.eclipse.m2e</module>
     <module>org.sonarlint.eclipse.jdt</module>
+
     <module>org.sonarlint.eclipse.cdt</module>
+
+    <module>org.sonarlint.eclipse.pdt</module>
 
     <module>org.sonarlint.eclipse.site</module>
 
@@ -58,7 +74,7 @@
     <tycho.version>2.0.0</tycho.version>
     <tycho-extras.version>${tycho.version}</tycho-extras.version>
     <target.platform>2020-09</target.platform>
-    <sonarlint-core.version>4.14.1.22545</sonarlint-core.version>
+    <sonarlint-core.version>4.14.1-SNAPSHOT</sonarlint-core.version>
     <protobuf.version>3.11.4</protobuf.version>
     <jacoco.version>0.8.5</jacoco.version>
 

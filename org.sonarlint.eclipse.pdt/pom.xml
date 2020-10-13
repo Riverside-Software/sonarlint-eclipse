@@ -10,10 +10,10 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>org.sonarlint.eclipse.m2e</artifactId>
+  <artifactId>org.sonarlint.eclipse.pdt</artifactId>
   <packaging>eclipse-plugin</packaging>
 
-  <name>SonarLint for Eclipse m2e integration</name>
+  <name>SonarLint for Eclipse PDT</name>
 
   <build>
     <sourceDirectory>src</sourceDirectory>

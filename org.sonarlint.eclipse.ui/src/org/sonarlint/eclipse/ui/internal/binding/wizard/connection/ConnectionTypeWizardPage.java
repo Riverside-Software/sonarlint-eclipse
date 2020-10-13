@@ -71,7 +71,7 @@ public class ConnectionTypeWizardPage extends WizardPage {
     GridData gd = new GridData(GridData.FILL_BOTH);
     gd.widthHint = 300;
     Link sonarCloudLabel = new Link(radioButtonGroupContainer, SWT.WRAP);
-    sonarCloudLabel.setText("Connect to <a>the online service</a>");
+    sonarCloudLabel.setText("Connect to <a>the online service</a>. Not yet compatible with ABL code.");
     sonarCloudLabel.setLayoutData(gd);
     sonarCloudLabel.addListener(SWT.Selection, e -> {
       try {
