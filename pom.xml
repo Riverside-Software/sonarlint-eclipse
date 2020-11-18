@@ -33,7 +33,7 @@
     <repository>
       <id>PDS-dependencies</id>
       <layout>p2</layout>
-      <url>file://${ARCHITECT_P2_DIR}/2018-09-dependencies</url>
+      <url>https://download.eclipse.org/eclipse/updates/4.13/R-4.13-201909161045</url>
     </repository>
   </repositories>
 
