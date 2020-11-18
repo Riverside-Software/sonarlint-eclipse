@@ -41,7 +41,6 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.core.runtime.jobs.ISchedulingRule;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
@@ -85,7 +84,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
   private final boolean shouldClearReport;
   private final Collection<FileWithDocument> files;
 
-  public AbstractAnalyzeProjectJob(AnalyzeProjectRequest request) {
+  protected AbstractAnalyzeProjectJob(AnalyzeProjectRequest request) {
     super(jobTitle(request), request.getProject());
     this.extraProps = SonarLintGlobalConfiguration.getExtraPropertiesForLocalAnalysis(request.getProject());
     this.files = request.getFiles();
@@ -283,8 +282,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
   }
 
   private void updateMarkers(Map<ISonarLintFile, IDocument> docPerFile, Map<ISonarLintIssuable, List<Issue>> issuesPerResource, AnalysisResults result,
-    TriggerType triggerType, final IProgressMonitor monitor)
-    throws CoreException {
+    TriggerType triggerType, final IProgressMonitor monitor) throws CoreException {
     Set<ISonarLintFile> failedFiles = result.failedAnalysisFiles().stream().map(ClientInputFile::<ISonarLintFile>getClientObject).collect(Collectors.toSet());
     Map<ISonarLintIssuable, List<Issue>> successfulFiles = issuesPerResource.entrySet().stream()
       .filter(e -> !failedFiles.contains(e.getKey()))
@@ -292,7 +290,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
       .filter(e -> e.getKey() instanceof ISonarLintFile)
       .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
-    ResourcesPlugin.getWorkspace().run(m -> trackIssues(docPerFile, successfulFiles, triggerType, m), monitor);
+    ResourcesPlugin.getWorkspace().run(m -> trackIssues(docPerFile, successfulFiles, triggerType, monitor), monitor);
   }
 
   protected void trackIssues(Map<ISonarLintFile, IDocument> docPerFile, Map<ISonarLintIssuable, List<Issue>> rawIssuesPerResource, TriggerType triggerType,
@@ -314,13 +312,7 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
         trackables = Collections.emptyList();
       }
       Collection<Trackable> tracked = trackFileIssues(file, trackables, issueTracker, triggerType, rawIssuesPerResource.size());
-      ISchedulingRule markerRule = ResourcesPlugin.getWorkspace().getRuleFactory().markerRule(file.getResource());
-      try {
-        getJobManager().beginRule(markerRule, monitor);
-        SonarLintMarkerUpdater.createOrUpdateMarkers(file, openedDocument, tracked, triggerType);
-      } finally {
-        getJobManager().endRule(markerRule);
-      }
+      SonarLintMarkerUpdater.createOrUpdateMarkers(file, openedDocument, tracked, triggerType);
       // Now that markerId are set, store issues in cache
       issueTracker.updateCache(file, tracked);
     }

@@ -17,24 +17,49 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.ui.internal.command;
+package org.sonarlint.eclipse.core.internal.markers;
 
 import org.eclipse.core.resources.IMarker;
-import org.eclipse.ui.PlatformUI;
-import org.sonarlint.eclipse.core.SonarLintLogger;
-import org.sonarlint.eclipse.ui.internal.views.locations.IssueLocationsView;
 
-public class ShowIssueLocationsCommand extends AbstractIssueCommand {
+public class MarkerFlowLocation {
+  private final MarkerFlow parent;
+  private final int number;
+  private final String message;
+  private IMarker marker;
+  private boolean deleted;
 
-  @Override
-  protected void execute(IMarker selectedMarker) {
-    try {
-      IssueLocationsView view = (IssueLocationsView) PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(IssueLocationsView.ID);
-      view.setShowAnnotations(true);
-      view.setInput(selectedMarker);
-    } catch (Exception e) {
-      SonarLintLogger.get().error("Unable to open Issue Location View", e);
-    }
+  public MarkerFlowLocation(MarkerFlow parent, String message) {
+    this.parent = parent;
+    this.parent.locations.add(this);
+    this.number = this.parent.locations.size();
+    this.message = message;
   }
 
+  public MarkerFlow getParent() {
+    return parent;
+  }
+
+  public int getNumber() {
+    return number;
+  }
+
+  public String getMessage() {
+    return message;
+  }
+
+  public void setMarker(IMarker marker) {
+    this.marker = marker;
+  }
+
+  public IMarker getMarker() {
+    return marker;
+  }
+
+  public boolean isDeleted() {
+    return deleted;
+  }
+
+  public void setDeleted(boolean deleted) {
+    this.deleted = deleted;
+  }
 }

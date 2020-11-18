@@ -19,8 +19,11 @@
  */
 package org.sonarlint.eclipse.ui.internal.util;
 
+import java.util.stream.Stream;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.jface.text.Position;
+import org.eclipse.jface.text.source.IAnnotationModel;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IEditorReference;
@@ -29,8 +32,10 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.texteditor.AbstractMarkerAnnotationModel;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.sonarlint.eclipse.core.SonarLintLogger;
+import org.sonarlint.eclipse.core.internal.markers.MarkerFlowLocation;
 
 public class LocationsUtils {
 
@@ -66,5 +71,19 @@ public class LocationsUtils {
       }
     }
     return null;
+  }
+
+  public static @Nullable Position getMarkerPosition(IMarker marker, ITextEditor textEditor) {
+    // look up the current range of the marker when the document has been edited
+    IAnnotationModel model = textEditor.getDocumentProvider().getAnnotationModel(textEditor.getEditorInput());
+    if (model instanceof AbstractMarkerAnnotationModel) {
+      AbstractMarkerAnnotationModel markerModel = (AbstractMarkerAnnotationModel) model;
+      return markerModel.getMarkerPosition(marker);
+    }
+    return null;
+  }
+
+  public static boolean hasAtLeastOneLocationOnTheSameResourceThanEditor(Stream<MarkerFlowLocation> allFlowLocations, IFileEditorInput editorInput) {
+    return allFlowLocations.map(MarkerFlowLocation::getMarker).filter(m -> m != null && m.exists()).map(IMarker::getResource).anyMatch(r -> r.equals(editorInput.getFile()));
   }
 }
