@@ -81,6 +81,21 @@ public class SonarLintCodeMiningProvider extends AbstractCodeMiningProvider
           }
         }
       }
+
+      @Override
+      public void partActivated(IWorkbenchPartReference partRef) { }
+      @Override
+      public void partBroughtToTop(IWorkbenchPartReference partRef) { }
+      @Override
+      public void partDeactivated(IWorkbenchPartReference partRef) { }
+      @Override
+      public void partOpened(IWorkbenchPartReference partRef) { }
+      @Override
+      public void partHidden(IWorkbenchPartReference partRef) { }
+      @Override
+      public void partVisible(IWorkbenchPartReference partRef) { }
+      @Override
+      public void partInputChanged(IWorkbenchPartReference partRef) { }
     };
     PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().addPartListener(partListener);
   }
