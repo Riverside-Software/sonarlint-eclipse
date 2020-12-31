@@ -63,11 +63,48 @@ public class SonarLintCodeMiningProvider extends AbstractCodeMiningProvider
 
   private final IPartListener2 partListener;
 
+  private ITextViewer viewer;
+
   public SonarLintCodeMiningProvider() {
     SonarLintUiPlugin.getSonarlintMarkerSelectionService().addMarkerSelectionListener(this);
     SonarLintUiPlugin.getSonarlintMarkerSelectionService().addFlowSelectionListener(this);
     SonarLintUiPlugin.getSonarlintMarkerSelectionService().addFlowLocationSelectionListener(this);
     partListener = new IPartListener2() {
+
+      @Override
+      public void partVisible(IWorkbenchPartReference partRef) {
+        // Nothing to do
+      }
+
+      @Override
+      public void partInputChanged(IWorkbenchPartReference partRef) {
+        // Nothing to do
+      }
+
+      @Override
+      public void partHidden(IWorkbenchPartReference partRef) {
+        // Nothing to do
+      }
+
+      @Override
+      public void partDeactivated(IWorkbenchPartReference partRef) {
+        // Nothing to do
+      }
+
+      @Override
+      public void partOpened(IWorkbenchPartReference partRef) {
+        // Nothing to do
+      }
+
+      @Override
+      public void partBroughtToTop(IWorkbenchPartReference partRef) {
+        // Nothing to do
+      }
+
+      @Override
+      public void partActivated(IWorkbenchPartReference partRef) {
+        // Nothing to do
+      }
 
       @Override
       public void partClosed(IWorkbenchPartReference partRef) {
@@ -135,6 +172,8 @@ public class SonarLintCodeMiningProvider extends AbstractCodeMiningProvider
 
   @Override
   public CompletableFuture<List<? extends ICodeMining>> provideCodeMinings(ITextViewer viewer, IProgressMonitor monitor) {
+    // Cache the viewer for later reuse, because on Eclipse Photon, this is not possible to adapt ITextEditor to ITextViewer
+    this.viewer = viewer;
     if (!SonarLintUiPlugin.getSonarlintMarkerSelectionService().isShowAnnotationsInEditor()) {
       return CompletableFuture.completedFuture(emptyList());
     }
@@ -201,9 +240,12 @@ public class SonarLintCodeMiningProvider extends AbstractCodeMiningProvider
 
   private void forceRefreshCodeMinings() {
     ITextEditor textEditor = super.getAdapter(ITextEditor.class);
-    ITextViewer textViewer = textEditor.getAdapter(ITextViewer.class);
-    if (textViewer instanceof ISourceViewerExtension5) {
-      ((ISourceViewerExtension5) textViewer).updateCodeMinings();
+    if (viewer == null) {
+      // SLE-398 ITextEditor adapt to ITextViewer, but only on recent Eclipse versions
+      viewer = textEditor.getAdapter(ITextViewer.class);
+    }
+    if (viewer instanceof ISourceViewerExtension5) {
+      ((ISourceViewerExtension5) viewer).updateCodeMinings();
     }
   }
 
