@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>5.5.1509</version>
+    <version>5.7.1700</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -63,31 +63,31 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>6.8.0.23379</version>
+                  <version>6.12.0.24852</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>6.5.0.13383</version>
+                  <version>7.2.0.14938</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>3.9.0.6331</version>
+                  <version>3.15.0.7197</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.python</groupId>
                   <artifactId>sonar-python-plugin</artifactId>
-                  <version>3.1.0.7619</version>
+                  <version>3.2.0.7856</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.html</groupId>
                   <artifactId>sonar-html-plugin</artifactId>
-                  <version>3.2.0.2082</version>
+                  <version>3.3.0.2534</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -117,9 +117,14 @@
             <configuration>
               <artifactItems>
                 <artifactItem>
-                  <groupId>com.eclipsesource.minimal-json</groupId>
-                  <artifactId>minimal-json</artifactId>
-                  <version>0.9.5</version>
+                  <groupId>com.squareup.okhttp3</groupId>
+                  <artifactId>okhttp</artifactId>
+                  <version>${okhttp.version}</version>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>com.squareup.okio</groupId>
+                  <artifactId>okio</artifactId>
+                  <version>${okio.version}</version>
                 </artifactItem>
               </artifactItems>
               <outputDirectory>lib</outputDirectory>

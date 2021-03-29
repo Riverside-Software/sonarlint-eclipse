@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2020 SonarSource SA
+ * Copyright (C) 2009-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,8 +19,15 @@
  */
 package org.sonarlint.eclipse.its;
 
+import com.eclipsesource.json.Json;
+import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonValue;
 import com.sonar.orchestrator.Orchestrator;
 import com.sonar.orchestrator.container.Server;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -31,6 +38,7 @@ import org.sonarqube.ws.client.WsClient;
 import org.sonarqube.ws.client.setting.SetRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 public class SonarQubeConnectedModeTest extends AbstractSonarLintTest {
 
@@ -103,11 +111,37 @@ public class SonarQubeConnectedModeTest extends AbstractSonarLintTest {
     wizardBot.setConnectionName("test");
     wizardBot.clickNext();
 
+    if (orchestrator.getServer().version().isGreaterThanOrEquals(8, 7)) {
+      // SONAR-14306 Starting from 8.7, dev notifications are available even in community edition
+      assertThat(wizardBot.getNotificationEnabled()).isTrue();
+      assertThat(wizardBot.isNextEnabled()).isTrue();
+      wizardBot.clickNext();
+    }
+
     assertThat(wizardBot.isNextEnabled()).isFalse();
     wizardBot.clickFinish();
 
     new ServersViewBot(bot)
       .waitForServerUpdateAndCheckVersion("test", orchestrator.getServer().version().toString());
+
+    bot.shell("Bind to a SonarQube or SonarCloud project").close();
+  }
+
+  @Test
+  public void testLocalServerStatusRequest() throws Exception {
+
+    HttpURLConnection statusConnection = (HttpURLConnection) new URL(String.format("http://localhost:%d/sonarlint/api/status", hostspotServerPort)).openConnection();
+    statusConnection.setConnectTimeout(1000);
+    statusConnection.connect();
+    int code = statusConnection.getResponseCode();
+    assertThat(code).isEqualTo(200);
+    try (InputStream inputStream = statusConnection.getInputStream()) {
+      JsonValue response = Json.parse(new InputStreamReader(inputStream));
+
+      assertThat(response.asObject().iterator()).toIterable().extracting(JsonObject.Member::getName, m -> m.getValue().asString()).containsOnly(
+        tuple("ideName", "Eclipse"),
+        tuple("description", ""));
+    }
   }
 
 }

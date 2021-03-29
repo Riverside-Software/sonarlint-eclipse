@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,6 +20,8 @@
 package org.sonarlint.eclipse.core.internal.engine.connected;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.eclipse.core.runtime.preferences.DefaultScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences.INodeChangeListener;
@@ -54,7 +57,7 @@ public class ConnectedEngineFacadeManager {
   static final String ORG_ATTRIBUTE = "org";
   static final String USERNAME_ATTRIBUTE = "username";
   static final String PASSWORD_ATTRIBUTE = "password";
-  static final String NOTIFICATIONS_ENABLED_ATTRIBUTE = "notificationsEnabled";
+  static final String NOTIFICATIONS_DISABLED_ATTRIBUTE = "notificationsDisabled";
 
   private static final byte EVENT_ADDED = 0;
   private static final byte EVENT_CHANGED = 1;
@@ -242,7 +245,7 @@ public class ConnectedEngineFacadeManager {
       url,
       connectionNode.get(ORG_ATTRIBUTE, null),
       connectionNode.getBoolean(AUTH_ATTRIBUTE, false),
-      connectionNode.getBoolean(NOTIFICATIONS_ENABLED_ATTRIBUTE, false));
+      connectionNode.getBoolean(NOTIFICATIONS_DISABLED_ATTRIBUTE, false));
   }
 
   private static String getConnectionIdFromNodeName(String name) {
@@ -308,12 +311,28 @@ public class ConnectedEngineFacadeManager {
 
   /**
    * Returns the server with the given id.
-   * 
+   *
    * @param id a server id
    * @return a server or empty
    */
   public Optional<IConnectedEngineFacade> findById(String id) {
     return Optional.ofNullable(facadesByConnectionId.get(Objects.requireNonNull(id)));
+  }
+
+  public List<IConnectedEngineFacade> findByUrl(String serverUrl) {
+    return facadesByConnectionId.values().stream()
+        .filter(facade -> equalsIgnoringTrailingSlash(facade.getHost(), serverUrl))
+        .collect(Collectors.toList());
+  }
+
+  private static boolean equalsIgnoringTrailingSlash(String aUrl, String anotherUrl) {
+    try {
+      return new URI(StringUtils.removeEnd(aUrl, "/")).equals(new URI(StringUtils.removeEnd(anotherUrl, "/")));
+    } catch (URISyntaxException e) {
+      // should never happen at this stage
+      SonarLintLogger.get().error("Malformed server URL", e);
+      return false;
+    }
   }
 
   public Optional<ResolvedBinding> resolveBinding(ISonarLintProject project) {
@@ -358,7 +377,7 @@ public class ConnectedEngineFacadeManager {
       storeCredentials(facade, username, password);
     }
     ConnectedEngineFacade connectionToUpdate = (ConnectedEngineFacade) facadesByConnectionId.get(facade.getId());
-    update(connectionToUpdate, facade.getHost(), facade.getOrganization(), facade.hasAuth(), facade.areNotificationsEnabled());
+    update(connectionToUpdate, facade.getHost(), facade.getOrganization(), facade.hasAuth(), facade.areNotificationsDisabled());
 
     fireServerEvent(connectionToUpdate, EVENT_CHANGED);
   }
@@ -372,9 +391,15 @@ public class ConnectedEngineFacadeManager {
       serverNode.put(URL_ATTRIBUTE, facade.getHost());
       if (StringUtils.isNotBlank(facade.getOrganization())) {
         serverNode.put(ORG_ATTRIBUTE, facade.getOrganization());
+      } else {
+        serverNode.remove(ORG_ATTRIBUTE);
       }
       serverNode.putBoolean(AUTH_ATTRIBUTE, facade.hasAuth());
-      serverNode.putBoolean(NOTIFICATIONS_ENABLED_ATTRIBUTE, facade.areNotificationsEnabled());
+      if (facade.areNotificationsDisabled()) {
+        serverNode.putBoolean(NOTIFICATIONS_DISABLED_ATTRIBUTE, true);
+      } else {
+        serverNode.remove(NOTIFICATIONS_DISABLED_ATTRIBUTE);
+      }
       serversNode.flush();
     } catch (BackingStoreException e) {
       throw new IllegalStateException("Unable to save server list", e);
@@ -440,11 +465,11 @@ public class ConnectedEngineFacadeManager {
     return StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password);
   }
 
-  private static ConnectedEngineFacade update(ConnectedEngineFacade facade, String url, @Nullable String organization, boolean hasAuth, boolean notificationsEnabled) {
+  private static ConnectedEngineFacade update(ConnectedEngineFacade facade, String url, @Nullable String organization, boolean hasAuth, boolean notificationsDisabled) {
     return facade.setHost(url)
       .setOrganization(organization)
       .setHasAuth(hasAuth)
-      .setNotificationsEnabled(notificationsEnabled);
+      .setNotificationsDisabled(notificationsDisabled);
   }
 
 }

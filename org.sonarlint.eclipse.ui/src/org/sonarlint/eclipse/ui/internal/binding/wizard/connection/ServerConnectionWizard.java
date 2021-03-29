@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -55,9 +55,10 @@ import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionModel.AuthMethod;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionModel.ConnectionType;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.project.ProjectBindingWizard;
-import org.sonarlint.eclipse.ui.internal.util.wizard.WizardDialogWithoutHelp;
-import org.sonarsource.sonarlint.core.client.api.connected.RemoteOrganization;
+import org.sonarlint.eclipse.ui.internal.job.SubscribeToNotificationsJob;
+import org.sonarlint.eclipse.ui.internal.util.wizard.SonarLintWizardDialog;
 import org.sonarsource.sonarlint.core.client.api.exceptions.UnsupportedServerException;
+import org.sonarsource.sonarlint.core.serverapi.organization.ServerOrganization;
 
 public class ServerConnectionWizard extends Wizard implements INewWizard, IPageChangingListener {
 
@@ -68,9 +69,14 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
   private final UsernamePasswordWizardPage credentialsPage;
   private final TokenWizardPage tokenPage;
   private final OrganizationWizardPage orgPage;
-  private final ConnectionIdWizardPage serverIdPage;
-  private final EndWizardPage endPage;
+  private final ConnectionIdWizardPage connectionIdPage;
+  private final NotificationsWizardPage notifPage;
+  private final ConfirmWizardPage confirmPage;
   private final IConnectedEngineFacade editedServer;
+  private boolean redirectedAfterNotificationCheck;
+  private boolean skipBindingWizard;
+
+  private IConnectedEngineFacade resultServer;
 
   private ServerConnectionWizard(String title, ServerConnectionModel model, IConnectedEngineFacade editedServer) {
     super();
@@ -85,8 +91,9 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     credentialsPage = new UsernamePasswordWizardPage(model);
     tokenPage = new TokenWizardPage(model);
     orgPage = new OrganizationWizardPage(model);
-    serverIdPage = new ConnectionIdWizardPage(model);
-    endPage = new EndWizardPage(model);
+    connectionIdPage = new ConnectionIdWizardPage(model);
+    notifPage = new NotificationsWizardPage(model);
+    confirmPage = new ConfirmWizardPage(model);
   }
 
   /**
@@ -96,7 +103,7 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     this(new ServerConnectionModel());
   }
 
-  private ServerConnectionWizard(ServerConnectionModel model) {
+  public ServerConnectionWizard(ServerConnectionModel model) {
     this("Connect to SonarQube or SonarCloud", model, null);
   }
 
@@ -105,28 +112,36 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
   }
 
   public static WizardDialog createDialog(Shell parent) {
-    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard());
+    return new SonarLintWizardDialog(parent, new ServerConnectionWizard());
   }
 
   public static WizardDialog createDialog(Shell parent, List<ISonarLintProject> selectedProjects) {
     ServerConnectionModel model = new ServerConnectionModel();
     model.setSelectedProjects(selectedProjects);
-    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard(model));
+    return new SonarLintWizardDialog(parent, new ServerConnectionWizard(model));
   }
 
-  public static WizardDialog createDialog(Shell parent, String serverId) {
+  public static WizardDialog createDialog(Shell parent, String connectionId) {
     ServerConnectionModel model = new ServerConnectionModel();
-    model.setServerId(serverId);
-    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard(model));
+    model.setConnectionId(connectionId);
+    return new SonarLintWizardDialog(parent, new ServerConnectionWizard(model));
   }
 
   public static WizardDialog createDialog(Shell parent, IConnectedEngineFacade sonarServer) {
-    return new WizardDialogWithoutHelp(parent, new ServerConnectionWizard(sonarServer));
+    return new SonarLintWizardDialog(parent, new ServerConnectionWizard(sonarServer));
+  }
+
+  public static WizardDialog createDialog(Shell parent, ServerConnectionWizard wizard) {
+    return new SonarLintWizardDialog(parent, wizard);
   }
 
   @Override
   public void init(IWorkbench workbench, IStructuredSelection selection) {
     // Nothing to do
+  }
+
+  public void setSkipBindingWizard(boolean skipBindingWizard) {
+    this.skipBindingWizard = skipBindingWizard;
   }
 
   @Override
@@ -141,14 +156,15 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
   public void addPages() {
     if (!model.isEdit()) {
       addPage(connectionTypeWizardPage);
-      addPage(serverIdPage);
+      addPage(connectionIdPage);
     }
     addPage(urlPage);
     addPage(authMethodPage);
     addPage(credentialsPage);
     addPage(tokenPage);
     addPage(orgPage);
-    addPage(endPage);
+    addPage(notifPage);
+    addPage(confirmPage);
   }
 
   @Override
@@ -172,14 +188,21 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     if (page == orgPage) {
       return afterOrgPage();
     }
-    if (page == serverIdPage) {
-      return endPage;
+    if (page == connectionIdPage) {
+      return notifPageIfSupportedOrConfirm();
+    }
+    if (page == notifPage) {
+      return confirmPage;
     }
     return null;
   }
 
   private IWizardPage afterOrgPage() {
-    return model.isEdit() ? endPage : serverIdPage;
+    return model.isEdit() ? notifPageIfSupportedOrConfirm() : connectionIdPage;
+  }
+
+  private IWizardPage notifPageIfSupportedOrConfirm() {
+    return model.getNotificationsSupported() ? notifPage : confirmPage;
   }
 
   @Override
@@ -197,7 +220,7 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
   @Override
   public boolean canFinish() {
     IWizardPage currentPage = getContainer().getCurrentPage();
-    return currentPage == endPage;
+    return currentPage == confirmPage;
   }
 
   @Override
@@ -205,56 +228,73 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     if (model.isEdit() && !testConnection(model.getOrganization())) {
       return false;
     }
-    IConnectedEngineFacade server;
 
     if (model.isEdit()) {
-      editedServer.updateConfig(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(), model.getNotificationsEnabled());
-      server = editedServer;
+      editedServer.updateConfig(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(), model.getNotificationsDisabled());
+      resultServer = editedServer;
 
     } else {
-      server = SonarLintCorePlugin.getServersManager().create(model.getServerId(), model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(),
-        model.getNotificationsEnabled());
-      SonarLintCorePlugin.getServersManager().addServer(server, model.getUsername(), model.getPassword());
+      resultServer = SonarLintCorePlugin.getServersManager().create(model.getConnectionId(), model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(),
+        model.getNotificationsDisabled());
+      SonarLintCorePlugin.getServersManager().addServer(resultServer, model.getUsername(), model.getPassword());
       try {
         PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(BindingsView.ID);
       } catch (PartInitException e) {
-        SonarLintLogger.get().error("Unable to open server view", e);
+        SonarLintLogger.get().error("Unable to open SonarLint bindings view", e);
       }
     }
-    Job job = new ServerUpdateJob(server);
 
-    List<ISonarLintProject> boundProjects = server.getBoundProjects();
-    if (model.getNotificationsSupported() && model.getNotificationsEnabled() && !boundProjects.isEmpty()) {
-      Job subscribeToNotificationsJob = new Job("Subscribe to notifications") {
-        @Override
-        protected IStatus run(IProgressMonitor monitor) {
-          boundProjects.forEach(SonarLintUiPlugin::subscribeToNotifications);
-          return Status.OK_STATUS;
-        }
-      };
+    Job job = new ServerUpdateJob(resultServer);
+
+    List<ISonarLintProject> boundProjects = resultServer.getBoundProjects();
+    if (model.getNotificationsSupported() && !model.getNotificationsDisabled() && !boundProjects.isEmpty()) {
+      Job subscribeToNotificationsJob = new SubscribeToNotificationsJob(boundProjects);
       JobUtils.scheduleAfterSuccess(job, subscribeToNotificationsJob::schedule);
+      subscribeToNotificationsJob.schedule();
     } else {
       boundProjects.forEach(SonarLintUiPlugin::unsubscribeToNotifications);
     }
 
-    JobUtils.scheduleAfterSuccess(job, () -> JobUtils.scheduleAnalysisOfOpenFilesInBoundProjects(server, TriggerType.BINDING_CHANGE));
+    JobUtils.scheduleAfterSuccess(job, () -> JobUtils.scheduleAnalysisOfOpenFilesInBoundProjects(resultServer, TriggerType.BINDING_CHANGE));
     job.schedule();
     List<ISonarLintProject> selectedProjects = model.getSelectedProjects();
-    if (selectedProjects != null && !selectedProjects.isEmpty()) {
-      ProjectBindingWizard.createDialogSkipServerSelection(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), selectedProjects, (ConnectedEngineFacade) server).open();
-    } else if (boundProjects.isEmpty()) {
-      ProjectBindingWizard.createDialogSkipServerSelection(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), Collections.emptyList(), (ConnectedEngineFacade) server).open();
+    if (!skipBindingWizard) {
+      if (selectedProjects != null && !selectedProjects.isEmpty()) {
+        ProjectBindingWizard.createDialogSkipServerSelection(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), selectedProjects, (ConnectedEngineFacade) resultServer)
+          .open();
+      } else if (boundProjects.isEmpty()) {
+        ProjectBindingWizard.createDialogSkipServerSelection(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), Collections.emptyList(), (ConnectedEngineFacade) resultServer)
+          .open();
+      }
     }
     return true;
+  }
+
+  public IConnectedEngineFacade getResultServer() {
+    return resultServer;
   }
 
   @Override
   public void handlePageChanging(PageChangingEvent event) {
     WizardPage currentPage = (WizardPage) event.getCurrentPage();
     boolean advance = getNextPage(currentPage) == event.getTargetPage();
-    if (advance && (currentPage == credentialsPage || currentPage == tokenPage) && !testConnection(null)) {
-      event.doit = false;
-      return;
+    if (advance && !redirectedAfterNotificationCheck && (currentPage == credentialsPage || currentPage == tokenPage)) {
+      if (!testConnection(null)) {
+        event.doit = false;
+        return;
+      }
+      // We need to wait for credentials before testing if notifications are supported
+      populateNotificationsSupported();
+      // Next page depends if notifications are supported
+      IWizardPage newNextPage = getNextPage(currentPage);
+      if (newNextPage != event.getTargetPage()) {
+        // Avoid infinite recursion
+        redirectedAfterNotificationCheck = true;
+        getContainer().showPage(newNextPage);
+        redirectedAfterNotificationCheck = false;
+        event.doit = false;
+        return;
+      }
     }
     if (advance && event.getTargetPage() == orgPage) {
       event.doit = tryLoadOrganizations(currentPage);
@@ -262,15 +302,33 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     }
     if (advance && currentPage == orgPage && model.hasOrganizations() && !testConnection(model.getOrganization())) {
       event.doit = false;
+    }
+  }
+
+  private void populateNotificationsSupported() {
+    if (model.getConnectionType() == ConnectionType.SONARCLOUD) {
+      model.setNotificationsSupported(true);
       return;
     }
-    if (advance && event.getTargetPage() == endPage) {
-      boolean notificationsSupported = ConnectedEngineFacade.checkNotificationsSupported(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword());
-      endPage.setNotificationsSupported(notificationsSupported);
-      model.setNotificationsSupported(notificationsSupported);
-      if (notificationsSupported && !model.isEdit()) {
-        model.setNotificationsEnabled(true);
-      }
+    try {
+      getContainer().run(true, false, new IRunnableWithProgress() {
+
+        @Override
+        public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+          monitor.beginTask("Check if notifications are supported", IProgressMonitor.UNKNOWN);
+          try {
+            model
+              .setNotificationsSupported(
+                ConnectedEngineFacade.checkNotificationsSupported(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword()));
+          } finally {
+            monitor.done();
+          }
+        }
+      });
+    } catch (InvocationTargetException e) {
+      SonarLintLogger.get().debug("Unable to test notifications", e.getCause());
+    } catch (InterruptedException e) {
+      // Nothing to do, the task was simply canceled
     }
   }
 
@@ -282,7 +340,7 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
         @Override
         public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
           try {
-            List<RemoteOrganization> userOrgs = ConnectedEngineFacade.listUserOrganizations(model.getServerUrl(), model.getUsername(), model.getPassword(), monitor);
+            List<ServerOrganization> userOrgs = ConnectedEngineFacade.listUserOrganizations(model.getServerUrl(), model.getUsername(), model.getPassword(), monitor);
             model.setUserOrgs(userOrgs);
           } catch (UnsupportedServerException e) {
             model.setUserOrgs(null);
@@ -338,4 +396,5 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     }
     return "";
   }
+
 }

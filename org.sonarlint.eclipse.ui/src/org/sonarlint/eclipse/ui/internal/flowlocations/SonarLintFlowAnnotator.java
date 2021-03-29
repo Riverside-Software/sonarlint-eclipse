@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -172,13 +172,15 @@ public class SonarLintFlowAnnotator implements SonarLintMarkerSelectionListener,
   public static void updateFlowAnnotations(ITextEditor textEditor) {
     IEditorInput editorInput = textEditor.getEditorInput();
     IAnnotationModel annotationModel = textEditor.getDocumentProvider().getAnnotationModel(editorInput);
-    Map<Annotation, Position> newAnnotations = createAnnotations(textEditor);
-    List<Annotation> existingFlowAnnotations = existingFlowAnnotations(annotationModel);
-    if (annotationModel instanceof IAnnotationModelExtension) {
-      ((IAnnotationModelExtension) annotationModel).replaceAnnotations(existingFlowAnnotations.toArray(new Annotation[0]), newAnnotations);
-    } else {
-      removePreviousAnnotations(annotationModel);
-      newAnnotations.forEach(annotationModel::addAnnotation);
+    if (annotationModel != null) {
+      Map<Annotation, Position> newAnnotations = createAnnotations(textEditor);
+      List<Annotation> existingFlowAnnotations = existingFlowAnnotations(annotationModel);
+      if (annotationModel instanceof IAnnotationModelExtension) {
+        ((IAnnotationModelExtension) annotationModel).replaceAnnotations(existingFlowAnnotations.toArray(new Annotation[0]), newAnnotations);
+      } else {
+        removePreviousAnnotations(annotationModel);
+        newAnnotations.forEach(annotationModel::addAnnotation);
+      }
     }
   }
 

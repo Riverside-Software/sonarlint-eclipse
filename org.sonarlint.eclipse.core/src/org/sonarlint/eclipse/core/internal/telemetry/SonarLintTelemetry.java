@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,6 +22,7 @@ package org.sonarlint.eclipse.core.internal.telemetry;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import okhttp3.OkHttpClient;
 import org.eclipse.core.runtime.IProduct;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -34,12 +35,13 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.engine.connected.ResolvedBinding;
+import org.sonarlint.eclipse.core.internal.http.SonarLintHttpClientOkHttpImpl;
 import org.sonarlint.eclipse.core.internal.resources.ProjectsProviderUtils;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarsource.sonarlint.core.client.api.common.Language;
-import org.sonarsource.sonarlint.core.client.api.common.TelemetryClientConfig;
 import org.sonarsource.sonarlint.core.client.api.common.Version;
-import org.sonarsource.sonarlint.core.telemetry.TelemetryClient;
+import org.sonarsource.sonarlint.core.telemetry.TelemetryClientAttributesProvider;
+import org.sonarsource.sonarlint.core.telemetry.TelemetryHttpClient;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryManager;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryPathManager;
 
@@ -86,8 +88,9 @@ public class SonarLintTelemetry {
 
   public void init() {
     try {
-      TelemetryClientConfig clientConfig = getTelemetryClientConfig();
-      TelemetryClient client = new TelemetryClient(clientConfig, PRODUCT, SonarLintUtils.getPluginVersion(), ideVersionForTelemetry());
+      OkHttpClient.Builder clientWithProxy = SonarLintUtils.withProxy(TelemetryHttpClient.TELEMETRY_ENDPOINT, SonarLintCorePlugin.getOkHttpClient());
+      TelemetryHttpClient client = new TelemetryHttpClient(PRODUCT, SonarLintUtils.getPluginVersion(), ideVersionForTelemetry(),
+        new SonarLintHttpClientOkHttpImpl(clientWithProxy.build()));
       this.telemetry = newTelemetryManager(getStorageFilePath(), client);
       this.scheduledJob = new TelemetryJob();
       scheduledJob.schedule(TimeUnit.MINUTES.toMillis(1));
@@ -115,9 +118,29 @@ public class SonarLintTelemetry {
   }
 
   // visible for testing
-  public TelemetryManager newTelemetryManager(Path path, TelemetryClient client) {
-    return new TelemetryManager(path, client, SonarLintTelemetry::isAnyOpenProjectBound, SonarLintTelemetry::isAnyOpenProjectBoundToSonarCloud,
-      SonarLintTelemetry::getNodeJsVersion);
+  public TelemetryManager newTelemetryManager(Path path, TelemetryHttpClient client) {
+    return new TelemetryManager(path, client, new TelemetryClientAttributesProvider() {
+
+      @Override
+      public boolean usesConnectedMode() {
+        return isAnyOpenProjectBound();
+      }
+
+      @Override
+      public boolean useSonarCloud() {
+        return isAnyOpenProjectBoundToSonarCloud();
+      }
+
+      @Override
+      public Optional<String> nodeVersion() {
+        return Optional.ofNullable(getNodeJsVersion());
+      }
+
+      @Override
+      public boolean devNotificationsDisabled() {
+        return isDevNotificationsDisabled();
+      }
+    });
   }
 
   private class TelemetryJob extends Job {
@@ -127,24 +150,13 @@ public class SonarLintTelemetry {
       setSystem(true);
     }
 
+    @Override
     protected IStatus run(IProgressMonitor monitor) {
       schedule(TimeUnit.HOURS.toMillis(6));
       upload();
       return Status.OK_STATUS;
     }
 
-  }
-
-  public static TelemetryClientConfig getTelemetryClientConfig() {
-    TelemetryClientConfig.Builder clientConfigBuilder = new TelemetryClientConfig.Builder()
-      .userAgent("SonarLint");
-
-    SonarLintUtils.configureProxy(TelemetryManager.TELEMETRY_ENDPOINT, clientConfigBuilder::proxy, (user, pwd) -> {
-      clientConfigBuilder.proxyLogin(user);
-      clientConfigBuilder.proxyPassword(pwd);
-    });
-
-    return clientConfigBuilder.build();
   }
 
   // visible for testing
@@ -163,6 +175,24 @@ public class SonarLintTelemetry {
   public void analysisDoneOnSingleFile(@Nullable Language language, int time) {
     if (enabled()) {
       telemetry.analysisDoneOnSingleLanguage(language, time);
+    }
+  }
+
+  public void devNotificationsReceived(String eventType) {
+    if (enabled()) {
+      telemetry.devNotificationsReceived(eventType);
+    }
+  }
+
+  public void devNotificationsClicked(String eventType) {
+    if (enabled()) {
+      telemetry.devNotificationsClicked(eventType);
+    }
+  }
+
+  public void showHotspotRequestReceived() {
+    if (enabled()) {
+      telemetry.showHotspotRequestReceived();
     }
   }
 
@@ -194,6 +224,10 @@ public class SonarLintTelemetry {
       .map(Optional::get)
       .map(ResolvedBinding::getEngineFacade)
       .anyMatch(IConnectedEngineFacade::isSonarCloud);
+  }
+
+  private static boolean isDevNotificationsDisabled() {
+    return SonarLintCorePlugin.getServersManager().getServers().stream().anyMatch(IConnectedEngineFacade::areNotificationsDisabled);
   }
 
   @Nullable

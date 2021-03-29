@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -55,7 +55,7 @@ public class ConnectionIdWizardPage extends AbstractServerConnectionWizardPage {
     DataBindingContext dbc = new DataBindingContext();
     serverIdTextBinding = dbc.bindValue(
       WidgetProperties.text(SWT.Modify).observe(serverIdText),
-      BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_SERVER_ID)
+      BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_CONNECTION_ID)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(
         new MandatoryAndUniqueServerIdValidator(model.isEdit())),

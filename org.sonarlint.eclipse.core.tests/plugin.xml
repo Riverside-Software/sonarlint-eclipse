@@ -18,5 +18,5 @@
       <participant
             class="org.sonarlint.eclipse.core.internal.adapter.DefaultSonarLintAdapterFactoryTest$CobolSLFileAdapterParticipant">
       </participant>
-   </extension> 
+   </extension>
 </plugin>

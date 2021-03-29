@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,6 +22,7 @@ package org.sonarlint.eclipse.core.internal.adapter;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Collection;
+import java.util.Optional;
 import org.eclipse.core.internal.resources.Container;
 import org.eclipse.core.internal.resources.File;
 import org.eclipse.core.internal.resources.Workspace;
@@ -165,6 +166,11 @@ public class DefaultSonarLintAdapterFactoryTest extends SonarTestCase {
     public boolean exists(String relativeFilePath) {
       // TODO Auto-generated method stub
       return false;
+    }
+
+    @Override
+    public Optional<ISonarLintFile> find(String relativeFilePath) {
+      return Optional.empty();
     }
 
     @Override

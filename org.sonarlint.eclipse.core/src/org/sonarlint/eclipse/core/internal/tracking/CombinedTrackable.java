@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -40,9 +40,7 @@ public class CombinedTrackable extends WrappedTrackable {
     this.resolved = serverIssue.isResolved();
     this.assignee = serverIssue.getAssignee();
     this.severity = serverIssue.getSeverity();
-    // TODO when we are able to get server side issue type
-    // this.type = serverIssue.getType();
-    this.type = currentIssue.getType();
+    this.type = serverIssue.getType();
   }
 
   @Override

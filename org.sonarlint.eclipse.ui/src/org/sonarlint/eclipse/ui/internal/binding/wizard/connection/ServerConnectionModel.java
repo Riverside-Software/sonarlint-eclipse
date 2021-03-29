@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -33,8 +33,8 @@ import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFaca
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.util.wizard.ModelObject;
-import org.sonarsource.sonarlint.core.client.api.connected.RemoteOrganization;
 import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
+import org.sonarsource.sonarlint.core.serverapi.organization.ServerOrganization;
 
 public class ServerConnectionModel extends ModelObject {
 
@@ -46,7 +46,7 @@ public class ServerConnectionModel extends ModelObject {
   public static final String PROPERTY_USERNAME = "username";
   public static final String PROPERTY_PASSWORD = "password";
   public static final String PROPERTY_ORGANIZATION = "organization";
-  public static final String PROPERTY_SERVER_ID = "serverId";
+  public static final String PROPERTY_CONNECTION_ID = "connectionId";
   public static final String PROPERTY_NOTIFICATIONS_ENABLED = "notificationsEnabled";
 
   public enum ConnectionType {
@@ -60,15 +60,15 @@ public class ServerConnectionModel extends ModelObject {
   private final boolean edit;
   private ConnectionType connectionType = ConnectionType.SONARCLOUD;
   private AuthMethod authMethod = AuthMethod.TOKEN;
-  private String serverId;
+  private String connectionId;
   private String serverUrl = ConnectedEngineFacade.getSonarCloudUrl();
   private String organization;
   private String username;
   private String password;
-  private List<RemoteOrganization> userOrgs;
-  private TextSearchIndex<RemoteOrganization> userOrgsIndex;
+  private List<ServerOrganization> userOrgs;
+  private TextSearchIndex<ServerOrganization> userOrgsIndex;
   private boolean notificationsSupported;
-  private boolean notificationsEnabled;
+  private boolean notificationsDisabled;
 
   private List<ISonarLintProject> selectedProjects;
 
@@ -78,7 +78,7 @@ public class ServerConnectionModel extends ModelObject {
 
   public ServerConnectionModel(IConnectedEngineFacade server) {
     this.edit = true;
-    this.serverId = server.getId();
+    this.connectionId = server.getId();
     this.serverUrl = server.getHost();
     this.connectionType = ConnectedEngineFacade.getSonarCloudUrl().equals(serverUrl) ? ConnectionType.SONARCLOUD : ConnectionType.ONPREMISE;
     this.organization = server.getOrganization();
@@ -92,7 +92,7 @@ public class ServerConnectionModel extends ModelObject {
       }
       this.authMethod = StringUtils.isBlank(password) ? AuthMethod.TOKEN : AuthMethod.PASSWORD;
     }
-    this.notificationsEnabled = server.areNotificationsEnabled();
+    this.notificationsDisabled = server.areNotificationsDisabled();
   }
 
   public boolean isEdit() {
@@ -127,14 +127,14 @@ public class ServerConnectionModel extends ModelObject {
     setPassword(null);
   }
 
-  public String getServerId() {
-    return serverId;
+  public String getConnectionId() {
+    return connectionId;
   }
 
-  public void setServerId(String serverId) {
-    String old = this.serverId;
-    this.serverId = serverId;
-    firePropertyChange(PROPERTY_SERVER_ID, old, this.serverId);
+  public void setConnectionId(String connectionId) {
+    String old = this.connectionId;
+    this.connectionId = connectionId;
+    firePropertyChange(PROPERTY_CONNECTION_ID, old, this.connectionId);
   }
 
   public String getServerUrl() {
@@ -181,7 +181,7 @@ public class ServerConnectionModel extends ModelObject {
   }
 
   @Nullable
-  public List<RemoteOrganization> getUserOrgs() {
+  public List<ServerOrganization> getUserOrgs() {
     return userOrgs;
   }
 
@@ -189,24 +189,24 @@ public class ServerConnectionModel extends ModelObject {
     return userOrgs != null && userOrgs.size() > 1;
   }
 
-  public void setUserOrgs(@Nullable List<RemoteOrganization> userOrgs) {
+  public void setUserOrgs(@Nullable List<ServerOrganization> userOrgs) {
     this.userOrgs = userOrgs;
-    TextSearchIndex<RemoteOrganization> index = new TextSearchIndex<>();
-    for (RemoteOrganization org : userOrgs) {
+    TextSearchIndex<ServerOrganization> index = new TextSearchIndex<>();
+    for (ServerOrganization org : userOrgs) {
       index.index(org, org.getKey() + " " + org.getName());
     }
     suggestOrganization(userOrgs);
     this.userOrgsIndex = index;
   }
 
-  private void suggestOrganization(@Nullable List<RemoteOrganization> userOrgs) {
+  private void suggestOrganization(@Nullable List<ServerOrganization> userOrgs) {
     if (!isEdit() && userOrgs != null && userOrgs.size() == 1) {
       setOrganization(userOrgs.get(0).getKey());
     }
   }
 
   @Nullable
-  public TextSearchIndex<RemoteOrganization> getUserOrgsIndex() {
+  public TextSearchIndex<ServerOrganization> getUserOrgsIndex() {
     return userOrgsIndex;
   }
 
@@ -223,7 +223,7 @@ public class ServerConnectionModel extends ModelObject {
         if (StringUtils.isNotBlank(organization)) {
           suggestedId += "/" + organization;
         }
-        setServerId(suggestedId);
+        setConnectionId(suggestedId);
       } catch (MalformedURLException e1) {
         // Ignore, should not occurs
       }
@@ -234,18 +234,24 @@ public class ServerConnectionModel extends ModelObject {
     return notificationsSupported;
   }
 
+  /**
+   * Used by bean binding
+   */
   public void setNotificationsSupported(boolean value) {
     notificationsSupported = value;
   }
 
+  /**
+   * Used by bean binding
+   */
   public boolean getNotificationsEnabled() {
-    return notificationsEnabled;
+    return !notificationsDisabled;
   }
 
   public void setNotificationsEnabled(boolean value) {
-    boolean old = this.notificationsEnabled;
-    this.notificationsEnabled = value;
-    firePropertyChange(PROPERTY_NOTIFICATIONS_ENABLED, old, this.notificationsEnabled);
+    boolean old = !this.notificationsDisabled;
+    this.notificationsDisabled = !value;
+    firePropertyChange(PROPERTY_NOTIFICATIONS_ENABLED, old, !this.notificationsDisabled);
   }
 
   public void setSelectedProjects(List<ISonarLintProject> selectedProjects) {
@@ -255,5 +261,9 @@ public class ServerConnectionModel extends ModelObject {
   @Nullable
   public List<ISonarLintProject> getSelectedProjects() {
     return selectedProjects;
+  }
+
+  public boolean getNotificationsDisabled() {
+    return this.notificationsDisabled;
   }
 }

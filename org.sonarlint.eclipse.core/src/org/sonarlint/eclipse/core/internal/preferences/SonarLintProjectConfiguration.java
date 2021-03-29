@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -30,8 +30,8 @@ import org.sonarsource.sonarlint.core.client.api.connected.ProjectBinding;
 
 public class SonarLintProjectConfiguration {
 
-  private List<SonarLintProperty> extraProperties = new ArrayList<>();
-  private List<ExclusionItem> fileExclusions = new ArrayList<>();
+  private final List<SonarLintProperty> extraProperties = new ArrayList<>();
+  private final List<ExclusionItem> fileExclusions = new ArrayList<>();
   @Nullable
   private EclipseProjectBinding projectBinding;
   private boolean autoEnabled = false;

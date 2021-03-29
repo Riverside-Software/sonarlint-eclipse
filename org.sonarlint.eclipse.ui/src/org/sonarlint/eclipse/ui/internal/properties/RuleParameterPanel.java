@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -35,13 +35,14 @@ import org.eclipse.swt.widgets.Text;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.preferences.RuleConfig;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
+import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneRuleDetails;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneRuleParam;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneRuleParamType;
 
 public class RuleParameterPanel extends Composite {
 
-  private Link defaultLink;
+  private final Link defaultLink;
   private final StandaloneRuleDetails selectedRuleMetadata;
   private final RuleConfig selectedRuleConfig;
   private Composite paramInputsContainer;
@@ -71,7 +72,7 @@ public class RuleParameterPanel extends Composite {
       selectedRuleConfig.getParams().clear();
       paramInputsContainer.dispose();
       createParamInputs(sc);
-      paramInputsContainer.requestLayout();
+      PlatformUtils.requestLayout(paramInputsContainer);
       setDefaultLinkVisibility();
     });
 

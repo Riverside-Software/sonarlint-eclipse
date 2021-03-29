@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -68,7 +68,7 @@ public class CheckForUpdatesJob extends Job {
 
       if (server.hasUpdates()) {
         Display.getDefault().asyncExec(() -> {
-          ServerUpdateAvailablePopup popup = new ServerUpdateAvailablePopup(Display.getCurrent(), server);
+          ServerUpdateAvailablePopup popup = new ServerUpdateAvailablePopup(server);
           popup.open();
         });
       }

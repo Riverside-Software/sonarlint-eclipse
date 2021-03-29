@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -92,7 +92,7 @@ public class ServerIssueUpdater {
           if (issuable instanceof ISonarLintFile) {
             ISonarLintFile file = ((ISonarLintFile) issuable);
             IssueTracker issueTracker = issueTrackerRegistry.getOrCreate(project);
-            List<ServerIssue> serverIssues = fetchServerIssues(engineFacade, projectBinding, (ISonarLintFile) issuable);
+            List<ServerIssue> serverIssues = fetchServerIssues(engineFacade, projectBinding, (ISonarLintFile) issuable, monitor);
             Collection<Trackable> serverIssuesTrackable = serverIssues.stream().map(ServerIssueTrackable::new).collect(Collectors.toList());
             Collection<Trackable> tracked = issueTracker.matchAndTrackServerIssues(file, serverIssuesTrackable);
             issueTracker.updateCache(file, tracked);
@@ -114,12 +114,12 @@ public class ServerIssueUpdater {
 
   public static List<ServerIssue> fetchServerIssues(ConnectedEngineFacade engineFacade,
     ProjectBinding projectBinding,
-    ISonarLintFile file) {
+    ISonarLintFile file, IProgressMonitor monitor) {
     String filePath = file.getProjectRelativePath();
 
     try {
       SonarLintLogger.get().debug("Download server issues for " + file.getName());
-      return engineFacade.downloadServerIssues(projectBinding, filePath);
+      return engineFacade.downloadServerIssues(projectBinding, filePath, monitor);
     } catch (DownloadException e) {
       SonarLintLogger.get().info(e.getMessage());
       return engineFacade.getServerIssues(projectBinding, filePath);

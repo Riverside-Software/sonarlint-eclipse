@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -34,8 +34,9 @@ import org.sonarsource.sonarlint.core.client.api.common.analysis.IssueListener;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedAnalysisConfiguration;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine.State;
 import org.sonarsource.sonarlint.core.client.api.connected.ProjectBinding;
-import org.sonarsource.sonarlint.core.client.api.connected.RemoteProject;
 import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
+import org.sonarsource.sonarlint.core.serverapi.hotspot.ServerHotspot;
+import org.sonarsource.sonarlint.core.serverapi.project.ServerProject;
 
 public interface IConnectedEngineFacade {
 
@@ -94,11 +95,11 @@ public interface IConnectedEngineFacade {
    */
   void removeConnectedEngineListener(IConnectedEngineFacadeListener listener);
 
-  TextSearchIndex<RemoteProject> computeProjectIndex();
+  TextSearchIndex<ServerProject> computeProjectIndex();
 
-  Map<String, RemoteProject> getCachedRemoteProjects();
+  Map<String, ServerProject> getCachedRemoteProjects();
 
-  Optional<RemoteProject> getRemoteProject(String projectKey, IProgressMonitor monitor);
+  Optional<ServerProject> getRemoteProject(String projectKey, IProgressMonitor monitor);
 
   @Nullable
   AnalysisResults runAnalysis(ConnectedAnalysisConfiguration config, IssueListener issueListener, IProgressMonitor monitor);
@@ -112,9 +113,11 @@ public interface IConnectedEngineFacade {
 
   List<ISonarLintProject> getBoundProjects();
 
+  List<ISonarLintProject> getBoundProjects(String projectKey);
+
   void notifyAllListenersStateChanged();
 
-  void updateConfig(String url, @Nullable String organization, String username, String password, boolean notificationsEnabled);
+  void updateConfig(String url, @Nullable String organization, String username, String password, boolean notificationsDisabled);
 
   void checkForUpdates(IProgressMonitor progress);
 
@@ -124,8 +127,9 @@ public interface IConnectedEngineFacade {
 
   boolean isSonarCloud();
 
-  boolean areNotificationsEnabled();
+  boolean areNotificationsDisabled();
 
   List<ISonarLintFile> getServerFileExclusions(ProjectBinding binding, Collection<ISonarLintFile> files, Predicate<ISonarLintFile> testFilePredicate);
 
+  Optional<ServerHotspot> getServerHotspot(String hotspotKey, String projectKey);
 }

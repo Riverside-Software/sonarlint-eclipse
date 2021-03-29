@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -63,13 +63,14 @@ public interface TextRange {
     }
   }
 
-  public static class InvalidTextRange implements TextRange {}
+  class InvalidTextRange implements TextRange {
+  }
 
-  public static class LineTextRange implements TextRange {
+  class LineTextRange implements TextRange {
 
-    private int startLine;
+    private final int startLine;
 
-    private LineTextRange (int startLine) {
+    private LineTextRange(int startLine) {
       this.startLine = startLine;
     }
 
@@ -89,7 +90,7 @@ public interface TextRange {
     }
   }
 
-  public static class FullTextRange implements TextRange {
+  class FullTextRange implements TextRange {
     private final int startLine;
     private final int startLineOffset;
     private final int endLine;

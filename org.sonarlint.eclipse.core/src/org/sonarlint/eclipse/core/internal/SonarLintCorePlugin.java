@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,6 +20,7 @@
 package org.sonarlint.eclipse.core.internal;
 
 import java.nio.file.Path;
+import okhttp3.OkHttpClient;
 import org.eclipse.core.net.proxy.IProxyService;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -34,6 +35,7 @@ import org.sonarlint.eclipse.core.internal.engine.StandaloneEngineFacade;
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacadeManager;
 import org.sonarlint.eclipse.core.internal.event.AnalysisListenerManager;
 import org.sonarlint.eclipse.core.internal.extension.SonarLintExtensionTracker;
+import org.sonarlint.eclipse.core.internal.http.UserAgentInterceptor;
 import org.sonarlint.eclipse.core.internal.notifications.NotificationsManager;
 import org.sonarlint.eclipse.core.internal.notifications.NotificationsTracker;
 import org.sonarlint.eclipse.core.internal.notifications.NotificationsTrackerRegistry;
@@ -47,6 +49,7 @@ import org.sonarlint.eclipse.core.internal.tracking.IssueTrackerRegistry;
 import org.sonarlint.eclipse.core.internal.tracking.PersistentIssueTrackerCache;
 import org.sonarlint.eclipse.core.internal.tracking.ServerIssueUpdater;
 import org.sonarlint.eclipse.core.internal.utils.NodeJsManager;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class SonarLintCorePlugin extends Plugin {
@@ -57,6 +60,7 @@ public class SonarLintCorePlugin extends Plugin {
   public static final String MARKER_ON_THE_FLY_FLOW_ID = PLUGIN_ID + ".sonarlintOnTheFlyFlowLocation";
   public static final String MARKER_REPORT_ID = PLUGIN_ID + ".sonarlintReportProblem";
   public static final String MARKER_REPORT_FLOW_ID = PLUGIN_ID + ".sonarlintReportFlowLocation";
+  public static final String MARKER_HOTSPOT_ID = PLUGIN_ID + ".sonarlintHotspot";
 
   private static SonarLintCorePlugin plugin;
   private static SonarLintProjectConfigurationManager configManager;
@@ -75,10 +79,15 @@ public class SonarLintCorePlugin extends Plugin {
   private NotificationsTrackerRegistry notificationsTrackerRegistry;
   private NodeJsManager nodeJsManager;
 
+  private final OkHttpClient okhttpClient;
+
   public SonarLintCorePlugin() {
     plugin = this;
     proxyTracker = new ServiceTracker<>(FrameworkUtil.getBundle(this.getClass()).getBundleContext(), IProxyService.class, null);
     proxyTracker.open();
+    okhttpClient = new OkHttpClient.Builder()
+      .addNetworkInterceptor(new UserAgentInterceptor("SonarLint Eclipse " + SonarLintUtils.getPluginVersion()))
+      .build();
   }
 
   public static SonarLintCorePlugin getInstance() {
@@ -158,6 +167,9 @@ public class SonarLintCorePlugin extends Plugin {
     if (serversManager != null) {
       serversManager.stop();
     }
+    if (notificationsManager != null) {
+      notificationsManager.stop();
+    }
     SonarLintExtensionTracker.close();
 
     super.stop(context);
@@ -196,6 +208,10 @@ public class SonarLintCorePlugin extends Plugin {
 
   public static NodeJsManager getNodeJsManager() {
     return getInstance().nodeJsManager;
+  }
+
+  public static OkHttpClient getOkHttpClient() {
+    return getInstance().okhttpClient;
   }
 
   public static synchronized ConnectedEngineFacadeManager getServersManager() {

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,6 +21,7 @@ package org.sonarlint.eclipse.core.resource;
 
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Optional;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.runtime.CoreException;
@@ -82,6 +83,8 @@ public interface ISonarLintProject extends ISonarLintIssuable {
    * Verify existence of a file in the current project using relative path
    */
   boolean exists(String relativeFilePath);
+
+  Optional<ISonarLintFile> find(String relativeFilePath);
 
   /**
    * Object to be notified when SonarLintProjectDecorator (the wave overlay on projects) should be updated.

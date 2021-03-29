@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -242,6 +242,15 @@ public class ConnectedEngineFacadeManagerTest {
     assertThat(manager.getServers()).hasSize(1);
     assertThat(server.getId()).isEqualTo("foo/bar");
     assertThat(server.getHost()).isEqualTo("http://foo:9000");
+  }
+
+  @Test
+  public void should_ignore_case_for_scheme_and_host_when_finding_connection() {
+    IConnectedEngineFacade server = manager.create("ID", "http://foo", "bar", "login", "pwd", false);
+    manager.addServer(server, "login", "pwd");
+
+    List<IConnectedEngineFacade> facades = manager.findByUrl("HTTP://FOO");
+    assertThat(facades).contains(server);
   }
 
   private void addListener(List<IConnectedEngineFacade> removed, List<IConnectedEngineFacade> changed, List<IConnectedEngineFacade> added) {

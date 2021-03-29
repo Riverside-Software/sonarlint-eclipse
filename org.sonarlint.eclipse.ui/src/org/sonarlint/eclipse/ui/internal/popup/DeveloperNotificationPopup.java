@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,23 +21,30 @@ package org.sonarlint.eclipse.ui.internal.popup;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import org.eclipse.jface.wizard.WizardDialog;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.telemetry.SonarLintTelemetry;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
-import org.sonarsource.sonarlint.core.client.api.notifications.SonarQubeNotification;
+import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.EditNotificationsWizard;
+import org.sonarsource.sonarlint.core.client.api.notifications.ServerNotification;
 
 public class DeveloperNotificationPopup extends AbstractSonarLintPopup {
 
-  private final SonarQubeNotification notification;
+  private final ServerNotification notification;
   private final boolean isSonarCloud;
+  private final String sqOrSc;
+  private final IConnectedEngineFacade server;
 
-  public DeveloperNotificationPopup(Display display, SonarQubeNotification notification, boolean isSonarCloud) {
-    super(display);
+  public DeveloperNotificationPopup(IConnectedEngineFacade server, ServerNotification notification, boolean isSonarCloud) {
+    this.server = server;
     this.notification = notification;
     this.isSonarCloud = isSonarCloud;
+    sqOrSc = isSonarCloud ? "SonarCloud" : "SonarQube";
   }
 
   @Override
@@ -49,23 +56,30 @@ public class DeveloperNotificationPopup extends AbstractSonarLintPopup {
   protected void createContentArea(Composite composite) {
     super.createContentArea(composite);
 
-    addLink("Check it here", e -> {
-      DeveloperNotificationPopup.this.close();
+    addLink("Open in " + sqOrSc, e -> {
+      SonarLintTelemetry telemetry = SonarLintCorePlugin.getTelemetry();
+      telemetry.devNotificationsClicked(notification.category());
       try {
         PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(notification.link()));
       } catch (PartInitException | MalformedURLException e1) {
         // ignore
       }
+      close();
+    });
+
+    addLink("Configure", e -> {
+      WizardDialog wd = EditNotificationsWizard.createDialog(getParentShell(), server);
+      wd.open();
     });
   }
 
   @Override
   protected String getPopupShellTitle() {
-    return isSonarCloud ? "SonarCloud event" : "SonarQube event";
+    return sqOrSc + " Notification";
   }
 
   @Override
   protected Image getPopupShellImage(int maximumHeight) {
-    return SonarLintImages.BALLOON_IMG;
+    return isSonarCloud ? SonarLintImages.SONARCLOUD_SERVER_ICON_IMG : SonarLintImages.SONARQUBE_SERVER_ICON_IMG;
   }
 }

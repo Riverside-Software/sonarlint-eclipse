@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>54</version>
+    <version>55</version>
     <relativePath />
   </parent>
 
@@ -18,7 +18,7 @@
   <name>ITs for SonarLint Eclipse</name>
 
   <properties>
-    <tycho.version>2.0.0</tycho.version>
+    <tycho.version>2.2.0</tycho.version>
     <license.title>SonarLint for Eclipse ITs</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -28,17 +28,7 @@
 
   <modules>
     <module>org.sonarlint.eclipse.its</module>
-    <module>target-platform-kepler</module>
-    <module>target-platform-luna</module>
-    <module>target-platform-mars</module>
-    <module>target-platform-neon</module>
-    <module>target-platform-oxygen</module>
-    <module>target-platform-photon</module>
-    <module>target-platform-2019-06</module>
-    <module>target-platform-2019-09</module>
-    <module>target-platform-2019-12</module>
-    <module>target-platform-2020-06</module>
-    <module>target-platform-milestones</module>
+    <module>target-platforms</module>
   </modules>
 
   <!-- These dependencies will be added to the target platform -->
@@ -66,7 +56,7 @@
     <dependency>
       <groupId>org.sonarsource.orchestrator</groupId>
       <artifactId>sonar-orchestrator-osgi</artifactId>
-      <version>3.32.0.2670</version>
+      <version>3.34.0.2692</version>
     </dependency>
   </dependencies>
 
@@ -165,10 +155,28 @@
           <target>
             <artifact>
               <groupId>${project.groupId}</groupId>
-              <artifactId>target-platform-its-${target.platform}</artifactId>
+              <artifactId>target-platform-its</artifactId>
               <version>${project.version}</version>
+              <classifier>${target.platform}</classifier>
             </artifact>
           </target>
+          <environments>
+            <environment>
+              <os>win32</os>
+              <ws>win32</ws>
+              <arch>x86_64</arch>
+            </environment>
+            <environment>
+              <os>linux</os>
+              <ws>gtk</ws>
+              <arch>x86_64</arch>
+            </environment>
+            <environment>
+              <os>macosx</os>
+              <ws>cocoa</ws>
+              <arch>x86_64</arch>
+            </environment>
+          </environments>
         </configuration>
       </plugin>
     </plugins>

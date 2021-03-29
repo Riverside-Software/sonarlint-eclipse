@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import org.eclipse.jdt.annotation.Nullable;
 
 public class NotificationsTracker {
 
@@ -73,6 +74,7 @@ public class NotificationsTracker {
     }
   }
 
+  @Nullable
   private ZonedDateTime readFromFile() {
     if (!lastEventPollingPath.toFile().isFile()) {
       return null;

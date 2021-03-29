@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2020 SonarSource SA
+ * Copyright (C) 2009-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -147,27 +147,6 @@ public class ServerConnectionWizardBot {
     });
   }
 
-  public void waitForNotificationSupportCheckToBeFetched() {
-    wizardBot.waitUntilWidgetAppears(new DefaultCondition() {
-
-      @Override
-      public boolean test() throws Exception {
-        try {
-          // note: actually we expect this to throw always,
-          // because swtbot doesn't match invisible elements
-          return !wizardBot.checkBox(0).isVisible();
-        } catch (WidgetNotFoundException e) {
-          return true;
-        }
-      }
-
-      @Override
-      public String getFailureMessage() {
-        return "Expected notifications checkbox to be missing";
-      }
-    });
-  }
-
   public String getOrganization() {
     return wizardBot.textWithLabel(ORGANIZATION_LABEL).getText();
   }
@@ -227,6 +206,11 @@ public class ServerConnectionWizardBot {
         table.notifyListeners(SWT.DefaultSelection, event);
       }
     });
+  }
+
+  public boolean getNotificationEnabled() {
+    // checkBoxWithLabel("Receive notifications from SonarCloud") doesn't work :(
+    return wizardBot.checkBox().isChecked();
   }
 
 }

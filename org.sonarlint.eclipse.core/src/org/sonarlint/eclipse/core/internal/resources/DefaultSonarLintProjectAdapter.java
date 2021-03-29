@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -66,6 +67,12 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
   @Override
   public boolean exists(String relativeFilePath) {
     return project.getFile(relativeFilePath).exists();
+  }
+
+  @Override
+  public Optional<ISonarLintFile> find(String relativeFilePath) {
+    IFile file = project.getFile(relativeFilePath);
+    return file.exists() ? Optional.of(new DefaultSonarLintFileAdapter(this, file)) : Optional.empty();
   }
 
   @Override

@@ -22,3 +22,4 @@ org.sonarlint.eclipse.ui/bin/
 # build products
 org.sonarlint.eclipse.core/plugins/
 org.sonarlint.eclipse.core/lib/
+org.sonarlint.eclipse.ui/lib/

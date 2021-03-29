@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,10 +20,10 @@
 package org.sonarlint.eclipse.core.internal.notifications;
 
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
-import org.sonarsource.sonarlint.core.client.api.notifications.SonarQubeNotificationListener;
+import org.sonarsource.sonarlint.core.client.api.notifications.ServerNotificationListener;
 
 public interface ListenerFactory {
 
-  SonarQubeNotificationListener create(IConnectedEngineFacade s);
+  ServerNotificationListener create(IConnectedEngineFacade connectedEngineFacade);
 
 }

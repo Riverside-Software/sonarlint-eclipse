@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2020 SonarSource SA
+ * Copyright (C) 2015-2021 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +21,6 @@ package org.sonarlint.eclipse.ui.internal.popup;
 
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.jobs.ServerUpdateJob;
@@ -32,8 +31,7 @@ public class ServerUpdateAvailablePopup extends AbstractSonarLintPopup {
 
   private final IConnectedEngineFacade server;
 
-  public ServerUpdateAvailablePopup(Display display, IConnectedEngineFacade server) {
-    super(display);
+  public ServerUpdateAvailablePopup(IConnectedEngineFacade server) {
     this.server = server;
   }
 
@@ -52,7 +50,7 @@ public class ServerUpdateAvailablePopup extends AbstractSonarLintPopup {
       ServerUpdateJob job = new ServerUpdateJob(server);
       JobUtils.scheduleAnalysisOfOpenFilesInBoundProjects(job, server, TriggerType.BINDING_CHANGE);
       job.schedule();
-      ServerUpdateAvailablePopup.this.close();
+      close();
     });
   }
 
