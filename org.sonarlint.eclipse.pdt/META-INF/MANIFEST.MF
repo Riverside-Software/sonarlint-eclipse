@@ -10,10 +10,10 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.jface.text,
  org.eclipse.core.filebuffers,
  com.openedge.pdt.core,
- com.openedge.pdt.project,
  org.sonarlint.eclipse.core,
- org.sonarsource.sonarlint.core.sonarlint-client-api;bundle-version="2.4.0",
- org.eclipse.core.filesystem
+ org.sonarsource.sonarlint.core.sonarlint-core,
+ org.eclipse.core.filesystem,
+ com.openedge.pdt.project
 Export-Package: org.sonarlint.eclipse.pdt.internal;x-friends:="org.sonarlint.eclipse.core.tests"
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Bundle-ActivationPolicy: lazy
