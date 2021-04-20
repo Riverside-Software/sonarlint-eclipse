@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.core;singleton:=true
-Bundle-Version: 5.7.1700
+Bundle-Version: 5.8.1800
 Bundle-ClassPath: .,
  lib/okhttp.jar,
  lib/okio.jar
@@ -12,6 +12,7 @@ Bundle-Localization: OSGI-INF/l10n/bundle
 Export-Package: org.sonarlint.eclipse.core,
  org.sonarlint.eclipse.core.analysis,
  org.sonarlint.eclipse.core.configurator,
+ org.sonarlint.eclipse.core.listener,
  org.sonarlint.eclipse.core.internal;x-friends:="org.sonarlint.eclipse.core.tests,org.sonarlint.eclipse.ui",
  org.sonarlint.eclipse.core.internal.adapter;x-friends:="org.sonarlint.eclipse.ui",
  org.sonarlint.eclipse.core.internal.engine;x-friends:="org.sonarlint.eclipse.ui,org.sonarlint.eclipse.core.tests",

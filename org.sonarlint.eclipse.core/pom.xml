@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>5.7.1700</version>
+    <version>5.8.1800</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -63,13 +63,13 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>6.12.0.24852</version>
+                  <version>6.13.0.25138</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>7.2.0.14938</version>
+                  <version>7.2.1.14998</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -81,7 +81,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.python</groupId>
                   <artifactId>sonar-python-plugin</artifactId>
-                  <version>3.2.0.7856</version>
+                  <version>3.3.0.7945</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
