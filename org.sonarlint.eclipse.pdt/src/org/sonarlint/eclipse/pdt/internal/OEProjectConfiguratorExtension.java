@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.List;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.openedge.core.runtime.IAVMClient;
@@ -65,6 +67,7 @@ import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarsource.sonarlint.core.client.api.common.Language;
 
 public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider {
 
@@ -79,6 +82,11 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     } catch (ClassNotFoundException e) {
       return false;
     }
+  }
+
+  @Override
+  public Set<Language> whitelistedLanguages() {
+    return EnumSet.of(Language.OPENEDGE, Language.OPENEDGE_DB);
   }
 
   @Override
