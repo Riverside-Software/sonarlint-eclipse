@@ -56,4 +56,11 @@ public interface ISonarLintFile extends ISonarLintIssuable {
     return getResource().getLocationURI();
   }
 
+  /**
+   * @return true if the file is ignored by the underlying SCM provider (e.g. through the .gitignore file for Git), else false
+   */
+  default boolean isScmIgnored() {
+    return false;
+  }
+
 }

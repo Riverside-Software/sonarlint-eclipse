@@ -51,6 +51,7 @@ import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.io.CloseMode;
 import org.apache.hc.core5.net.URLEncodedUtils;
 import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProduct;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -94,6 +95,7 @@ public class SecurityHotspotsHandlerServer {
 
   private static final int INVALID_PORT = -1;
 
+  @Nullable
   private HttpServer server;
   private int port;
 
@@ -150,6 +152,10 @@ public class SecurityHotspotsHandlerServer {
 
     @Override
     public void handle(ClassicHttpRequest request, ClassicHttpResponse response, HttpContext context) throws HttpException, IOException {
+      boolean trustedServer = Optional.ofNullable(request.getHeader("Origin"))
+        .map(Header::getValue)
+        .map(SecurityHotspotsHandlerServer::isTrustedServer)
+        .orElse(false);
       if (PlatformUI.isWorkbenchRunning()) {
         Display.getDefault().syncExec(() -> {
           String ideName = "Eclipse";
@@ -157,7 +163,8 @@ public class SecurityHotspotsHandlerServer {
           if (product != null) {
             ideName = defaultString(product.getName(), "Eclipse");
           }
-          response.setEntity(new StringEntity(new StatusResponse(ideName, "").toJson(), ContentType.APPLICATION_JSON));
+          String maybeWorkspaceInfo = trustedServer ? ResourcesPlugin.getWorkspace().getRoot().getLocation().lastSegment() : "";
+          response.setEntity(new StringEntity(new StatusResponse(ideName, maybeWorkspaceInfo).toJson(), ContentType.APPLICATION_JSON));
           response.setCode(HttpStatus.SC_OK);
         });
       } else {
@@ -165,6 +172,14 @@ public class SecurityHotspotsHandlerServer {
         response.setCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
       }
     }
+  }
+
+  private static boolean isTrustedServer(String serverOrigin) {
+    // A server is trusted if the Origin HTTP header matches one of the already configured servers
+    // The Origin header has the following format: <scheme>://<host>(:<port>)
+    // Since servers can have an optional "context path" after this, we consider a valid match when the server's configured URL begins with the passed Origin
+    // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin
+    return SonarLintCorePlugin.getServersManager().getServers().stream().anyMatch(s -> s.getHost().startsWith(serverOrigin));
   }
 
   private static class ShowHotspotRequestHandler implements HttpRequestHandler {

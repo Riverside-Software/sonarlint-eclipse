@@ -131,6 +131,7 @@ public class DefaultSonarLintAdapterFactoryTest extends SonarTestCase {
       // TODO Auto-generated method stub
       return null;
     }
+
   }
 
   public static class CobolModuleAdapter implements ISonarLintProject {
@@ -188,7 +189,7 @@ public class DefaultSonarLintAdapterFactoryTest extends SonarTestCase {
 
   public static class CobolFile extends File {
 
-    private CobolTempProject cobolTempProject;
+    private final CobolTempProject cobolTempProject;
 
     protected CobolFile(IPath path, CobolTempProject project) {
       super(path, (Workspace) workspace);

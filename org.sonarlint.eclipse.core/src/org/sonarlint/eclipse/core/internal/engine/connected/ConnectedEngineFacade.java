@@ -19,14 +19,18 @@
  */
 package org.sonarlint.eclipse.core.internal.engine.connected;
 
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -66,6 +70,7 @@ import org.sonarsource.sonarlint.core.client.api.common.analysis.AnalysisResults
 import org.sonarsource.sonarlint.core.client.api.common.analysis.IssueListener;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedAnalysisConfiguration;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedGlobalConfiguration;
+import org.sonarsource.sonarlint.core.client.api.connected.ConnectedGlobalConfiguration.Builder;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine.State;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectionValidator;
@@ -75,7 +80,6 @@ import org.sonarsource.sonarlint.core.client.api.connected.ServerIssue;
 import org.sonarsource.sonarlint.core.client.api.connected.SonarAnalyzer;
 import org.sonarsource.sonarlint.core.client.api.connected.StateListener;
 import org.sonarsource.sonarlint.core.client.api.connected.UpdateResult;
-import org.sonarsource.sonarlint.core.client.api.connected.ValidationResult;
 import org.sonarsource.sonarlint.core.client.api.exceptions.DownloadException;
 import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
 import org.sonarsource.sonarlint.core.notifications.ServerNotificationsRegistry;
@@ -123,14 +127,21 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade, StateListe
     if (wrappedEngine == null) {
       SonarLintLogger.get().info("Starting SonarLint engine for connection '" + id + "'...");
       NodeJsManager nodeJsManager = SonarLintCorePlugin.getNodeJsManager();
-      ConnectedGlobalConfiguration globalConfig = ConnectedGlobalConfiguration.builder()
-        .setServerId(getId())
+      Builder builder = ConnectedGlobalConfiguration.builder()
+        .setConnectionId(getId())
         .setWorkDir(StoragePathManager.getServerWorkDir(getId()))
         .setStorageRoot(StoragePathManager.getServerStorageRoot())
         .setLogOutput(new SonarLintAnalyzerLogOutput())
         .addEnabledLanguages(SonarLintUtils.getEnabledLanguages().toArray(new Language[0]))
-        .setNodeJs(nodeJsManager.getNodeJsPath(), nodeJsManager.getNodeJsVersion())
-        .build();
+        .setNodeJs(nodeJsManager.getNodeJsPath(), nodeJsManager.getNodeJsVersion());
+
+      URL secretsPluginUrl = findEmbeddedSecretsPlugin();
+      if (secretsPluginUrl != null) {
+        builder.addExtraPlugin(Language.SECRETS.getPluginKey(), secretsPluginUrl);
+      }
+
+      SonarLintUtils.getPlatformPid().ifPresent(builder::setClientPid);
+      ConnectedGlobalConfiguration globalConfig = builder.build();
       try {
         this.wrappedEngine = new ConnectedSonarLintEngineImpl(globalConfig);
         this.wrappedEngine.addStateListener(this);
@@ -145,6 +156,26 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade, StateListe
       }
     }
     return wrappedEngine;
+  }
+
+  @Nullable
+  private static URL findEmbeddedPlugin(String pluginNamePattern, String logPrefix) {
+    Enumeration<URL> pluginEntriesEnum = SonarLintCorePlugin.getInstance().getBundle()
+            .findEntries("/plugins", pluginNamePattern, false);
+    if (pluginEntriesEnum == null) {
+      return null;
+    }
+    List<URL> pluginUrls = Collections.list(pluginEntriesEnum);
+    pluginUrls.forEach(pluginUrl -> SonarLintLogger.get().debug(logPrefix + pluginUrl));
+    if (pluginUrls.size() > 1) {
+      throw new IllegalStateException("Multiple plugins found");
+    }
+    return pluginUrls.size() == 1 ? pluginUrls.get(0) : null;
+  }
+
+  @Nullable
+  private static URL findEmbeddedSecretsPlugin() {
+    return findEmbeddedPlugin("sonar-secrets-plugin-*.jar", "Found Secrets detection plugin: ");
   }
 
   private <G> Optional<G> withEngine(Function<ConnectedSonarLintEngine, G> function) {
@@ -484,23 +515,24 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade, StateListe
     notifyAllListenersStateChanged();
   }
 
-  public static IStatus testConnection(String url, @Nullable String organization, @Nullable String username, @Nullable String password) {
-    try {
-      OkHttpClient.Builder withProxy = buildOkHttpClientWithProxyAndCredentials(url, username, password);
-      ServerApiHelper helper = new ServerApiHelper(createEndpointParams(url, organization), new SonarLintHttpClientOkHttpImpl(withProxy.build()));
-      ValidationResult testConnection = new ConnectionValidator(helper).validateConnection();
-      if (testConnection.success()) {
-        return new Status(IStatus.OK, SonarLintCorePlugin.PLUGIN_ID, "Successfully connected!");
-      } else {
-        return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, testConnection.message());
-      }
-    } catch (Exception e) {
-      if (e.getCause() instanceof UnknownHostException) {
-        return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, "Unknown host: " + url);
-      }
-      SonarLintLogger.get().debug(e.getMessage(), e);
-      return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, e.getMessage(), e);
-    }
+  public static CompletableFuture<Status> testConnection(String url, @Nullable String organization, @Nullable String username, @Nullable String password) {
+    OkHttpClient.Builder withProxy = buildOkHttpClientWithProxyAndCredentials(url, username, password);
+    ServerApiHelper helper = new ServerApiHelper(createEndpointParams(url, organization), new SonarLintHttpClientOkHttpImpl(withProxy.build()));
+    return new ConnectionValidator(helper).validateConnection()
+      .thenApply(testConnection -> {
+        if (testConnection.success()) {
+          return new Status(IStatus.OK, SonarLintCorePlugin.PLUGIN_ID, "Successfully connected!");
+        } else {
+          return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, testConnection.message());
+        }
+      })
+      .exceptionally(e -> {
+        if (e.getCause() instanceof UnknownHostException) {
+          return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, "Unknown host: " + url);
+        }
+        SonarLintLogger.get().debug(e.getMessage(), e);
+        return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, e.getMessage(), e);
+      });
   }
 
   public static List<ServerOrganization> listUserOrganizations(String url, String username, String password, IProgressMonitor monitor) {

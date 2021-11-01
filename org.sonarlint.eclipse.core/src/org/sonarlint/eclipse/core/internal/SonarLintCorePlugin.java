@@ -34,6 +34,7 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.engine.StandaloneEngineFacade;
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacadeManager;
 import org.sonarlint.eclipse.core.internal.event.AnalysisListenerManager;
+import org.sonarlint.eclipse.core.internal.extension.AbstractSonarLintExtensionTracker;
 import org.sonarlint.eclipse.core.internal.extension.SonarLintExtensionTracker;
 import org.sonarlint.eclipse.core.internal.http.UserAgentInterceptor;
 import org.sonarlint.eclipse.core.internal.notifications.NotificationsManager;
@@ -58,6 +59,7 @@ public class SonarLintCorePlugin extends Plugin {
   public static final String UI_PLUGIN_ID = "org.sonarlint.eclipse.ui";
   public static final String MARKER_ON_THE_FLY_ID = PLUGIN_ID + ".sonarlintOnTheFlyProblem";
   public static final String MARKER_ON_THE_FLY_FLOW_ID = PLUGIN_ID + ".sonarlintOnTheFlyFlowLocation";
+  public static final String MARKER_ON_THE_FLY_QUICK_FIX_ID = PLUGIN_ID + ".sonarlintOnTheFlyQFLocation";
   public static final String MARKER_REPORT_ID = PLUGIN_ID + ".sonarlintReportProblem";
   public static final String MARKER_REPORT_FLOW_ID = PLUGIN_ID + ".sonarlintReportFlowLocation";
   public static final String MARKER_HOTSPOT_ID = PLUGIN_ID + ".sonarlintHotspot";
@@ -173,6 +175,7 @@ public class SonarLintCorePlugin extends Plugin {
       notificationsManager.stop();
     }
     SonarLintExtensionTracker.close();
+    AbstractSonarLintExtensionTracker.closeTracker();
 
     super.stop(context);
   }

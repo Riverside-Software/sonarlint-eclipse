@@ -29,14 +29,19 @@ public class CompatibilityUtils {
     // utility class, forbidden constructor
   }
 
-  // SLE-124
-  public static boolean supportRectangleImagesInTreeViewer() {
-    return platformVersion().compareTo(Version.parseVersion("4.6")) >= 0;
+  // SLE-516
+  public static boolean supportDifferentIconsForZoomLevels() {
+    return platformVersion().compareTo(Version.parseVersion("4.7")) >= 0;
   }
 
   private static Version platformVersion() {
     Bundle platform = Platform.getBundle("org.eclipse.platform");
     return platform != null ? platform.getVersion() : Version.emptyVersion;
+  }
+
+  public static boolean supportMarkerResolutionRelevance() {
+    Bundle eclipseUiIde = Platform.getBundle("org.eclipse.ui.ide");
+    return eclipseUiIde != null && eclipseUiIde.getVersion().compareTo(Version.parseVersion("3.14")) >= 0;
   }
 
 }

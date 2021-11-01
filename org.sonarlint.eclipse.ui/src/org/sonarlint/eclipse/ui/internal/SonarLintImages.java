@@ -27,6 +27,7 @@ import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.resource.ImageRegistry;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.graphics.Point;
+import org.sonarlint.eclipse.core.internal.utils.CompatibilityUtils;
 
 public final class SonarLintImages {
 
@@ -47,6 +48,7 @@ public final class SonarLintImages {
   public static final Image RESOLUTION_SHOW_RULE = createImage("full/marker_resolution16/showrule.png"); //$NON-NLS-1$
   public static final Image RESOLUTION_SHOW_LOCATIONS = createImage("full/marker_resolution16/showlocations.png"); //$NON-NLS-1$
   public static final Image RESOLUTION_DISABLE_RULE = createImage("full/marker_resolution16/disablerule.png"); //$NON-NLS-1$
+  public static final Image RESOLUTION_QUICKFIX_CHANGE = createImage("full/marker_resolution16/quickfix_change.png"); //$NON-NLS-1$
   public static final Image BALLOON_IMG = createImage("sonarlint-16x16.png"); //$NON-NLS-1$
   public static final Image IMG_SEVERITY_BLOCKER = createImage("severity/blocker.png"); //$NON-NLS-1$
   public static final Image IMG_SEVERITY_CRITICAL = createImage("severity/critical.png"); //$NON-NLS-1$
@@ -122,12 +124,23 @@ public final class SonarLintImages {
 
     @Override
     protected void drawCompositeImage(int width, int height) {
-      // Keep using deprecated methods for backward compatibility
-      if (type != null) {
-        drawImage(type.getImageData(), 0, 0);
-        drawImage(severity.getImageData(), 16, 0);
+      if (CompatibilityUtils.supportDifferentIconsForZoomLevels()) {
+        CachedImageDataProvider severityDataProvider = createCachedImageDataProvider(severity);
+        if (type != null) {
+          CachedImageDataProvider typeDataProvider = createCachedImageDataProvider(type);
+          drawImage(typeDataProvider, 0, 0);
+          drawImage(severityDataProvider, 16, 0);
+        } else {
+          drawImage(severityDataProvider, 0, 0);
+        }
       } else {
-        drawImage(severity.getImageData(), 0, 0);
+        // Keep using deprecated methods for backward compatibility
+        if (type != null) {
+          drawImage(type.getImageData(), 0, 0);
+          drawImage(severity.getImageData(), 16, 0);
+        } else {
+          drawImage(severity.getImageData(), 0, 0);
+        }
       }
     }
 

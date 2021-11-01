@@ -6,13 +6,13 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>55</version>
+    <version>59.0.29</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>5.8.1836</version>
+  <version>6.2.2200</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -51,8 +51,6 @@
 
     <module>org.sonarlint.eclipse.site</module>
 
-    <module>target-platform-build</module>
-
     <module>org.sonarlint.eclipse.core.tests</module>
   </modules>
 
@@ -74,7 +72,7 @@
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <tycho.version>2.3.0</tycho.version>
-    <sonarlint-core.version>5.2.1-RSSW</sonarlint-core.version>
+    <sonarlint-core.version>6.5-RSSW</sonarlint-core.version>
     <protobuf.version>3.11.4</protobuf.version>
     <jacoco.version>0.8.5</jacoco.version>
     <okhttp.version>3.14.9</okhttp.version>
@@ -118,14 +116,6 @@
       <version>3.19.0</version>
     </dependency>
   </dependencies>
-
-  <!-- Waiting for tycho 2.3 to be released -->
-  <pluginRepositories>
-    <pluginRepository>
-      <id>tycho-snapshots</id>
-      <url>https://repo.eclipse.org/content/repositories/tycho-snapshots/</url>
-    </pluginRepository>
-  </pluginRepositories>
 
   <build>
     <pluginManagement>
@@ -240,11 +230,7 @@
         <configuration>
           <pomDependencies>consider</pomDependencies>
           <target>
-            <artifact>
-              <groupId>${project.groupId}</groupId>
-              <artifactId>target-platform-build</artifactId>
-              <version>${project.version}</version>
-            </artifact>
+            <file>../target-platforms/build.target</file>
           </target>
           <environments>
             <environment>

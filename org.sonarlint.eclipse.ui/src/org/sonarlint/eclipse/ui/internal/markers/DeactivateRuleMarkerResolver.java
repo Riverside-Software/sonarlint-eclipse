@@ -21,18 +21,18 @@ package org.sonarlint.eclipse.ui.internal.markers;
 
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.swt.graphics.Image;
-import org.eclipse.ui.IMarkerResolution2;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.util.DeactivateRuleUtils;
 
-public class DeactivateRuleMarkerResolver implements IMarkerResolution2 {
+public class DeactivateRuleMarkerResolver extends SortableMarkerResolver {
 
   private static final String ZERO_WIDTH_SPACE = "\u200b";
 
   private final IMarker marker;
 
-  public DeactivateRuleMarkerResolver(IMarker marker) {
+  public DeactivateRuleMarkerResolver(IMarker marker, int relevance) {
+    super(relevance);
     this.marker = marker;
   }
 

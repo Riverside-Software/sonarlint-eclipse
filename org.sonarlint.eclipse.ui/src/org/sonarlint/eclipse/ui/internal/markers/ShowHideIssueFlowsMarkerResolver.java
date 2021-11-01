@@ -21,18 +21,18 @@ package org.sonarlint.eclipse.ui.internal.markers;
 
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.swt.graphics.Image;
-import org.eclipse.ui.IMarkerResolution2;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 
-public class ShowHideIssueFlowsMarkerResolver implements IMarkerResolution2 {
+public class ShowHideIssueFlowsMarkerResolver extends SortableMarkerResolver {
 
   private final IMarker marker;
   private final boolean alreadySelected;
   private final boolean isSecondaryLocation;
 
-  public ShowHideIssueFlowsMarkerResolver(IMarker marker) {
+  public ShowHideIssueFlowsMarkerResolver(IMarker marker, int relevance) {
+    super(relevance);
     this.marker = marker;
     this.alreadySelected = marker.equals(SonarLintUiPlugin.getSonarlintMarkerSelectionService().getLastSelectedMarker().orElse(null));
     isSecondaryLocation = MarkerUtils.getIssueFlows(marker).isSecondaryLocations();

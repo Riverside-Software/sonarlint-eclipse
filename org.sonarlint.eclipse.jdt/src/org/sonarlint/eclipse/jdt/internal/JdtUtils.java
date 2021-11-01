@@ -23,6 +23,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Set;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspaceRoot;
@@ -45,7 +46,9 @@ import org.osgi.framework.Version;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IFileTypeProvider.ISonarLintFileType;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
+import org.sonarlint.eclipse.core.internal.utils.CompatibilityUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
+import org.sonarlint.eclipse.ui.quickfixes.ISonarLintMarkerResolver;
 
 public class JdtUtils {
 
@@ -67,7 +70,7 @@ public class JdtUtils {
   }
 
   /**
-   * SLE-34 Remove Java files that are not compiled.This should automatically exclude files that are excluded / unparseable. 
+   * SLE-34 Remove Java files that are not compiled.This should automatically exclude files that are excluded / unparseable.
    */
   public static boolean shouldExclude(IFile file) {
     IJavaElement javaElt = JavaCore.create(file);
@@ -347,5 +350,13 @@ public class JdtUtils {
       return ISonarLintFileType.MAIN;
     }
     return ISonarLintFileType.UNKNOWN;
+  }
+
+  public static ISonarLintMarkerResolver enhance(ISonarLintMarkerResolver resolution, IMarker marker) {
+    if (CompatibilityUtils.supportMarkerResolutionRelevance()) {
+      return new MarkerResolverRelevanceJdtAdapter(resolution, marker);
+    } else {
+      return new MarkerResolverJdtAdapter(resolution, marker);
+    }
   }
 }

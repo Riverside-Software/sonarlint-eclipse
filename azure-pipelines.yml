@@ -1,3 +1,6 @@
+trigger:
+- master
+
 pool:
   vmImage: 'ubuntu-latest'
 
@@ -37,10 +40,10 @@ stages:
       - task: Cache@2
         displayName: Cache Maven local repo
         inputs:
-          key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          key: 'build | "$(Agent.OS)" | **/pom.xml, **/target-platforms/build.target, !**/its/**'
           restoreKeys: |
-            maven | "$(Agent.OS)"
-            maven
+            build | "$(Agent.OS)"
+            build
           path: $(MAVEN_CACHE_FOLDER)
       - task: DownloadSecureFile@1
         displayName: 'Download Maven settings'
@@ -51,7 +54,12 @@ stages:
         displayName: 'Download JKS keystore'
         name: jks
         inputs:
-          secureFile: 'SonarSource-2019-2021.jks'
+          secureFile: 'SonarSource-2021-2023.jks'
+      - task: DownloadSecureFile@1
+        displayName: 'Download the sign key'
+        name: pgpSignKey
+        inputs:
+          secureFile: 'sign-key.asc'
       - template: update-maven-version-steps.yml
         parameters:
           mavenSettingsFilePath: $(mavenSettings.secureFilePath)
@@ -64,8 +72,11 @@ stages:
       - task: Maven@3
         displayName: 'Run Maven deploy with signing'
         env:
+          ARTIFACTORY_PRIVATE_READER_USERNAME: $(ARTIFACTORY_PRIVATE_READER_USERNAME)
+          ARTIFACTORY_PRIVATE_READER_PASSWORD: $(ARTIFACTORY_PRIVATE_READER_PASSWORD)
           ARTIFACTORY_DEPLOY_USERNAME: $(ARTIFACTORY_DEPLOY_USERNAME)
           ARTIFACTORY_DEPLOY_PASSWORD: $(ARTIFACTORY_DEPLOY_PASSWORD)
+          PGP_PASSPHRASE: $(PGP_PASSPHRASE)
           GIT_SHA1: $(Build.SourceVersion)
           GITHUB_BRANCH: $(fixedBranch)
         inputs:
@@ -77,10 +88,14 @@ stages:
               -Djarsigner.skip=false
               -Dsonarsource.keystore.path=$(jks.secureFilePath)
               -Dsonarsource.keystore.password=$(jksPassword)
+              -Psign
+              -Dsign.keyFile=$(pgpSignKey.secureFilePath)
+              -Psonarsource-private-repo
           ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
             options: >-
               $(commonMavenArguments)
               --settings $(mavenSettings.secureFilePath)
+              -Psonarsource-private-repo
           publishJUnitResults: false
           mavenOptions: $(MAVEN_OPTS)
       - bash: git checkout .
@@ -111,10 +126,10 @@ stages:
       - task: Cache@2
         displayName: Cache Maven local repo
         inputs:
-          key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          key: 'validate | "$(Agent.OS)" | **/pom.xml, target-platforms/build.target, !**/its/**'
           restoreKeys: |
-            maven | "$(Agent.OS)"
-            maven
+            validate | "$(Agent.OS)"
+            validate
           path: $(MAVEN_CACHE_FOLDER)
       - task: DownloadSecureFile@1
         displayName: 'Download Maven settings'
@@ -142,7 +157,10 @@ stages:
           DISPLAY: ":10"
         inputs:
           goals: 'verify'
-          options: '-B -e --settings $(mavenSettings.secureFilePath)'
+          options: >-
+            -B -e
+            --settings $(mavenSettings.secureFilePath)
+            -Psonarsource-private-repo
           publishJUnitResults: true
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           testRunTitle: 'UTs'
@@ -192,10 +210,10 @@ stages:
       - task: Cache@2
         displayName: Cache Maven local repo
         inputs:
-          key: 'maven | "$(Agent.OS)" | **/pom.xml,!**/target/**'
+          key: 'qa | $(TARGET_PLATFORM) | "$(Agent.OS)" | **/pom.xml,!**/target/**,**/its/target-platforms/*.target'
           restoreKeys: |
-            maven | "$(Agent.OS)"
-            maven
+            qa | $(TARGET_PLATFORM) | "$(Agent.OS)"
+            qa | $(TARGET_PLATFORM)
           path: $(MAVEN_CACHE_FOLDER)
       - task: DownloadSecureFile@1
         displayName: 'Download Maven settings'
@@ -208,11 +226,13 @@ stages:
       - task: Maven@3
         displayName: ' Download staged update site'
         env:
+          ARTIFACTORY_PRIVATE_READER_USERNAME: $(ARTIFACTORY_PRIVATE_READER_USERNAME)
+          ARTIFACTORY_PRIVATE_READER_PASSWORD: $(ARTIFACTORY_PRIVATE_READER_PASSWORD)
           ARTIFACTORY_QA_READER_USERNAME: $(ARTIFACTORY_QA_READER_USERNAME)
           ARTIFACTORY_QA_READER_PASSWORD: $(ARTIFACTORY_QA_READER_PASSWORD)
         inputs:
           goals: 'dependency:unpack'
-          options: '-B --settings $(mavenSettings.secureFilePath) -Denable-repo=qa -Dtycho.mode=maven -Dartifact=org.sonarsource.sonarlint.eclipse:org.sonarlint.eclipse.site:$(PROJECT_VERSION):zip -DoutputDirectory=$(Agent.BuildDirectory)/staged-repository'
+          options: '-B --settings $(mavenSettings.secureFilePath) -Denable-repo=qa -Dtycho.mode=maven -Dartifact=org.sonarsource.sonarlint.eclipse:org.sonarlint.eclipse.site:$(PROJECT_VERSION):zip -DoutputDirectory=$(Agent.BuildDirectory)/staged-repository -Psonarsource-private-repo'
           publishJUnitResults: false
           mavenOptions: $(MAVEN_OPTS)
       - bash: |
@@ -258,15 +278,12 @@ stages:
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           testRunTitle: 'ITs $(TARGET_PLATFORM)'
           mavenOptions: $(MAVEN_OPTS)
-      - publish: $(Build.Repository.LocalPath)/its/org.sonarlint.eclipse.its/target/output
-        artifact: 'ITCaptureScreenshotAndConsole_$(TARGET_PLATFORM)'
-        condition: failed()
       - bash: |
           kill -2 $(prepareIts.recordingPid)
         displayName: 'Stop video recording'
         condition: always()
       - publish: /tmp/recording_$(TARGET_PLATFORM).mp4
-        artifact: ITCaptureScreen_$(TARGET_PLATFORM)
+        artifact: ITCaptureScreen_$(TARGET_PLATFORM)_$(System.JobAttempt)
         condition: always()
       - task: PublishBuildArtifacts@1
         displayName: Store coverage report as build artifact
@@ -356,6 +373,7 @@ stages:
             -B -e
             --settings $(mavenSettings.secureFilePath)
             -Pcoverage
+            -Psonarsource-private-repo
             -Djacoco.append=true -Dsonar.coverage.jacoco.xmlReportPaths=$(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/site/jacoco-aggregate/jacoco.xml
           publishJUnitResults: false
           mavenOptions: $(MAVEN_OPTS)

@@ -22,6 +22,7 @@ package org.sonarlint.eclipse.jdt.internal;
 import java.util.Collections;
 import java.util.Set;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
@@ -30,9 +31,11 @@ import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintFileAdapterParticipant;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarlint.eclipse.ui.quickfixes.IMarkerResolutionEnhancer;
+import org.sonarlint.eclipse.ui.quickfixes.ISonarLintMarkerResolver;
 import org.sonarsource.sonarlint.core.client.api.common.Language;
 
-public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, ISonarLintFileAdapterParticipant, IFileTypeProvider {
+public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, ISonarLintFileAdapterParticipant, IFileTypeProvider, IMarkerResolutionEnhancer {
 
   private final JdtUtils javaProjectConfigurator;
   private final boolean jdtPresent;
@@ -84,6 +87,14 @@ public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, 
       return JdtUtils.qualify(file);
     }
     return ISonarLintFileType.UNKNOWN;
+  }
+
+  @Override
+  public ISonarLintMarkerResolver enhance(ISonarLintMarkerResolver resolution, IMarker marker) {
+    if (jdtPresent) {
+      return JdtUtils.enhance(resolution, marker);
+    }
+    return resolution;
   }
 
 }
