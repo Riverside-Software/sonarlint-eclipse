@@ -294,6 +294,10 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
   private void updateMarkers(Map<ISonarLintFile, IDocument> docPerFile, Map<ISonarLintIssuable, List<Issue>> issuesPerResource, AnalysisResults result,
     TriggerType triggerType, final IProgressMonitor monitor) throws CoreException {
     Set<ISonarLintFile> failedFiles = result.failedAnalysisFiles().stream().map(ClientInputFile::<ISonarLintFile>getClientObject).collect(Collectors.toSet());
+    for (ISonarLintFile lintFile : failedFiles) {
+      SonarLintLogger.get().error("Parser error -- " + lintFile.getProjectRelativePath() + " -- Check analysis log for details");
+    }
+
     Map<ISonarLintIssuable, List<Issue>> successfulFiles = issuesPerResource.entrySet().stream()
       .filter(e -> !failedFiles.contains(e.getKey()))
       // TODO handle non-file-level issues
