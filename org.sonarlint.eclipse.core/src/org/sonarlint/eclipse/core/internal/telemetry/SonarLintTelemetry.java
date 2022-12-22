@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,15 +26,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import okhttp3.OkHttpClient;
-import org.eclipse.core.runtime.IProduct;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.annotation.Nullable;
-import org.osgi.framework.Bundle;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
@@ -43,10 +40,11 @@ import org.sonarlint.eclipse.core.internal.http.SonarLintHttpClientOkHttpImpl;
 import org.sonarlint.eclipse.core.internal.preferences.RuleConfig;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.resources.ProjectsProviderUtils;
+import org.sonarlint.eclipse.core.internal.utils.BundleUtils;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
-import org.sonarsource.sonarlint.core.client.api.common.Language;
-import org.sonarsource.sonarlint.core.client.api.common.Version;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneRuleDetails;
+import org.sonarsource.sonarlint.core.commons.Language;
+import org.sonarsource.sonarlint.core.telemetry.InternalDebug;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryClientAttributesProvider;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryHttpClient;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryManager;
@@ -60,6 +58,7 @@ public class SonarLintTelemetry {
 
   private TelemetryManager telemetry;
 
+  @Nullable
   private TelemetryJob scheduledJob;
 
   static Path getStorageFilePath() {
@@ -95,32 +94,32 @@ public class SonarLintTelemetry {
 
   public void init() {
     try {
-      OkHttpClient.Builder clientWithProxy = SonarLintUtils.withProxy(TelemetryHttpClient.TELEMETRY_ENDPOINT, SonarLintCorePlugin.getOkHttpClient());
-      TelemetryHttpClient client = new TelemetryHttpClient(PRODUCT, SonarLintUtils.getPluginVersion(), ideVersionForTelemetry(),
+      var clientWithProxy = SonarLintUtils.withProxy(TelemetryHttpClient.TELEMETRY_ENDPOINT, SonarLintCorePlugin.getOkHttpClient());
+      var client = new TelemetryHttpClient(PRODUCT, SonarLintUtils.getPluginVersion(), ideVersionForTelemetry(), System.getProperty("osgi.os"), System.getProperty("osgi.arch"),
         new SonarLintHttpClientOkHttpImpl(clientWithProxy.build()));
       this.telemetry = newTelemetryManager(getStorageFilePath(), client);
       this.scheduledJob = new TelemetryJob();
       scheduledJob.schedule(TimeUnit.MINUTES.toMillis(1));
     } catch (Exception e) {
-      if (org.sonarsource.sonarlint.core.client.api.util.SonarLintUtils.isInternalDebugEnabled()) {
+      if (InternalDebug.isEnabled()) {
         SonarLintLogger.get().error("Failed during periodic telemetry job", e);
       }
     }
   }
 
   private static String ideVersionForTelemetry() {
-    StringBuilder sb = new StringBuilder();
-    IProduct iProduct = Platform.getProduct();
+    var sb = new StringBuilder();
+    var iProduct = Platform.getProduct();
     if (iProduct != null) {
       sb.append(iProduct.getName());
     } else {
       sb.append("Unknown");
     }
-    Bundle platformBundle = Platform.getBundle("org.eclipse.platform");
-    if (platformBundle != null) {
-      sb.append(" ");
-      sb.append(platformBundle.getVersion());
-    }
+    BundleUtils.getInstalledBundle("org.eclipse.platform")
+      .ifPresent(platformBundle -> {
+        sb.append(" ");
+        sb.append(platformBundle.getVersion());
+      });
     return sb.toString();
   }
 
@@ -148,12 +147,12 @@ public class SonarLintTelemetry {
 
     @Override
     public boolean devNotificationsDisabled() {
-      return isDevNotificationsDisabled();
+      return SonarLintCorePlugin.getServersManager().getServers().stream().anyMatch(IConnectedEngineFacade::areNotificationsDisabled);
     }
 
     @Override
     public Set<String> getNonDefaultEnabledRules() {
-      Set<String> ruleKeys = SonarLintGlobalConfiguration.readRulesConfig().stream()
+      var ruleKeys = SonarLintGlobalConfiguration.readRulesConfig().stream()
         .filter(RuleConfig::isActive)
         .map(RuleConfig::getKey)
         .collect(Collectors.toSet());
@@ -285,19 +284,14 @@ public class SonarLintTelemetry {
     return ProjectsProviderUtils.allProjects().stream()
       .filter(p -> p.isOpen() && SonarLintCorePlugin.loadConfig(p).isBound())
       .map(SonarLintCorePlugin.getServersManager()::resolveBinding)
-      .filter(Optional::isPresent)
-      .map(Optional::get)
+      .flatMap(Optional::stream)
       .map(ResolvedBinding::getEngineFacade)
       .anyMatch(IConnectedEngineFacade::isSonarCloud);
   }
 
-  private static boolean isDevNotificationsDisabled() {
-    return SonarLintCorePlugin.getServersManager().getServers().stream().anyMatch(IConnectedEngineFacade::areNotificationsDisabled);
-  }
-
   @Nullable
   public static String getNodeJsVersion() {
-    Version v = SonarLintCorePlugin.getNodeJsManager().getNodeJsVersion();
+    var v = SonarLintCorePlugin.getNodeJsManager().getNodeJsVersion();
     return v != null ? v.toString() : null;
   }
 

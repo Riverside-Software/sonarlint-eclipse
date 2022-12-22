@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -34,7 +34,14 @@ public class DialogMessageIsExpected extends AbstractWaitCondition {
 
   @Override
   public boolean test() {
-    return dialog.getMessage().equals(expectedMessage);
+    String message;
+    try {
+      message = dialog.getMessage();
+    } catch (StringIndexOutOfBoundsException e) {
+      // Workaround for https://github.com/eclipse/reddeer/issues/2165
+      message = "";
+    }
+    return message.equals(expectedMessage);
   }
 
 }

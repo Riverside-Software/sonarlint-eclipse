@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>6.2.2208</version>
+    <version>7.6.2300</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -44,6 +43,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-clean-plugin</artifactId>
+        <version>3.2.0</version>
         <configuration>
           <filesets>
             <fileset>
@@ -76,31 +76,37 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>7.3.0.27589</version>
+                  <version>7.15.0.30507</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>8.4.0.16431</version>
+                  <version>9.12.1.20358</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>3.20.0.8080</version>
+                  <version>3.25.0.9077</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.python</groupId>
                   <artifactId>sonar-python-plugin</artifactId>
-                  <version>3.6.0.8488</version>
+                  <version>3.21.0.10628</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.html</groupId>
                   <artifactId>sonar-html-plugin</artifactId>
-                  <version>3.4.0.2754</version>
+                  <version>3.7.1.3306</version>
+                  <type>jar</type>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>org.sonarsource.xml</groupId>
+                  <artifactId>sonar-xml-plugin</artifactId>
+                  <version>2.6.1.3686</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -151,7 +157,7 @@
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.5.0</version>
+        <version>0.6.1</version>
         <configuration>
           <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
           <protoSourceRoot>${project.basedir}/proto</protoSourceRoot>
@@ -194,7 +200,7 @@
                     <artifactItem>
                       <groupId>com.sonarsource.secrets</groupId>
                       <artifactId>sonar-secrets-plugin</artifactId>
-                      <version>1.1.0.36766</version>
+                      <version>1.2.0.53269</version>
                       <type>jar</type>
                     </artifactItem>
                   </artifactItems>

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -37,15 +37,15 @@ public class NotificationsTrackerRegistryTest extends SonarTestCase {
 
   @Test
   public void should_create_one_tracker_per_project() throws IOException {
-    NotificationsTrackerRegistry registry = new NotificationsTrackerRegistry();
-    String name = "dummy project name";
-    NotificationsTracker tracker = registry.getOrCreate(createProjectWithName(name));
+    var registry = new NotificationsTrackerRegistry();
+    var name = "dummy project name";
+    var tracker = registry.getOrCreate(createProjectWithName(name));
     assertThat(registry.getOrCreate(createProjectWithName(name))).isEqualTo(tracker);
     assertThat(registry.getOrCreate(createProjectWithName(name + "-foo"))).isNotEqualTo(tracker);
   }
 
   private ISonarLintProject createProjectWithName(String name) throws IOException {
-    ISonarLintProject project = mock(ISonarLintProject.class);
+    var project = mock(ISonarLintProject.class);
     when(project.getName()).thenReturn(name);
     when(project.getWorkingDir()).thenReturn(temp.newFolder().toPath());
     return project;

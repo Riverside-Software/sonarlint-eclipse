@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,13 +26,13 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.SonarLintNotifications;
 import org.sonarlint.eclipse.core.SonarLintNotifications.Notification;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
-import org.sonarsource.sonarlint.core.client.api.common.Language;
 import org.sonarsource.sonarlint.core.client.api.common.PluginDetails;
-import org.sonarsource.sonarlint.core.client.api.common.SkipReason;
+import org.sonarsource.sonarlint.core.commons.Language;
+import org.sonarsource.sonarlint.core.plugin.commons.SkipReason;
 
 import static java.util.stream.Collectors.toList;
 import static org.sonarlint.eclipse.core.internal.utils.SonarLintUtils.getEnabledLanguages;
-import static org.sonarsource.sonarlint.core.client.api.common.Language.getLanguagesByPluginKey;
+import static org.sonarsource.sonarlint.core.commons.Language.getLanguagesByPluginKey;
 
 public class SkippedPluginsNotifier {
 
@@ -40,14 +40,14 @@ public class SkippedPluginsNotifier {
   }
 
   public static void notifyForSkippedPlugins(Collection<PluginDetails> allPlugins, @Nullable String connectionId) {
-    List<PluginDetails> skippedPlugins = allPlugins.stream().filter(p -> p.skipReason().isPresent() && !(p.skipReason().get() instanceof SkipReason.UnsatisfiedRuntimeRequirement))
+    var skippedPlugins = allPlugins.stream().filter(p -> p.skipReason().isPresent() && !(p.skipReason().get() instanceof SkipReason.UnsatisfiedRuntimeRequirement))
       .collect(toList());
     if (!skippedPlugins.isEmpty()) {
-      List<Language> skippedLanguages = skippedPlugins.stream()
+      var skippedLanguages = skippedPlugins.stream()
         .flatMap(p -> getLanguagesByPluginKey(p.key()).stream())
         .filter(l -> getEnabledLanguages().contains(l))
         .collect(toList());
-      String longMessage = buildLongMessage(connectionId, skippedPlugins, skippedLanguages);
+      var longMessage = buildLongMessage(connectionId, skippedPlugins, skippedLanguages);
       String notificationTitle;
       String notificationMsg;
       if (skippedLanguages.isEmpty()) {
@@ -66,7 +66,7 @@ public class SkippedPluginsNotifier {
   }
 
   private static String buildLongMessage(@Nullable String connectionId, List<PluginDetails> skippedPlugins, List<Language> skippedLanguages) {
-    StringBuilder longMessage = new StringBuilder();
+    var longMessage = new StringBuilder();
     longMessage.append("Some analyzers");
     if (connectionId != null) {
       longMessage.append(" from connection '").append(connectionId).append("'");
@@ -79,8 +79,8 @@ public class SkippedPluginsNotifier {
           .map(StringUtils::capitalize)
           .collect(Collectors.joining(", "))));
     }
-    for (PluginDetails skippedPlugin : skippedPlugins) {
-      SkipReason skipReason = skippedPlugin.skipReason().orElseThrow(IllegalStateException::new);
+    for (var skippedPlugin : skippedPlugins) {
+      var skipReason = skippedPlugin.skipReason().orElseThrow(IllegalStateException::new);
       if (skipReason instanceof SkipReason.IncompatiblePluginApi) {
         // Should never occurs in standalone mode
         longMessage.append(String.format(
@@ -88,11 +88,11 @@ public class SkippedPluginsNotifier {
           skippedPlugin.name()));
       } else if (skipReason instanceof SkipReason.UnsatisfiedDependency) {
         // Should never occurs in standalone mode
-        SkipReason.UnsatisfiedDependency skipReasonCasted = (SkipReason.UnsatisfiedDependency) skipReason;
+        var skipReasonCasted = (SkipReason.UnsatisfiedDependency) skipReason;
         longMessage.append(String.format(" - '%s' is missing dependency '%s'%n", skippedPlugin.name(), skipReasonCasted.getDependencyKey()));
       } else if (skipReason instanceof SkipReason.IncompatiblePluginVersion) {
         // Should never occurs in standalone mode
-        SkipReason.IncompatiblePluginVersion skipReasonCasted = (SkipReason.IncompatiblePluginVersion) skipReason;
+        var skipReasonCasted = (SkipReason.IncompatiblePluginVersion) skipReason;
         longMessage.append(String.format(" - '%s' is too old for SonarLint. Current version is %s. Minimal supported version is %s. Please update your binding.%n",
           skippedPlugin.name(),
           skippedPlugin.version(), skipReasonCasted.getMinVersion()));

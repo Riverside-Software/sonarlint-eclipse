@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -27,13 +27,12 @@ import java.util.stream.Collectors;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.engine.StandaloneEngineFacade;
 import org.sonarlint.eclipse.core.internal.preferences.RuleConfig;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
-import org.sonarsource.sonarlint.core.client.api.common.RuleKey;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.AnalysisResults;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.ClientInputFile;
+import org.sonarsource.sonarlint.core.analysis.api.AnalysisResults;
+import org.sonarsource.sonarlint.core.analysis.api.ClientInputFile;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneAnalysisConfiguration;
+import org.sonarsource.sonarlint.core.commons.RuleKey;
 
 import static java.util.stream.Collectors.toList;
 
@@ -46,7 +45,7 @@ public class AnalyzeStandaloneProjectJob extends AbstractAnalyzeProjectJob<Stand
   @Override
   protected StandaloneAnalysisConfiguration prepareAnalysisConfig(Path projectBaseDir, List<ClientInputFile> inputFiles, Map<String, String> mergedExtraProps) {
     SonarLintLogger.get().debug("Standalone mode (project not bound)");
-    Collection<RuleConfig> rulesConfig = SonarLintGlobalConfiguration.readRulesConfig();
+    var rulesConfig = SonarLintGlobalConfiguration.readRulesConfig();
     return StandaloneAnalysisConfiguration.builder()
       .setBaseDir(projectBaseDir)
       .addInputFiles(inputFiles)
@@ -59,7 +58,7 @@ public class AnalyzeStandaloneProjectJob extends AbstractAnalyzeProjectJob<Stand
 
   @Override
   protected AnalysisResults runAnalysis(StandaloneAnalysisConfiguration analysisConfig, SonarLintIssueListener issueListener, IProgressMonitor monitor) {
-    StandaloneEngineFacade standaloneEngine = SonarLintCorePlugin.getInstance().getDefaultSonarLintClientFacade();
+    var standaloneEngine = SonarLintCorePlugin.getInstance().getDefaultSonarLintClientFacade();
     return standaloneEngine.runAnalysis(analysisConfig, issueListener, monitor);
   }
 

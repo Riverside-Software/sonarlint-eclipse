@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -42,12 +42,12 @@ public class FailedToOpenHotspotPopup extends AbstractSonarLintPopup {
   protected void createContentArea(Composite composite) {
     super.createContentArea(composite);
 
-    addLink("Open console", e -> {
+    addLink("Open console", e ->
       Display.getDefault().asyncExec(() -> {
         close();
         SonarLintUiPlugin.getDefault().getSonarConsole().bringConsoleToFront();
-      });
-    });
+      })
+    );
   }
 
   @Override

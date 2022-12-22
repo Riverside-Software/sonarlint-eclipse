@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,7 +19,6 @@
  */
 package org.sonarlint.eclipse.its;
 
-import org.eclipse.reddeer.eclipse.core.resources.Project;
 import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
 import org.eclipse.reddeer.workbench.impl.editor.DefaultEditor;
 import org.eclipse.reddeer.workbench.impl.editor.Marker;
@@ -29,25 +28,22 @@ import org.sonarlint.eclipse.its.reddeer.views.RuleDescriptionView;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
-import static org.junit.Assume.assumeTrue;
 
 public class RuleDescriptionViewTest extends AbstractSonarLintTest {
 
   @Test
   public void openRuleDescription() {
-    assumeTrue(isPhotonOrGreater());
-
     new JavaPerspective().open();
-    RuleDescriptionView ruleDescriptionView = new RuleDescriptionView();
+    var ruleDescriptionView = new RuleDescriptionView();
     ruleDescriptionView.open();
-    OnTheFlyView onTheFlyView = new OnTheFlyView();
+    var onTheFlyView = new OnTheFlyView();
     onTheFlyView.open();
 
-    Project project = importExistingProjectIntoWorkspace("java/java-simple", "java-simple");
+    var project = importExistingProjectIntoWorkspace("java/java-simple", "java-simple");
 
     openFileAndWaitForAnalysisCompletion(project.getResource("src", "hello", "Hello.java"));
 
-    DefaultEditor defaultEditor = new DefaultEditor();
+    var defaultEditor = new DefaultEditor();
     assertThat(defaultEditor.getMarkers())
       .extracting(Marker::getText, Marker::getLineNumber)
       .containsExactly(tuple("Replace this use of System.out or System.err by a logger.", 9));

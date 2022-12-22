@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,15 +20,13 @@
 package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import org.sonarlint.eclipse.core.internal.proto.Sonarlint;
-import org.sonarsource.sonarlint.core.client.api.util.FileUtils;
+import org.sonarsource.sonarlint.core.serverconnection.FileUtils;
 
 class StringStoreIndex implements StoreIndex<String> {
   public static final String INDEX_FILENAME = "index.pb";
@@ -49,7 +47,7 @@ class StringStoreIndex implements StoreIndex<String> {
     if (!indexFilePath.toFile().exists()) {
       return Collections.emptyMap();
     }
-    try (InputStream stream = Files.newInputStream(indexFilePath)) {
+    try (var stream = Files.newInputStream(indexFilePath)) {
       return Sonarlint.StorageIndex.parseFrom(stream).getMappedPathByKeyMap();
     } catch (IOException e) {
       throw new IllegalStateException("Failed to read local issue store index", e);
@@ -58,8 +56,8 @@ class StringStoreIndex implements StoreIndex<String> {
 
   @Override
   public void save(String storageKey, Path path) {
-    String relativeMappedPath = storeBasePath.relativize(path).toString();
-    Sonarlint.StorageIndex.Builder builder = Sonarlint.StorageIndex.newBuilder();
+    var relativeMappedPath = storeBasePath.relativize(path).toString();
+    var builder = Sonarlint.StorageIndex.newBuilder();
     builder.putAllMappedPathByKey(load());
     builder.putMappedPathByKey(storageKey, relativeMappedPath);
     save(builder.build());
@@ -67,7 +65,7 @@ class StringStoreIndex implements StoreIndex<String> {
 
   @Override
   public void delete(String storageKey) {
-    Sonarlint.StorageIndex.Builder builder = Sonarlint.StorageIndex.newBuilder();
+    var builder = Sonarlint.StorageIndex.newBuilder();
     builder.putAllMappedPathByKey(load());
     builder.removeMappedPathByKey(storageKey);
     save(builder.build());
@@ -76,7 +74,7 @@ class StringStoreIndex implements StoreIndex<String> {
   private void save(Sonarlint.StorageIndex index) {
     // In case folder was deleted while Eclipse was live
     FileUtils.mkdirs(indexFilePath.getParent());
-    try (OutputStream stream = Files.newOutputStream(indexFilePath)) {
+    try (var stream = Files.newOutputStream(indexFilePath)) {
       index.writeTo(stream);
     } catch (IOException e) {
       throw new IllegalStateException("Failed to write local issue store index", e);

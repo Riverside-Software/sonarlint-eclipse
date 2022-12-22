@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -58,9 +58,9 @@ public class SonarLintLogger {
   }
 
   public void error(String msg, Throwable t) {
-    for (LogListener listener : logListeners) {
+    for (var listener : logListeners) {
       listener.error(msg, false);
-      StringWriter stack = new StringWriter();
+      var stack = new StringWriter();
       t.printStackTrace(new PrintWriter(stack));
       listener.error(stack.toString(), false);
     }
@@ -91,9 +91,9 @@ public class SonarLintLogger {
   }
 
   public void debug(String msg, Throwable t) {
-    for (LogListener listener : logListeners) {
+    for (var listener : logListeners) {
       listener.debug(msg, false);
-      StringWriter stack = new StringWriter();
+      var stack = new StringWriter();
       t.printStackTrace(new PrintWriter(stack));
       listener.debug(stack.toString(), false);
     }

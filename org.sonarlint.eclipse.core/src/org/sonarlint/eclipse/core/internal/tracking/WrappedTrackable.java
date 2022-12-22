@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,9 +20,12 @@
 package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.util.List;
-import org.sonarlint.eclipse.core.internal.markers.TextRange;
-import org.sonarsource.sonarlint.core.client.api.common.QuickFix;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue.Flow;
+import org.eclipse.jgit.annotations.Nullable;
+import org.sonarsource.sonarlint.core.analysis.api.Flow;
+import org.sonarsource.sonarlint.core.analysis.api.QuickFix;
+import org.sonarsource.sonarlint.core.commons.IssueSeverity;
+import org.sonarsource.sonarlint.core.commons.RuleType;
+import org.sonarsource.sonarlint.core.commons.TextRange;
 
 public class WrappedTrackable implements Trackable {
 
@@ -32,6 +35,7 @@ public class WrappedTrackable implements Trackable {
     this.trackable = trackable;
   }
 
+  @Nullable
   @Override
   public Long getMarkerId() {
     return trackable.getMarkerId();
@@ -42,21 +46,25 @@ public class WrappedTrackable implements Trackable {
     trackable.setMarkerId(id);
   }
 
+  @Nullable
   @Override
   public Integer getLine() {
     return trackable.getLine();
   }
 
+  @Nullable
   @Override
   public String getMessage() {
     return trackable.getMessage();
   }
 
+  @Nullable
   @Override
   public Integer getTextRangeHash() {
     return trackable.getTextRangeHash();
   }
 
+  @Nullable
   @Override
   public Integer getLineHash() {
     return trackable.getLineHash();
@@ -67,41 +75,40 @@ public class WrappedTrackable implements Trackable {
     return trackable.getRuleKey();
   }
 
+  @Nullable
   @Override
-  public String getRuleName() {
-    return trackable.getRuleName();
-  }
-
-  @Override
-  public String getSeverity() {
+  public IssueSeverity getSeverity() {
     return trackable.getSeverity();
   }
 
   @Override
-  public String getRawSeverity() {
+  public IssueSeverity getRawSeverity() {
     return trackable.getRawSeverity();
   }
 
   @Override
-  public String getType() {
+  public RuleType getType() {
     return trackable.getType();
   }
 
   @Override
-  public String getRawType() {
+  public RuleType getRawType() {
     return trackable.getRawType();
   }
 
+  @Nullable
   @Override
   public TextRange getTextRange() {
     return trackable.getTextRange();
   }
 
+  @Nullable
   @Override
   public String getServerIssueKey() {
     return trackable.getServerIssueKey();
   }
 
+  @Nullable
   @Override
   public Long getCreationDate() {
     return trackable.getCreationDate();
@@ -110,11 +117,6 @@ public class WrappedTrackable implements Trackable {
   @Override
   public boolean isResolved() {
     return trackable.isResolved();
-  }
-
-  @Override
-  public String getAssignee() {
-    return trackable.getAssignee();
   }
 
   @Override

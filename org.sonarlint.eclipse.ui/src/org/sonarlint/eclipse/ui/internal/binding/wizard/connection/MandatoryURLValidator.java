@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -37,7 +37,7 @@ public class MandatoryURLValidator implements IValidator {
       return ValidationStatus.error("You must provide a server URL");
     }
     try {
-      URL url = new URL((String) value);
+      var url = new URL((String) value);
       if (StringUtils.isBlank(url.getHost())) {
         return ValidationStatus.error("Please provide a valid URL");
       }

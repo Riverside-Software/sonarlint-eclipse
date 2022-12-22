@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,15 +19,12 @@
  */
 package org.sonarlint.eclipse.its;
 
-import java.util.List;
 import org.eclipse.core.runtime.preferences.ConfigurationScope;
 import org.eclipse.reddeer.common.wait.TimePeriod;
 import org.eclipse.reddeer.common.wait.WaitUntil;
-import org.eclipse.reddeer.eclipse.core.resources.Project;
-import org.eclipse.reddeer.eclipse.core.resources.Resource;
 import org.eclipse.reddeer.eclipse.jdt.ui.javaeditor.JavaEditor;
 import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
-import org.eclipse.reddeer.swt.impl.button.PushButton;
+import org.eclipse.reddeer.swt.impl.button.OkButton;
 import org.eclipse.reddeer.swt.impl.menu.ContextMenu;
 import org.eclipse.reddeer.swt.impl.menu.ContextMenuItem;
 import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
@@ -46,15 +43,15 @@ public class FileExclusionsTest extends AbstractSonarLintTest {
   @Test
   public void should_exclude_file() throws Exception {
     new JavaPerspective().open();
-    Project rootProject = importExistingProjectIntoWorkspace("java/java-simple", "java-simple");
+    var rootProject = importExistingProjectIntoWorkspace("java/java-simple", "java-simple");
 
-    OnTheFlyView issuesView = new OnTheFlyView();
+    var issuesView = new OnTheFlyView();
     issuesView.open();
 
-    Resource helloFile = rootProject.getResource("src", "hello", "Hello.java");
+    var helloFile = rootProject.getResource("src", "hello", "Hello.java");
     openFileAndWaitForAnalysisCompletion(helloFile);
 
-    List<SonarLintIssue> sonarlintIssues = issuesView.getIssues();
+    var sonarlintIssues = issuesView.getIssues();
 
     assertThat(sonarlintIssues).extracting(SonarLintIssue::getResource, SonarLintIssue::getDescription)
       .containsOnly(tuple("Hello.java", "Replace this use of System.out or System.err by a logger."));
@@ -78,7 +75,7 @@ public class FileExclusionsTest extends AbstractSonarLintTest {
 
     assertThat(issuesView.getIssues()).isEmpty();
 
-    JavaEditor javaEditor = new JavaEditor("Hello.java");
+    var javaEditor = new JavaEditor("Hello.java");
     javaEditor.insertText(8, 29, "2");
     doAndWaitForSonarLintAnalysisJob(() -> javaEditor.save());
 
@@ -89,17 +86,17 @@ public class FileExclusionsTest extends AbstractSonarLintTest {
     ConfigurationScope.INSTANCE.getNode(UI_PLUGIN_ID).remove(PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES);
     rootProject.select();
     new ContextMenu(rootProject.getTreeItem()).getItem("SonarLint", "Analyze").select();
-    doAndWaitForSonarLintAnalysisJob(() -> new PushButton(new DefaultShell("Confirmation"), "OK").click());
+    doAndWaitForSonarLintAnalysisJob(() -> new OkButton(new DefaultShell("Confirmation")).click());
 
     assertThat(issuesView.getIssues()).isEmpty();
   }
 
   @Test
   public void should_add_new_entry() {
-    WorkbenchPreferenceDialog preferenceDialog = new WorkbenchPreferenceDialog();
+    var preferenceDialog = new WorkbenchPreferenceDialog();
     preferenceDialog.open();
 
-    FileExclusionsPreferences fileExclusionsPreferences = new FileExclusionsPreferences(preferenceDialog);
+    var fileExclusionsPreferences = new FileExclusionsPreferences(preferenceDialog);
     preferenceDialog.select(fileExclusionsPreferences);
 
     fileExclusionsPreferences.add("foo");

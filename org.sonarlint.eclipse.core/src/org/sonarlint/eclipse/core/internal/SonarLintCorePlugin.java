@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,8 +19,9 @@
  */
 package org.sonarlint.eclipse.core.internal;
 
-import java.nio.file.Path;
+import java.util.List;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import org.eclipse.core.net.proxy.IProxyService;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -31,6 +32,7 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.util.tracker.ServiceTracker;
 import org.sonarlint.eclipse.core.SonarLintLogger;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.engine.StandaloneEngineFacade;
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacadeManager;
 import org.sonarlint.eclipse.core.internal.event.AnalysisListenerManager;
@@ -51,6 +53,7 @@ import org.sonarlint.eclipse.core.internal.tracking.PersistentIssueTrackerCache;
 import org.sonarlint.eclipse.core.internal.tracking.ServerIssueUpdater;
 import org.sonarlint.eclipse.core.internal.utils.NodeJsManager;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
+import org.sonarlint.eclipse.core.internal.vcs.VcsService;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class SonarLintCorePlugin extends Plugin {
@@ -90,6 +93,7 @@ public class SonarLintCorePlugin extends Plugin {
     proxyTracker = new ServiceTracker<>(FrameworkUtil.getBundle(this.getClass()).getBundleContext(), IProxyService.class, null);
     proxyTracker.open();
     okhttpClient = new OkHttpClient.Builder()
+      .protocols(List.of(Protocol.HTTP_1_1))
       .addNetworkInterceptor(new UserAgentInterceptor("SonarLint Eclipse " + SonarLintUtils.getPluginVersion()))
       .build();
   }
@@ -117,8 +121,8 @@ public class SonarLintCorePlugin extends Plugin {
     super.start(context);
 
     IssueTrackerCacheFactory factory = project -> {
-      Path storeBasePath = StoragePathManager.getIssuesDir(project);
-      IssueStore issueStore = new IssueStore(storeBasePath, project);
+      var storeBasePath = StoragePathManager.getIssuesDir(project);
+      var issueStore = new IssueStore(storeBasePath, project);
       return new PersistentIssueTrackerCache(issueStore);
     };
     issueTrackerRegistry = new IssueTrackerRegistry(factory);
@@ -128,6 +132,8 @@ public class SonarLintCorePlugin extends Plugin {
     notificationsTrackerRegistry = new NotificationsTrackerRegistry();
 
     nodeJsManager = new NodeJsManager();
+
+    VcsService.installBranchChangeListener();
 
     startupAsync();
   }
@@ -165,6 +171,7 @@ public class SonarLintCorePlugin extends Plugin {
     if (sonarlint != null) {
       sonarlint.stop();
     }
+    SonarLintBackendService.get().stop();
     proxyTracker.close();
 
     issueTrackerRegistry.shutdown();
@@ -238,4 +245,5 @@ public class SonarLintCorePlugin extends Plugin {
   public static void saveConfig(ISonarLintProject project, SonarLintProjectConfiguration config) {
     getInstance().getProjectConfigManager().save(project.getScopeContext(), config);
   }
+
 }

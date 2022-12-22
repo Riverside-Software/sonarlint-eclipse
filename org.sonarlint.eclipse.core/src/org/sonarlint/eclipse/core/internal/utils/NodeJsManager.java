@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -28,13 +28,15 @@ import org.sonarlint.eclipse.core.internal.engine.AnalysisRequirementNotificatio
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarsource.sonarlint.core.NodeJsHelper;
-import org.sonarsource.sonarlint.core.client.api.common.Version;
+import org.sonarsource.sonarlint.core.commons.Version;
 
 public class NodeJsManager {
 
   private boolean nodeInit = false;
-  private Path nodeJsPath = null;
-  private Version nodeJsVersion = null;
+  @Nullable
+  private Path nodeJsPath;
+  @Nullable
+  private Version nodeJsVersion;
 
   /**
    * Reload path from global preferences.
@@ -58,7 +60,7 @@ public class NodeJsManager {
 
   private synchronized void initNodeIfNeeded() {
     if (!nodeInit) {
-      NodeJsHelper helper = new NodeJsHelper();
+      var helper = new NodeJsHelper();
       helper.detect(getNodeJsPathFromConfig());
       this.nodeInit = true;
       this.nodeJsPath = helper.getNodeJsPath();
@@ -80,7 +82,7 @@ public class NodeJsManager {
 
   @Nullable
   private static Path getNodeJsPathFromConfig() {
-    final String nodejsPathStr = SonarLintGlobalConfiguration.getNodejsPath();
+    final var nodejsPathStr = SonarLintGlobalConfiguration.getNodejsPath();
     if (StringUtils.isNotBlank(nodejsPathStr)) {
       try {
         return Paths.get(nodejsPathStr);

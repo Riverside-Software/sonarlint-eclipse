@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,6 +19,9 @@
  */
 package org.sonarlint.eclipse.ui.internal;
 
+import java.time.Duration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -26,13 +29,13 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.util.IPropertyChangeListener;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.console.ConsolePlugin;
 import org.eclipse.ui.console.IConsole;
-import org.eclipse.ui.console.IConsoleManager;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 import org.sonarlint.eclipse.core.SonarLintLogger;
@@ -42,6 +45,7 @@ import org.sonarlint.eclipse.core.internal.LogListener;
 import org.sonarlint.eclipse.core.internal.NotificationListener;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintMarkerUpdater;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
@@ -50,20 +54,17 @@ import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfigurat
 import org.sonarlint.eclipse.core.internal.telemetry.SonarLintTelemetry;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarlint.eclipse.ui.internal.backend.SonarLintEclipseClient;
 import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
 import org.sonarlint.eclipse.ui.internal.console.SonarLintConsole;
 import org.sonarlint.eclipse.ui.internal.extension.SonarLintUiExtensionTracker;
 import org.sonarlint.eclipse.ui.internal.flowlocations.SonarLintFlowLocationsService;
 import org.sonarlint.eclipse.ui.internal.hotspots.SecurityHotspotsHandlerServer;
-import org.sonarlint.eclipse.ui.internal.job.CheckForUpdatesJob;
+import org.sonarlint.eclipse.ui.internal.job.PeriodicStoragesSynchronizerJob;
 import org.sonarlint.eclipse.ui.internal.popup.DeveloperNotificationPopup;
 import org.sonarlint.eclipse.ui.internal.popup.GenericNotificationPopup;
 import org.sonarlint.eclipse.ui.internal.popup.MissingNodePopup;
-import org.sonarlint.eclipse.ui.internal.popup.ServerStorageNeedUpdatePopup;
 import org.sonarlint.eclipse.ui.internal.popup.TaintVulnerabilityAvailablePopup;
-import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine.State;
-import org.sonarsource.sonarlint.core.client.api.notifications.ServerNotification;
-import org.sonarsource.sonarlint.core.client.api.notifications.ServerNotificationListener;
 
 public class SonarLintUiPlugin extends AbstractUIPlugin {
 
@@ -74,9 +75,10 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
 
   private IPropertyChangeListener prefListener;
 
-  private LogListener logListener;
+  private SonarLintConsoleLogger logListener;
   private PopupNotification notifListener;
 
+  @Nullable
   private SonarLintConsole console;
 
   private ListenerFactory listenerFactory;
@@ -93,27 +95,35 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   }
 
   private class SonarLintConsoleLogger implements LogListener {
+
+    /**
+     * We need to process logs asynchronously to not slow down the source of logs, and not lock the UI. Still we need to preserve log
+     * ordering. So we don't use asyncExec, but instead use a single thread executor service + syncExec
+     * See https://bugs.eclipse.org/bugs/show_bug.cgi?id=421303
+     */
+    private final ExecutorService logConsumer = Executors.newSingleThreadExecutor(SonarLintUtils.threadFactory("sonarlint-log-consummer", true));
+
     @Override
     public void info(String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
-        getSonarConsole().info(msg, fromAnalyzer);
+        doAsyncInUiThread(() -> getSonarConsole().info(msg, fromAnalyzer));
       }
     }
 
     @Override
     public void error(String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
-        if (isNodeCommandException(msg)) {
-          getSonarConsole().info(msg, false);
-          Display.getDefault().asyncExec(() -> {
-            MissingNodePopup popup = new MissingNodePopup();
+        doAsyncInUiThread(() -> {
+          if (isNodeCommandException(msg)) {
+            getSonarConsole().info(msg, false);
+            var popup = new MissingNodePopup();
             popup.setFadingEnabled(false);
             popup.setDelayClose(0L);
             popup.open();
-          });
-        } else {
-          getSonarConsole().error(msg, fromAnalyzer);
-        }
+          } else {
+            getSonarConsole().error(msg, fromAnalyzer);
+          }
+        });
       }
     }
 
@@ -124,8 +134,16 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     @Override
     public void debug(String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
-        getSonarConsole().debug(msg, fromAnalyzer);
+        doAsyncInUiThread(() -> getSonarConsole().debug(msg, fromAnalyzer));
       }
+    }
+
+    void doAsyncInUiThread(Runnable task) {
+      logConsumer.submit(() -> Display.getDefault().syncExec(task));
+    }
+
+    public void shutdown() {
+      logConsumer.shutdown();
     }
 
   }
@@ -135,7 +153,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     @Override
     public void showNotification(Notification notif) {
       Display.getDefault().asyncExec(() -> {
-        GenericNotificationPopup popup = new GenericNotificationPopup(notif.getTitle(), notif.getShortMsg(), notif.getLongMsg());
+        var popup = new GenericNotificationPopup(notif.getTitle(), notif.getShortMsg(), notif.getLongMsg());
         popup.open();
       });
     }
@@ -145,12 +163,12 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   public void start(final BundleContext context) throws Exception {
     super.start(context);
 
+    logListener = new SonarLintConsoleLogger();
+    SonarLintLogger.get().addLogListener(logListener);
+
     addPostBuildListener();
     ResourcesPlugin.getWorkspace().addResourceChangeListener(SONARLINT_PROJECT_EVENT_LISTENER);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_FLOW_LOCATION_SERVICE);
-
-    logListener = new SonarLintConsoleLogger();
-    SonarLintLogger.get().addLogListener(logListener);
 
     notifListener = new PopupNotification();
     SonarLintNotifications.get().addNotificationListener(notifListener);
@@ -168,8 +186,6 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     getPreferenceStore().addPropertyChangeListener(prefListener);
 
     SonarLintMarkerUpdater.setTaintVulnerabilitiesListener(SonarLintUiPlugin::notifyTaintVulnerabilitiesDisplayed);
-
-    new CheckForUpdatesJob().schedule((long) 10 * 1000);
 
     startupAsync();
   }
@@ -192,6 +208,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     ResourcesPlugin.getWorkspace().removeResourceChangeListener(SONARLINT_PROJECT_EVENT_LISTENER);
     SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_FLOW_LOCATION_SERVICE);
     SonarLintLogger.get().removeLogListener(logListener);
+    logListener.shutdown();
     SonarLintNotifications.get().removeNotificationListener(notifListener);
     if (PlatformUI.isWorkbenchRunning()) {
       for (IWorkbenchWindow window : PlatformUI.getWorkbench().getWorkbenchWindows()) {
@@ -232,7 +249,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
 
   public synchronized void closeSonarConsole() {
     if (console != null) {
-      IConsoleManager manager = ConsolePlugin.getDefault().getConsoleManager();
+      var manager = ConsolePlugin.getDefault().getConsoleManager();
       manager.removeConsoles(new IConsole[] {console});
       this.console = null;
     }
@@ -241,17 +258,12 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   public synchronized ListenerFactory listenerFactory() {
     if (listenerFactory == null) {
       // don't replace the anon class with lambda, because then the factory's "create" will always return the same listener instance
-      listenerFactory = (IConnectedEngineFacade s) -> new ServerNotificationListener() {
-        @Override
-        public void handle(ServerNotification notification) {
-          Display.getDefault().asyncExec(() -> {
-            DeveloperNotificationPopup popup = new DeveloperNotificationPopup(s, notification, s.isSonarCloud());
-            popup.open();
-            SonarLintTelemetry telemetry = SonarLintCorePlugin.getTelemetry();
-            telemetry.devNotificationsReceived(notification.category());
-          });
-        }
-      };
+      listenerFactory = (IConnectedEngineFacade s) -> (notification -> Display.getDefault().asyncExec(() -> {
+        var popup = new DeveloperNotificationPopup(s, notification, s.isSonarCloud());
+        popup.open();
+        SonarLintTelemetry telemetry = SonarLintCorePlugin.getTelemetry();
+        telemetry.devNotificationsReceived(notification.category());
+      }));
     }
     return listenerFactory;
   }
@@ -266,7 +278,10 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     public IStatus run(IProgressMonitor monitor) {
       SonarLintLogger.get().info("Starting SonarLint for Eclipse " + SonarLintUtils.getPluginVersion());
 
-      checkServersStatus();
+      SonarLintBackendService.get().init(new SonarLintEclipseClient());
+
+      // Schedule auto-sync
+      new PeriodicStoragesSynchronizerJob().schedule(Duration.ofSeconds(1).toMillis());
 
       JobUtils.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STARTUP);
 
@@ -274,7 +289,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
         // Handle future opened/closed windows
         PlatformUI.getWorkbench().addWindowListener(WINDOW_OPEN_CLOSE_LISTENER);
         // Now we can attach listeners to existing windows
-        for (IWorkbenchWindow window : PlatformUI.getWorkbench().getWorkbenchWindows()) {
+        for (var window : PlatformUI.getWorkbench().getWorkbenchWindows()) {
           WindowOpenCloseListener.addListenerToAllPages(window);
         }
       }
@@ -286,16 +301,6 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
       return Status.OK_STATUS;
     }
 
-    private void checkServersStatus() {
-      for (final IConnectedEngineFacade server : SonarLintCorePlugin.getServersManager().getServers()) {
-        if (server.getStorageState() != State.UPDATED) {
-          Display.getDefault().asyncExec(() -> {
-            ServerStorageNeedUpdatePopup popup = new ServerStorageNeedUpdatePopup(server);
-            popup.open();
-          });
-        }
-      }
-    }
   }
 
   public void startupAsync() {

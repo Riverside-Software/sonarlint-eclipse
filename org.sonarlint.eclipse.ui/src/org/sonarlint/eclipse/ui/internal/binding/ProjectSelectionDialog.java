@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,6 @@
 package org.sonarlint.eclipse.ui.internal.binding;
 
 import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.LabelProvider;
@@ -35,14 +34,15 @@ import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 public class ProjectSelectionDialog {
 
   public static Optional<ISonarLintProject> pickProject(String filePath, String projectKey, String connectionId) {
-    List<ISonarLintProject> projects = ProjectsProviderUtils.allProjects()
+    var projects = ProjectsProviderUtils.allProjects()
       .stream()
       .sorted(Comparator.comparing(ISonarLintProject::getName))
       .collect(Collectors.toList());
-    ElementListSelectionDialog dialog = new ElementListSelectionDialog(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), new SonarLintProjectLabelProvider());
+    var dialog = new ElementListSelectionDialog(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(),
+      new SonarLintProjectLabelProvider());
     dialog.setElements(projects.toArray());
-    dialog.setMessage(
-      "Select the project containing the file " + filePath + ".\nThis Eclipse project will be bound to the project '" + projectKey + "' using connection '" + connectionId + "'");
+    dialog.setMessage("Select the project containing the file " + filePath +
+        ".\nThis Eclipse project will be bound to the project '" + projectKey + "' using connection '" + connectionId + "'");
     dialog.setTitle("SonarLint - Project binding");
     dialog.setHelpAvailable(false);
     if (dialog.open() == Window.OK) {
@@ -54,7 +54,7 @@ public class ProjectSelectionDialog {
   private static final class SonarLintProjectLabelProvider extends LabelProvider {
     @Override
     public String getText(Object element) {
-      ISonarLintProject current = (ISonarLintProject) element;
+      var current = (ISonarLintProject) element;
       return current.getName();
     }
 

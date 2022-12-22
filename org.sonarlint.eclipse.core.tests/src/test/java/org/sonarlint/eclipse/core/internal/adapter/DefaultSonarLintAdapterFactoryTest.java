@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -30,6 +30,7 @@ import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
@@ -55,11 +56,11 @@ public class DefaultSonarLintAdapterFactoryTest extends SonarTestCase {
 
   @Test
   public void mimic_cobol_ide() throws IOException {
-    CobolTempProject tempProject = new CobolTempProject(tempProjectBasedir);
-    IPath filePath = tempProjectBasedir.append("MyProg.cbl");
-    CobolFile cobolFile = new CobolFile(filePath, tempProject);
+    var tempProject = new CobolTempProject(tempProjectBasedir);
+    var filePath = tempProjectBasedir.append("MyProg.cbl");
+    var cobolFile = new CobolFile(filePath, tempProject);
 
-    ISonarLintFile sonarLintFile = Adapters.adapt(cobolFile, ISonarLintFile.class);
+    var sonarLintFile = Adapters.adapt(cobolFile, ISonarLintFile.class);
 
     assertThat(sonarLintFile).isNotNull();
     assertThat(sonarLintFile.getProject().getName()).isEqualTo("module");
@@ -81,7 +82,7 @@ public class DefaultSonarLintAdapterFactoryTest extends SonarTestCase {
     public ISonarLintFile adapt(IFile file) {
       if (file instanceof CobolFile) {
         // lookup the logical module this file belongs to
-        CobolModule module = new CobolModule(new Path("module"));
+        var module = new CobolModule(new Path("module"));
         return new CobolFileAdapter((CobolFile) file, module);
       }
       return null;

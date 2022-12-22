@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -23,14 +23,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
-import okhttp3.ResponseBody;
-import org.sonarsource.sonarlint.core.serverapi.HttpClient;
+import okio.Buffer;
+import org.sonarsource.sonarlint.core.commons.http.HttpClient;
+import org.sonarsource.sonarlint.core.commons.http.HttpConnectionListener;
 
 public class SonarLintHttpClientOkHttpImpl implements HttpClient {
   private final OkHttpClient okClient;
@@ -41,8 +43,8 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
 
   @Override
   public Response post(String url, String contentType, String bodyContent) {
-    RequestBody body = RequestBody.create(MediaType.get(contentType), bodyContent);
-    Request request = new Request.Builder()
+    var body = RequestBody.create(MediaType.get(contentType), bodyContent);
+    var request = new Request.Builder()
       .url(url)
       .post(body)
       .build();
@@ -51,7 +53,7 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
 
   @Override
   public Response get(String url) {
-    Request request = new Request.Builder()
+    var request = new Request.Builder()
       .url(url)
       .build();
     return executeRequest(request);
@@ -59,7 +61,7 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
 
   @Override
   public CompletableFuture<Response> getAsync(String url) {
-    Request request = new Request.Builder()
+    var request = new Request.Builder()
       .url(url)
       .build();
     return executeRequestAsync(request);
@@ -67,8 +69,8 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
 
   @Override
   public Response delete(String url, String contentType, String bodyContent) {
-    RequestBody body = RequestBody.create(MediaType.get(contentType), bodyContent);
-    Request request = new Request.Builder()
+    var body = RequestBody.create(MediaType.get(contentType), bodyContent);
+    var request = new Request.Builder()
       .url(url)
       .delete(body)
       .build();
@@ -84,8 +86,8 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
   }
 
   private CompletableFuture<Response> executeRequestAsync(Request request) {
-    Call call = okClient.newCall(request);
-    CompletableFuture<Response> futureResponse = new CompletableFuture<Response>()
+    var call = okClient.newCall(request);
+    var futureResponse = new CompletableFuture<Response>()
       .whenComplete((response, error) -> {
         if (error instanceof CancellationException) {
           call.cancel();
@@ -125,7 +127,7 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
 
       @Override
       public String bodyAsString() {
-        try (ResponseBody body = wrapped.body()) {
+        try (var body = wrapped.body()) {
           return body.string();
         } catch (IOException e) {
           throw new IllegalStateException("Unable to read response body: " + e.getMessage(), e);
@@ -142,5 +144,55 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
         return wrapped.toString();
       }
     };
+  }
+
+  @Override
+  public AsyncRequest getEventStream(String url, HttpConnectionListener connectionListener, Consumer<String> messageConsumer) {
+    var request = new Request.Builder()
+      .url(url)
+      .header("Accept", "text/event-stream")
+      .build();
+    var call = okClient.newCall(request);
+    var asyncRequest = new OkHttpAsyncRequest(call);
+    call.enqueue(new Callback() {
+      @Override
+      public void onFailure(Call call, IOException e) {
+        connectionListener.onError(null);
+      }
+
+      @Override
+      public void onResponse(Call call, okhttp3.Response response) {
+        if (response.isSuccessful()) {
+          connectionListener.onConnected();
+          var source = response.body().source();
+          try (var buffer = new Buffer()) {
+            while (!source.exhausted()) {
+              long count = source.read(buffer, 8192);
+              messageConsumer.accept(buffer.readUtf8(count));
+            }
+          } catch (IOException e) {
+            if (!asyncRequest.call.isCanceled()) {
+              connectionListener.onClosed();
+            }
+          }
+        } else {
+          connectionListener.onError(response.code());
+        }
+      }
+    });
+    return asyncRequest;
+  }
+
+  private static class OkHttpAsyncRequest implements HttpClient.AsyncRequest {
+    private final Call call;
+
+    private OkHttpAsyncRequest(Call call) {
+      this.call = call;
+    }
+
+    @Override
+    public void cancel() {
+      call.cancel();
+    }
   }
 }

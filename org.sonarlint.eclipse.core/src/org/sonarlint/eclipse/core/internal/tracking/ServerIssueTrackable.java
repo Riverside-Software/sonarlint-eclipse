@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,10 +21,14 @@ package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.util.List;
 import org.eclipse.jdt.annotation.Nullable;
-import org.sonarlint.eclipse.core.internal.markers.TextRange;
-import org.sonarsource.sonarlint.core.client.api.common.QuickFix;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue.Flow;
-import org.sonarsource.sonarlint.core.client.api.connected.ServerIssue;
+import org.sonarsource.sonarlint.core.analysis.api.Flow;
+import org.sonarsource.sonarlint.core.analysis.api.QuickFix;
+import org.sonarsource.sonarlint.core.commons.IssueSeverity;
+import org.sonarsource.sonarlint.core.commons.RuleType;
+import org.sonarsource.sonarlint.core.commons.TextRange;
+import org.sonarsource.sonarlint.core.serverconnection.issues.LineLevelServerIssue;
+import org.sonarsource.sonarlint.core.serverconnection.issues.RangeLevelServerIssue;
+import org.sonarsource.sonarlint.core.serverconnection.issues.ServerIssue;
 
 public class ServerIssueTrackable implements Trackable {
 
@@ -47,7 +51,13 @@ public class ServerIssueTrackable implements Trackable {
   @Nullable
   @Override
   public Integer getLine() {
-    return serverIssue.getStartLine();
+    if (serverIssue instanceof LineLevelServerIssue) {
+      return ((LineLevelServerIssue) serverIssue).getLine();
+    }
+    if (serverIssue instanceof RangeLevelServerIssue) {
+      return ((RangeLevelServerIssue) serverIssue).getTextRange().getStartLine();
+    }
+    return null;
   }
 
   @Nullable
@@ -59,68 +69,69 @@ public class ServerIssueTrackable implements Trackable {
   @Nullable
   @Override
   public Integer getTextRangeHash() {
-    // note: not available from server API
+    if (serverIssue instanceof RangeLevelServerIssue) {
+      return ((RangeLevelServerIssue) serverIssue).getTextRange().getHash().hashCode();
+    }
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public Integer getLineHash() {
+    if (serverIssue instanceof LineLevelServerIssue) {
+      return ((LineLevelServerIssue) serverIssue).getLineHash().hashCode();
+    }
     return null;
   }
 
   @Override
-  public Integer getLineHash() {
-    return serverIssue.lineHash().hashCode();
-  }
-
-  @Override
   public String getRuleKey() {
-    return serverIssue.ruleKey();
-  }
-
-  @Override
-  public String getRuleName() {
-    return "";
+    return serverIssue.getRuleKey();
   }
 
   @Override
   public Long getCreationDate() {
-    return serverIssue.creationDate().toEpochMilli();
+    return serverIssue.getCreationDate().toEpochMilli();
   }
 
   @Override
   public String getServerIssueKey() {
-    return serverIssue.key();
+    return serverIssue.getKey();
   }
 
   @Override
   public boolean isResolved() {
-    return !serverIssue.resolution().isEmpty();
+    return serverIssue.isResolved();
+  }
+
+  @Nullable
+  @Override
+  public IssueSeverity getSeverity() {
+    return serverIssue.getUserSeverity();
   }
 
   @Override
-  public String getAssignee() {
-    return serverIssue.assigneeLogin();
-  }
-
-  @Override
-  public String getSeverity() {
-    return serverIssue.severity();
-  }
-
-  @Override
-  public String getRawSeverity() {
+  public IssueSeverity getRawSeverity() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public String getType() {
-    return serverIssue.type();
+  public RuleType getType() {
+    return serverIssue.getType();
   }
 
   @Override
-  public String getRawType() {
+  public RuleType getRawType() {
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
   @Override
   public TextRange getTextRange() {
-    return TextRange.get(serverIssue.getStartLine(), serverIssue.getStartLineOffset(), serverIssue.getEndLine(), serverIssue.getEndLineOffset());
+    if (serverIssue instanceof RangeLevelServerIssue) {
+      return ((RangeLevelServerIssue) serverIssue).getTextRange();
+    }
+    return null;
   }
 
   @Override

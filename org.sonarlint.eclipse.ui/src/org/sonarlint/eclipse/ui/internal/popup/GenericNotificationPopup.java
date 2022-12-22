@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,12 +19,9 @@
  */
 package org.sonarlint.eclipse.ui.internal.popup;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.layout.GridDataFactory;
-import org.eclipse.jface.preference.PreferenceDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -33,12 +30,11 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.dialogs.PreferencesUtil;
-import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.preferences.SonarLintPreferencePage;
+import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
 
 public class GenericNotificationPopup extends AbstractSonarLintPopup {
 
@@ -64,7 +60,7 @@ public class GenericNotificationPopup extends AbstractSonarLintPopup {
     addLink("Dismiss", e -> close());
 
     addLink("More details...", e -> {
-      DialogWithLink dialog = new DialogWithLink(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), "SonarLint - " + title, longMsg);
+      var dialog = new DialogWithLink(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(), "SonarLint - " + title, longMsg);
       dialog.open();
       close();
     });
@@ -95,24 +91,19 @@ public class GenericNotificationPopup extends AbstractSonarLintPopup {
 
     @Override
     protected Control createDialogArea(Composite parent) {
-      Composite composite = (Composite) super.createDialogArea(parent);
-      Link messageLink = new Link(composite, SWT.WRAP);
+      var composite = (Composite) super.createDialogArea(parent);
+      var messageLink = new Link(composite, SWT.WRAP);
       messageLink.setText(message);
       messageLink.addSelectionListener(new SelectionAdapter() {
         @Override
         public void widgetSelected(SelectionEvent e) {
           if ("#edit-settings".equals(e.text)) {
-            PreferenceDialog pref = PreferencesUtil.createPreferenceDialogOn(DialogWithLink.this.getShell(), SonarLintPreferencePage.ID, null, null);
+            var pref = PreferencesUtil.createPreferenceDialogOn(DialogWithLink.this.getShell(), SonarLintPreferencePage.ID, null, null);
             if (pref != null) {
               pref.open();
             }
           } else {
-            try {
-              // Open default external browser
-              PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(e.text));
-            } catch (PartInitException | MalformedURLException ex) {
-              SonarLintLogger.get().error("Unable to open link", ex);
-            }
+            BrowserUtils.openExternalBrowser(e.text);
           }
         }
       });

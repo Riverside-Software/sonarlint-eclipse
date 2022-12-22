@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,8 +20,6 @@
 package org.sonarlint.eclipse.ui.internal.binding.actions;
 
 import org.eclipse.jface.action.Action;
-import org.eclipse.jface.wizard.WizardDialog;
-import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.PlatformUI;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
@@ -44,8 +42,8 @@ public class NewConnectionWizardAction extends Action {
 
   @Override
   public void run() {
-    IWorkbench workbench = PlatformUI.getWorkbench();
-    WizardDialog dialog = ServerConnectionWizard.createDialog(workbench.getActiveWorkbenchWindow().getShell());
+    var workbench = PlatformUI.getWorkbench();
+    var dialog = ServerConnectionWizard.createDialog(workbench.getActiveWorkbenchWindow().getShell());
     dialog.open();
   }
 

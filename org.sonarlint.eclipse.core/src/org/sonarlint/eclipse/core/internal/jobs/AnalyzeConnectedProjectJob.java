@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -35,13 +35,14 @@ import org.sonarlint.eclipse.core.internal.tracking.IssueTracker;
 import org.sonarlint.eclipse.core.internal.tracking.ServerIssueTrackable;
 import org.sonarlint.eclipse.core.internal.tracking.ServerIssueUpdater;
 import org.sonarlint.eclipse.core.internal.tracking.Trackable;
+import org.sonarlint.eclipse.core.internal.vcs.VcsService;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.AnalysisResults;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.ClientInputFile;
+import org.sonarsource.sonarlint.core.analysis.api.AnalysisResults;
+import org.sonarsource.sonarlint.core.analysis.api.ClientInputFile;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedAnalysisConfiguration;
-import org.sonarsource.sonarlint.core.client.api.connected.ServerIssue;
+import org.sonarsource.sonarlint.core.serverconnection.issues.ServerIssue;
 
 public class AnalyzeConnectedProjectJob extends AbstractAnalyzeProjectJob<ConnectedAnalysisConfiguration> {
 
@@ -75,7 +76,7 @@ public class AnalyzeConnectedProjectJob extends AbstractAnalyzeProjectJob<Connec
     IProgressMonitor monitor) {
     if (triggerType.shouldUpdateProjectIssuesSync(rawIssuesPerResource.size())) {
       SonarLintLogger.get().debug("Download engineFacade issues for project " + getProject().getName());
-      engineFacade.downloadServerIssues(binding.projectKey(), monitor);
+      engineFacade.downloadServerIssues(binding.projectKey(), VcsService.getServerBranch(getProject()), monitor);
     }
     super.trackIssues(docPerFile, rawIssuesPerResource, triggerType, monitor);
     if (triggerType.shouldUpdateFileIssuesAsync()) {
@@ -86,7 +87,7 @@ public class AnalyzeConnectedProjectJob extends AbstractAnalyzeProjectJob<Connec
   @Override
   protected Collection<Trackable> trackFileIssues(ISonarLintFile file, List<Trackable> trackables, IssueTracker issueTracker, TriggerType triggerType, int totalTrackedFiles,
     IProgressMonitor monitor) {
-    Collection<Trackable> tracked = super.trackFileIssues(file, trackables, issueTracker, triggerType, totalTrackedFiles, monitor);
+    var tracked = super.trackFileIssues(file, trackables, issueTracker, triggerType, totalTrackedFiles, monitor);
     if (!tracked.isEmpty()) {
       tracked = trackServerIssuesSync(engineFacade, file, tracked, triggerType.shouldUpdateFileIssuesSync(totalTrackedFiles), monitor);
     }
@@ -105,10 +106,11 @@ public class AnalyzeConnectedProjectJob extends AbstractAnalyzeProjectJob<Connec
   private Collection<Trackable> trackServerIssuesSync(ConnectedEngineFacade engineFacade, ISonarLintFile file, Collection<Trackable> tracked, boolean updateServerIssues,
     IProgressMonitor monitor) {
     List<ServerIssue> serverIssues;
+    String serverBranch = VcsService.getServerBranch(getProject());
     if (updateServerIssues) {
-      serverIssues = ServerIssueUpdater.fetchServerIssues(engineFacade, binding, file, monitor);
+      serverIssues = ServerIssueUpdater.fetchServerIssues(engineFacade, binding, serverBranch, file, monitor);
     } else {
-      serverIssues = engineFacade.getServerIssues(binding, file.getProjectRelativePath());
+      serverIssues = engineFacade.getServerIssues(binding, serverBranch, file.getProjectRelativePath());
     }
     Collection<Trackable> serverIssuesTrackable = serverIssues.stream().map(ServerIssueTrackable::new).collect(Collectors.toList());
     return IssueTracker.matchAndTrackServerIssues(serverIssuesTrackable, tracked);

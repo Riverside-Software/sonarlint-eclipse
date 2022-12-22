@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -58,10 +58,10 @@ public abstract class BaseCellLabelProvider extends ColumnLabelProvider {
   @Override
   public void update(ViewerCell cell) {
     super.update(cell);
-    Object element = cell.getElement();
-    int index = cell.getColumnIndex();
+    var element = cell.getElement();
+    var index = cell.getColumnIndex();
     cell.setText(getColumnText(element, index));
-    Image image = getColumnImage(element, index);
+    var image = getColumnImage(element, index);
     cell.setImage(image);
   }
 

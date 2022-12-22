@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,13 +19,11 @@
  */
 package org.sonarlint.eclipse.its.reddeer.views;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import org.eclipse.reddeer.common.wait.TimePeriod;
-import org.eclipse.reddeer.common.wait.WaitUntil;
+import java.util.stream.Collectors;
 import org.eclipse.reddeer.core.exception.CoreLayerException;
 import org.eclipse.reddeer.core.matcher.WithTextMatcher;
-import org.eclipse.reddeer.swt.api.Shell;
 import org.eclipse.reddeer.swt.api.TreeItem;
 import org.eclipse.reddeer.swt.impl.button.PushButton;
 import org.eclipse.reddeer.swt.impl.link.DefaultLink;
@@ -33,7 +31,6 @@ import org.eclipse.reddeer.swt.impl.menu.ContextMenuItem;
 import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.swt.impl.tree.DefaultTree;
 import org.eclipse.reddeer.workbench.impl.view.WorkbenchView;
-import org.sonarlint.eclipse.its.reddeer.conditions.ServerStorageIsUpToDate;
 
 public class BindingsView extends WorkbenchView {
 
@@ -41,8 +38,8 @@ public class BindingsView extends WorkbenchView {
     super("SonarLint Bindings");
   }
 
-  public void waitForServerUpdate(String connectionName, String version) {
-    new WaitUntil(new ServerStorageIsUpToDate(this, connectionName, version), TimePeriod.LONG);
+  public void updateAllProjectBindings() {
+    getBindings().forEach(Binding::updateAllProjectBindings);
   }
 
   public boolean isBindingEmpty() {
@@ -61,20 +58,15 @@ public class BindingsView extends WorkbenchView {
       new DefaultTree(cTabItem).getItems().forEach(item -> {
         item.select();
         new ContextMenuItem("Delete Connection").select();
-        Shell s = new DefaultShell("Delete Connection(s)");
+        var s = new DefaultShell("Delete Connection(s)");
         new PushButton(s, "OK").click();
       });
     }
   }
 
   public List<Binding> getBindings() {
-    List<Binding> results = new ArrayList<>();
     activate();
-    if (!isBindingEmpty()) {
-      new DefaultTree(cTabItem).getItems().forEach(i -> results.add(new Binding(i)));
-    }
-    return results;
-
+    return isBindingEmpty() ? Collections.emptyList() : new DefaultTree(cTabItem).getItems().stream().map(Binding::new).collect(Collectors.toList());
   }
 
   public static class Binding {
@@ -92,6 +84,11 @@ public class BindingsView extends WorkbenchView {
     @Override
     public String toString() {
       return i.getText();
+    }
+
+    public void updateAllProjectBindings() {
+      i.select();
+      new ContextMenuItem("Update All Project Bindings").select();
     }
 
   }

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,7 +19,6 @@
  */
 package org.sonarlint.eclipse.ui.internal.binding;
 
-import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
@@ -37,11 +36,11 @@ public class BindingsViewContentProvider extends BaseContentProvider implements 
   @Override
   public Object[] getChildren(Object element) {
     if (element instanceof IConnectedEngineFacade) {
-      ConnectedEngineFacade server = (ConnectedEngineFacade) element;
-      return server.getBoundRemoteProjects(new NullProgressMonitor()).toArray();
+      var server = (ConnectedEngineFacade) element;
+      return server.getBoundRemoteProjects().toArray();
     }
     if (element instanceof RemoteSonarProject) {
-      RemoteSonarProject project = (RemoteSonarProject) element;
+      var project = (RemoteSonarProject) element;
       return ((ConnectedEngineFacade) getParent(element)).getBoundProjects(project.getProjectKey()).toArray();
     }
     return new Object[0];
@@ -52,7 +51,7 @@ public class BindingsViewContentProvider extends BaseContentProvider implements 
     if (element instanceof ISonarLintProject) {
       return SonarLintCorePlugin.getServersManager()
         .resolveBinding((ISonarLintProject) element)
-        .flatMap(b -> b.getEngineFacade().getRemoteProject(b.getProjectBinding().projectKey(), new NullProgressMonitor()))
+        .flatMap(b -> b.getEngineFacade().getCachedRemoteProject(b.getProjectBinding().projectKey()))
         .orElse(null);
     }
     if (element instanceof RemoteSonarProject) {
@@ -67,7 +66,7 @@ public class BindingsViewContentProvider extends BaseContentProvider implements 
       return !((IConnectedEngineFacade) element).getBoundProjects().isEmpty();
     }
     if (element instanceof RemoteSonarProject) {
-      RemoteSonarProject project = (RemoteSonarProject) element;
+      var project = (RemoteSonarProject) element;
       return !((ConnectedEngineFacade) getParent(element)).getBoundProjects(project.getProjectKey()).isEmpty();
     }
     return false;

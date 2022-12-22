@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 package org.sonarlint.eclipse.core.internal.quickfixes;
 
 import org.eclipse.core.resources.IMarker;
-import org.sonarlint.eclipse.core.internal.adapter.Adapters;
+import org.eclipse.core.runtime.Adapters;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 
 public class MarkerTextEdit {

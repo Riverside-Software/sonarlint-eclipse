@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,19 +21,25 @@ package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.util.List;
 import org.eclipse.jdt.annotation.Nullable;
-import org.sonarlint.eclipse.core.internal.markers.TextRange;
-import org.sonarsource.sonarlint.core.client.api.common.QuickFix;
+import org.sonarsource.sonarlint.core.analysis.api.Flow;
+import org.sonarsource.sonarlint.core.analysis.api.QuickFix;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue.Flow;
+import org.sonarsource.sonarlint.core.commons.IssueSeverity;
+import org.sonarsource.sonarlint.core.commons.RuleType;
+import org.sonarsource.sonarlint.core.commons.TextRange;
 
 import static org.sonarlint.eclipse.core.internal.tracking.DigestUtils.digest;
 
 public class RawIssueTrackable implements Trackable {
 
   private final Issue issue;
+  @Nullable
   private final TextRange textRange;
+  @Nullable
   private final Integer textRangeHash;
+  @Nullable
   private final Integer lineHash;
+  @Nullable
   private Long markerId;
 
   public RawIssueTrackable(Issue issue) {
@@ -53,7 +59,7 @@ public class RawIssueTrackable implements Trackable {
   }
 
   @Override
-  public void setMarkerId(Long id) {
+  public void setMarkerId(@Nullable Long id) {
     this.markerId = id;
   }
 
@@ -89,27 +95,22 @@ public class RawIssueTrackable implements Trackable {
   }
 
   @Override
-  public String getRuleName() {
-    return issue.getRuleName();
-  }
-
-  @Override
-  public String getSeverity() {
+  public IssueSeverity getSeverity() {
     return issue.getSeverity();
   }
 
   @Override
-  public String getRawSeverity() {
+  public IssueSeverity getRawSeverity() {
     return issue.getSeverity();
   }
 
   @Override
-  public String getType() {
+  public RuleType getType() {
     return issue.getType();
   }
 
   @Override
-  public String getRawType() {
+  public RuleType getRawType() {
     return issue.getType();
   }
 
@@ -133,11 +134,6 @@ public class RawIssueTrackable implements Trackable {
   @Override
   public boolean isResolved() {
     return false;
-  }
-
-  @Override
-  public String getAssignee() {
-    return "";
   }
 
   @Override

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -24,10 +24,8 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.action.MenuManager;
-import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.window.Window;
-import org.eclipse.jface.wizard.WizardDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -37,17 +35,13 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Link;
-import org.eclipse.swt.widgets.Menu;
-import org.eclipse.ui.IDecoratorManager;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.actions.ActionContext;
 import org.eclipse.ui.contexts.IContextService;
-import org.eclipse.ui.forms.widgets.Form;
 import org.eclipse.ui.forms.widgets.FormToolkit;
 import org.eclipse.ui.navigator.CommonNavigator;
 import org.eclipse.ui.navigator.CommonViewer;
 import org.eclipse.ui.navigator.CommonViewerSiteFactory;
-import org.eclipse.ui.navigator.ICommonViewerSite;
 import org.eclipse.ui.navigator.NavigatorActionService;
 import org.eclipse.ui.part.PageBook;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
@@ -81,7 +75,7 @@ public class BindingsView extends CommonNavigator {
   @Override
   public void createPartControl(Composite parent) {
     // Add PageBook as parent composite
-    FormToolkit toolkit = new FormToolkit(parent.getDisplay());
+    var toolkit = new FormToolkit(parent.getDisplay());
     book = new PageBook(parent, SWT.NONE);
     super.createPartControl(book);
     // Main page for the Servers tableViewer
@@ -90,7 +84,7 @@ public class BindingsView extends CommonNavigator {
     noServersPage = createDefaultPage(toolkit);
     book.showPage(mainPage);
 
-    IContextService contextSupport = (IContextService) getSite().getService(IContextService.class);
+    var contextSupport = getSite().getService(IContextService.class);
     contextSupport.activateContext(SERVERS_VIEW_CONTEXT);
     deferInitialization();
   }
@@ -102,44 +96,44 @@ public class BindingsView extends CommonNavigator {
    * @return Control
    */
   private Control createDefaultPage(FormToolkit kit) {
-    Form form = kit.createForm(book);
-    Composite body = form.getBody();
-    GridLayout layout = new GridLayout(2, false);
+    var form = kit.createForm(book);
+    var body = form.getBody();
+    var layout = new GridLayout(2, false);
     body.setLayout(layout);
 
-    Link hlink = new Link(body, SWT.NONE);
+    var hlink = new Link(body, SWT.NONE);
     hlink.setText(Messages.ServersView_noServers);
     hlink.setBackground(book.getDisplay().getSystemColor(SWT.COLOR_LIST_BACKGROUND));
-    GridData gd = new GridData(SWT.LEFT, SWT.FILL, true, false);
+    var gd = new GridData(SWT.LEFT, SWT.FILL, true, false);
     hlink.setLayoutData(gd);
     hlink.addSelectionListener(new SelectionAdapter() {
       @Override
       public void widgetSelected(SelectionEvent e) {
-        WizardDialog wd = ServerConnectionWizard.createDialog(book.getShell());
-        if (wd.open() == Window.OK) {
+        var dialog = ServerConnectionWizard.createDialog(book.getShell());
+        if (dialog.open() == Window.OK) {
           toggleDefaultPage();
         }
       }
     });
 
     // Create the context menu for the default page
-    final CommonViewer commonViewer = this.getCommonViewer();
+    final var commonViewer = this.getCommonViewer();
     if (commonViewer != null) {
-      ICommonViewerSite commonViewerSite = CommonViewerSiteFactory
+      var commonViewerSite = CommonViewerSiteFactory
         .createCommonViewerSite(this.getViewSite());
 
       if (commonViewerSite != null) {
         // Note: actionService cannot be null
-        final NavigatorActionService actionService = new NavigatorActionService(commonViewerSite,
+        final var actionService = new NavigatorActionService(commonViewerSite,
           commonViewer, commonViewer.getNavigatorContentService());
 
-        MenuManager menuManager = new MenuManager("#PopupMenu");
+        var menuManager = new MenuManager("#PopupMenu");
         menuManager.addMenuListener(mgr -> {
-          ISelection selection = commonViewer.getSelection();
+          var selection = commonViewer.getSelection();
           actionService.setContext(new ActionContext(selection));
           actionService.fillContextMenu(mgr);
         });
-        Menu menu = menuManager.createContextMenu(body);
+        var menu = menuManager.createContextMenu(body);
 
         // It is necessary to set the menu in two places:
         // 1. The white space in the server view
@@ -167,7 +161,7 @@ public class BindingsView extends CommonNavigator {
   }
 
   private void deferInitialization() {
-    Job job = new Job(Messages.jobInitializingServersView) {
+    var job = new Job(Messages.jobInitializingServersView) {
       @Override
       public IStatus run(IProgressMonitor monitor) {
         deferredInitialize();
@@ -188,21 +182,25 @@ public class BindingsView extends CommonNavigator {
         tableViewer = getCommonViewer();
         getSite().setSelectionProvider(tableViewer);
 
-        try {
-          if (tableViewer.getTree().getItemCount() > 0) {
-            Object obj = tableViewer.getTree().getItem(0).getData();
-            tableViewer.setSelection(new StructuredSelection(obj));
-          } else {
-            toggleDefaultPage();
-          }
-        } catch (Exception e1) {
-          throw new IllegalStateException("Unable to update servers", e1);
-        }
+        tryLoadInitialServers();
       } catch (Exception e2) {
         // ignore - view has already been closed
       }
     });
 
+  }
+
+  private void tryLoadInitialServers() {
+    try {
+      if (tableViewer.getTree().getItemCount() > 0) {
+        var obj = tableViewer.getTree().getItem(0).getData();
+        tableViewer.setSelection(new StructuredSelection(obj));
+      } else {
+        toggleDefaultPage();
+      }
+    } catch (Exception e1) {
+      throw new IllegalStateException("Unable to update servers", e1);
+    }
   }
 
   protected void refreshConnectionContent(final IConnectedEngineFacade server) {
@@ -215,8 +213,8 @@ public class BindingsView extends CommonNavigator {
 
   protected void refreshConnectionState() {
     Display.getDefault().asyncExec(() -> {
-      IDecoratorManager dm = PlatformUI.getWorkbench().getDecoratorManager();
-      dm.update(BindingsViewDecorator.ID);
+      var decoratorManager = PlatformUI.getWorkbench().getDecoratorManager();
+      decoratorManager.update(BindingsViewDecorator.ID);
       if (tableViewer != null) {
         tableViewer.setSelection(tableViewer.getSelection());
       }
@@ -251,7 +249,7 @@ public class BindingsView extends CommonNavigator {
     };
 
     // add listeners to servers
-    for (IConnectedEngineFacade server : SonarLintCorePlugin.getServersManager().getServers()) {
+    for (var server : SonarLintCorePlugin.getServersManager().getServers()) {
       server.addConnectedEngineListener(serverListener);
     }
 
@@ -266,7 +264,7 @@ public class BindingsView extends CommonNavigator {
 
   protected void removeServer(final IConnectedEngineFacade server) {
     Display.getDefault().asyncExec(() -> {
-      tableViewer.remove(tableViewer.getInput(), new Object[] {server});
+      tableViewer.remove(tableViewer.getInput(), new Object[] { server });
       toggleDefaultPage();
     });
   }

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -31,11 +31,9 @@ import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.ClientInputFile;
+import org.sonarsource.sonarlint.core.analysis.api.ClientInputFile;
 
 public class DefaultPreAnalysisContext implements IPreAnalysisContext {
-
-  private static final String SEPARATOR = ",";
 
   private final ISonarLintProject project;
   private final Map<String, String> analysisProperties;
@@ -67,7 +65,7 @@ public class DefaultPreAnalysisContext implements IPreAnalysisContext {
 
   @Override
   public void setAnalysisProperty(String key, Collection<String> values) {
-    setAnalysisProperty(key, StringUtils.joinSkipNull(values, SEPARATOR));
+    setAnalysisProperty(key, StringUtils.joinWithCommaSkipNull(values));
   }
 
   @Override

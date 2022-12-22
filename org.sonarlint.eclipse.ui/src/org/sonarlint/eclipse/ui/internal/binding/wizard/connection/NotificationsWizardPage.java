@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,11 +19,7 @@
  */
 package org.sonarlint.eclipse.ui.internal.binding.wizard.connection;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import org.eclipse.core.databinding.DataBindingContext;
-import org.eclipse.core.databinding.beans.BeanProperties;
-import org.eclipse.jface.databinding.swt.WidgetProperties;
 import org.eclipse.jface.databinding.wizard.WizardPageSupport;
 import org.eclipse.jface.wizard.WizardPage;
 import org.eclipse.swt.SWT;
@@ -34,18 +30,19 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Link;
-import org.eclipse.ui.PartInitException;
-import org.eclipse.ui.PlatformUI;
-import org.sonarlint.eclipse.core.SonarLintLogger;
+import org.eclipse.swt.widgets.Text;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionModel.ConnectionType;
-import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
+import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
+import org.sonarlint.eclipse.ui.internal.util.wizard.BeanPropertiesCompat;
+import org.sonarlint.eclipse.ui.internal.util.wizard.WidgetPropertiesCompat;
 
 public class NotificationsWizardPage extends WizardPage {
 
   private final ServerConnectionModel model;
   private Button notificationsEnabledCheckbox;
-  private Link notificationsDetails;
+  private Link notificationsLink;
+  private Text notificationsDetails;
   private Composite container;
 
   public NotificationsWizardPage(ServerConnectionModel model) {
@@ -57,39 +54,38 @@ public class NotificationsWizardPage extends WizardPage {
   public void createControl(Composite parent) {
 
     container = new Composite(parent, SWT.NONE);
-    GridLayout layout = new GridLayout();
+    var layout = new GridLayout();
     container.setLayout(layout);
 
-    GridData layoutData = new GridData(SWT.FILL, SWT.FILL, true, true);
+    var layoutData = new GridData(SWT.FILL, SWT.FILL, true, true);
     container.setLayoutData(layoutData);
 
-    GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+    var gd = new GridData(GridData.FILL_HORIZONTAL);
 
     notificationsEnabledCheckbox = new Button(container, SWT.CHECK);
     notificationsEnabledCheckbox.setLayoutData(gd);
 
-    DataBindingContext dbc = new DataBindingContext();
-    dbc.bindValue(
-      WidgetProperties.selection().observe(notificationsEnabledCheckbox),
-      BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_NOTIFICATIONS_ENABLED)
+    var dataBindingContext = new DataBindingContext();
+    dataBindingContext.bindValue(
+      WidgetPropertiesCompat.buttonSelection().observe(notificationsEnabledCheckbox),
+      BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_NOTIFICATIONS_ENABLED)
         .observe(model),
       null,
       null);
 
-    WizardPageSupport.create(this, dbc);
+    WizardPageSupport.create(this, dataBindingContext);
 
-    notificationsDetails = new Link(container, SWT.WRAP);
-    notificationsDetails.setLayoutData(gd);
-    notificationsDetails.addSelectionListener(new SelectionAdapter() {
+    notificationsLink = new Link(container, SWT.NONE);
+    notificationsLink.setLayoutData(gd);
+    notificationsLink.addSelectionListener(new SelectionAdapter() {
       @Override
       public void widgetSelected(SelectionEvent e) {
-        try {
-          PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(e.text));
-        } catch (PartInitException | MalformedURLException ex) {
-          SonarLintLogger.get().error("Unable to open the browser", ex);
-        }
+        BrowserUtils.openExternalBrowser(e.text);
       }
     });
+
+    notificationsDetails = new Text(container, SWT.WRAP);
+    notificationsLink.setLayoutData(gd);
 
     setControl(container);
   }
@@ -97,16 +93,16 @@ public class NotificationsWizardPage extends WizardPage {
   @Override
   public void setVisible(boolean visible) {
     if (visible) {
-      final boolean isSc = model.getConnectionType() == ConnectionType.SONARCLOUD;
-      final String sqOrSc = isSc ? "SonarCloud" : "SonarQube";
+      final var isSc = model.getConnectionType() == ConnectionType.SONARCLOUD;
+      final var sqOrSc = isSc ? "SonarCloud" : "SonarQube";
       notificationsEnabledCheckbox.setText("Receive notifications from " + sqOrSc);
-      notificationsEnabledCheckbox.getShell().requestLayout();
-      final String docUrl = isSc ? "https://sonarcloud.io/documentation/user-guide/sonarlint-notifications/"
+      final var docUrl = isSc ? "https://sonarcloud.io/documentation/user-guide/sonarlint-notifications/"
         : "https://docs.sonarqube.org/latest/user-guide/sonarlint-notifications/";
-      notificationsDetails.setText("You will receive <a href=\"" + docUrl + "\">notifications</a> from " + sqOrSc + " in situations like:\n" +
+      notificationsLink.setText("You will receive <a href=\"" + docUrl + "\">notifications</a> from " + sqOrSc + " in situations like:");
+      notificationsDetails.setText(
         "  - the Quality Gate status of a bound project changes\n" +
-        "  - the latest analysis of a bound project on " + sqOrSc + " raises new issues assigned to you");
-      notificationsDetails.getShell().requestLayout();
+          "  - the latest analysis of a bound project on " + sqOrSc + " raises new issues assigned to you");
+      container.requestLayout();
     }
     super.setVisible(visible);
   }

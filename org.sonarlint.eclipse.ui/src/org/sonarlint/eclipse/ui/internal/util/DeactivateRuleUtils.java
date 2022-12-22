@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -37,7 +37,7 @@ import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
-import org.sonarsource.sonarlint.core.client.api.common.RuleKey;
+import org.sonarsource.sonarlint.core.commons.RuleKey;
 
 public class DeactivateRuleUtils {
 
@@ -49,14 +49,14 @@ public class DeactivateRuleUtils {
    * Deactivate the rule associated with a marker.
    */
   public static void deactivateRule(IMarker marker) {
-    RuleKey ruleKey = MarkerUtils.getRuleKey(marker);
+    var ruleKey = MarkerUtils.getRuleKey(marker);
     if (ruleKey == null) {
       return;
     }
 
     SonarLintGlobalConfiguration.disableRule(ruleKey);
 
-    WorkspaceModifyOperation op = new WorkspaceModifyOperation() {
+    var op = new WorkspaceModifyOperation() {
       @Override
       protected void execute(IProgressMonitor monitor) throws CoreException {
         removeReportIssuesMarkers(ruleKey);
@@ -99,7 +99,7 @@ public class DeactivateRuleUtils {
 
   private static Stream<IMarker> findSonarLintMarkers(ISonarLintProject project, String id) {
     try {
-      IMarker[] markers = project.getResource().findMarkers(id, false, IResource.DEPTH_INFINITE);
+      var markers = project.getResource().findMarkers(id, false, IResource.DEPTH_INFINITE);
       return Stream.of(markers);
     } catch (CoreException e) {
       SonarLintLogger.get().error("Could not get report markers for project: " + project.getName());

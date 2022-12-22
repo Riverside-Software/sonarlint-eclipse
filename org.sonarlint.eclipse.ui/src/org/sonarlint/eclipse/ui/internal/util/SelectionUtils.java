@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,12 +26,12 @@ import java.util.Set;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
 import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.handlers.HandlerUtil;
-import org.sonarlint.eclipse.core.internal.adapter.Adapters;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
@@ -56,7 +56,7 @@ public final class SelectionUtils {
     if (!(s instanceof IStructuredSelection)) {
       return null;
     }
-    IStructuredSelection selection = (IStructuredSelection) s;
+    var selection = (IStructuredSelection) s;
     if (selection.size() != 1) {
       return null;
     }
@@ -64,13 +64,13 @@ public final class SelectionUtils {
   }
 
   public static Set<ISonarLintProject> allSelectedProjects(ExecutionEvent event, boolean onlyIfProjectSupportsFullAnalysis) throws ExecutionException {
-    ISelection selection = HandlerUtil.getCurrentSelectionChecked(event);
+    var selection = HandlerUtil.getCurrentSelectionChecked(event);
 
-    final Set<ISonarLintProject> selectedProjects = new HashSet<>();
+    final var selectedProjects = new HashSet<ISonarLintProject>();
 
     if (selection instanceof IStructuredSelection) {
-      List elems = ((IStructuredSelection) selection).toList();
-      for (Object elem : elems) {
+      var elems = ((IStructuredSelection) selection).toList();
+      for (var elem : elems) {
         collectProjects(selectedProjects, elem, onlyIfProjectSupportsFullAnalysis);
       }
     }
@@ -80,7 +80,7 @@ public final class SelectionUtils {
   }
 
   private static void collectProjects(Set<ISonarLintProject> selectedProjects, Object elem, boolean onlyIfProjectSupportsFullAnalysis) {
-    ISonarLintProjectContainer container = Adapters.adapt(elem, ISonarLintProjectContainer.class);
+    var container = Adapters.adapt(elem, ISonarLintProjectContainer.class);
     if (container != null) {
       selectedProjects.addAll(container.projects().stream()
         .filter(ISonarLintProject::isOpen)
@@ -88,7 +88,7 @@ public final class SelectionUtils {
         .collect(toList()));
       return;
     }
-    ISonarLintProject project = Adapters.adapt(elem, ISonarLintProject.class);
+    var project = Adapters.adapt(elem, ISonarLintProject.class);
     if (project != null && project.isOpen() && (!onlyIfProjectSupportsFullAnalysis || project.supportsFullAnalysis())) {
       selectedProjects.add(project);
     }
@@ -98,11 +98,11 @@ public final class SelectionUtils {
    * Return all {@link ISonarLintFile} based on current selection.
    */
   public static Set<ISonarLintFile> allSelectedFiles(ISelection selection, boolean onlyIfProjectSupportsFullAnalysis) {
-    final Set<ISonarLintFile> selectedFiles = new HashSet<>();
+    final var selectedFiles = new HashSet<ISonarLintFile>();
 
     if (selection instanceof IStructuredSelection) {
-      List elems = ((IStructuredSelection) selection).toList();
-      for (Object elem : elems) {
+      var elems = ((IStructuredSelection) selection).toList();
+      for (var elem : elems) {
         collectFiles(selectedFiles, elem, onlyIfProjectSupportsFullAnalysis);
       }
     }
@@ -112,33 +112,33 @@ public final class SelectionUtils {
   }
 
   private static void collectFiles(Set<ISonarLintFile> selectedFiles, Object elem, boolean onlyIfProjectSupportsFullAnalysis) {
-    ISonarLintProjectContainer container = Adapters.adapt(elem, ISonarLintProjectContainer.class);
+    // SLE-503 Start with the more specific to the more generic
+    var file = Adapters.adapt(elem, ISonarLintFile.class);
+    if (file != null) {
+      selectedFiles.add(file);
+      return;
+    }
+    var project = Adapters.adapt(elem, ISonarLintProject.class);
+    if (project != null && project.isOpen() && (!onlyIfProjectSupportsFullAnalysis || project.supportsFullAnalysis())) {
+      selectedFiles.addAll(project.files());
+      return;
+    }
+    var container = Adapters.adapt(elem, ISonarLintProjectContainer.class);
     if (container != null) {
       container.projects().stream()
         .filter(ISonarLintProject::isOpen)
         .filter(p -> !onlyIfProjectSupportsFullAnalysis || p.supportsFullAnalysis())
         .forEach(p -> selectedFiles.addAll(p.files()));
-      return;
-    }
-    ISonarLintProject project = Adapters.adapt(elem, ISonarLintProject.class);
-    if (project != null && project.isOpen() && (!onlyIfProjectSupportsFullAnalysis || project.supportsFullAnalysis())) {
-      selectedFiles.addAll(project.files());
-      return;
-    }
-    ISonarLintFile file = Adapters.adapt(elem, ISonarLintFile.class);
-    if (file != null) {
-      selectedFiles.add(file);
     }
   }
 
   public static @Nullable IMarker findSelectedSonarLintMarker(ISelection selection) {
     try {
       if (selection instanceof IStructuredSelection) {
-        List<IMarker> selectedSonarMarkers = new ArrayList<>();
+        var selectedSonarMarkers = new ArrayList<IMarker>();
 
-        @SuppressWarnings("rawtypes")
-        List elems = ((IStructuredSelection) selection).toList();
-        for (Object elem : elems) {
+        var elems = ((IStructuredSelection) selection).toList();
+        for (var elem : elems) {
           processElement(selectedSonarMarkers, elem);
         }
 
@@ -153,7 +153,7 @@ public final class SelectionUtils {
   }
 
   private static void processElement(List<IMarker> selectedSonarMarkers, Object elem) throws CoreException {
-    IMarker marker = Adapters.adapt(elem, IMarker.class);
+    var marker = Adapters.adapt(elem, IMarker.class);
     if (marker != null && isSonarLintMarker(marker)) {
       selectedSonarMarkers.add(marker);
     }

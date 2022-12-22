@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -24,7 +24,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import org.eclipse.jdt.annotation.Nullable;
 
@@ -33,6 +33,7 @@ public class NotificationsTracker {
   // visible for testing
   public static final String FILENAME = "lastEventPolling.data";
 
+  @Nullable
   private ZonedDateTime lastEventPolling;
 
   private final Path lastEventPollingPath;
@@ -80,8 +81,8 @@ public class NotificationsTracker {
       return null;
     }
     try {
-      long millis = Long.parseLong(new String(Files.readAllBytes(lastEventPollingPath), Charset.defaultCharset()));
-      return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneOffset.systemDefault());
+      var millis = Long.parseLong(new String(Files.readAllBytes(lastEventPollingPath), Charset.defaultCharset()));
+      return ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
     } catch (IOException | NumberFormatException e) {
       // ignore
     }

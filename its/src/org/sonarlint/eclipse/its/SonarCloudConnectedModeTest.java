@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,13 +20,17 @@
 package org.sonarlint.eclipse.its;
 
 import java.time.Instant;
+import org.eclipse.reddeer.common.wait.TimePeriod;
 import org.eclipse.reddeer.common.wait.WaitUntil;
+import org.eclipse.reddeer.common.wait.WaitWhile;
+import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.sonarlint.eclipse.its.reddeer.conditions.DialogMessageIsExpected;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView;
+import org.sonarlint.eclipse.its.reddeer.views.BindingsView.Binding;
 import org.sonarlint.eclipse.its.reddeer.wizards.ProjectBindingWizard;
 import org.sonarlint.eclipse.its.reddeer.wizards.ProjectSelectionDialog;
 import org.sonarlint.eclipse.its.reddeer.wizards.ServerConnectionWizard;
@@ -91,13 +95,13 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
   public void configureServerWithTokenAndOrganization() {
     importExistingProjectIntoWorkspace("java/java-simple");
 
-    ServerConnectionWizard wizard = new ServerConnectionWizard();
+    var wizard = new ServerConnectionWizard();
     wizard.open();
     new ServerConnectionWizard.ServerTypePage(wizard).selectSonarCloud();
     wizard.next();
 
     assertThat(wizard.isNextEnabled()).isFalse();
-    ServerConnectionWizard.AuthenticationPage authenticationPage = new ServerConnectionWizard.AuthenticationPage(wizard);
+    var authenticationPage = new ServerConnectionWizard.AuthenticationPage(wizard);
     authenticationPage.setToken("Foo");
     assertThat(wizard.isNextEnabled()).isTrue();
 
@@ -107,7 +111,7 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     authenticationPage.setToken(token);
     wizard.next();
 
-    ServerConnectionWizard.OrganizationsPage organizationsPage = new ServerConnectionWizard.OrganizationsPage(wizard);
+    var organizationsPage = new ServerConnectionWizard.OrganizationsPage(wizard);
     organizationsPage.waitForOrganizationsToBeFetched();
 
     assertThat(organizationsPage.getOrganization()).isEqualTo(SONARCLOUD_ORGANIZATION_KEY);
@@ -118,36 +122,38 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     assertThat(wizard.isNextEnabled()).isTrue();
     wizard.next();
 
-    ServerConnectionWizard.ConnectionNamePage connectionNamePage = new ServerConnectionWizard.ConnectionNamePage(wizard);
+    var connectionNamePage = new ServerConnectionWizard.ConnectionNamePage(wizard);
     assertThat(connectionNamePage.getConnectionName()).isEqualTo("SonarCloud/" + SONARCLOUD_ORGANIZATION_KEY);
     connectionNamePage.setConnectionName(CONNECTION_NAME);
     wizard.next();
 
-    ServerConnectionWizard.NotificationsPage notificationsPage = new ServerConnectionWizard.NotificationsPage(wizard);
+    var notificationsPage = new ServerConnectionWizard.NotificationsPage(wizard);
     assertThat(notificationsPage.areNotificationsEnabled()).isTrue();
     assertThat(wizard.isNextEnabled()).isTrue();
     wizard.next();
 
     assertThat(wizard.isNextEnabled()).isFalse();
-    wizard.finish();
+    // This will trigger an update of the binding background job
+    wizard.finish(TimePeriod.VERY_LONG);
 
-    ProjectBindingWizard projectBindingWizard = new ProjectBindingWizard();
-    ProjectBindingWizard.BoundProjectsPage projectsToBindPage = new ProjectBindingWizard.BoundProjectsPage(projectBindingWizard);
+    var projectBindingWizard = new ProjectBindingWizard();
+    var projectsToBindPage = new ProjectBindingWizard.BoundProjectsPage(projectBindingWizard);
     projectsToBindPage.clickAdd();
 
-    ProjectSelectionDialog projectSelectionDialog = new ProjectSelectionDialog();
+    var projectSelectionDialog = new ProjectSelectionDialog();
     projectSelectionDialog.setProjectName(IMPORTED_PROJECT_NAME);
     projectSelectionDialog.ok();
 
     projectBindingWizard.next();
-    ProjectBindingWizard.ServerProjectSelectionPage serverProjectSelectionPage = new ProjectBindingWizard.ServerProjectSelectionPage(projectBindingWizard);
+    var serverProjectSelectionPage = new ProjectBindingWizard.ServerProjectSelectionPage(projectBindingWizard);
     serverProjectSelectionPage.waitForProjectsToBeFetched();
     serverProjectSelectionPage.setProjectKey(SONARCLOUD_PROJECT_KEY);
     projectBindingWizard.finish();
 
-    BindingsView bindingsView = new BindingsView();
+    var bindingsView = new BindingsView();
     bindingsView.open();
-    bindingsView.waitForServerUpdate(CONNECTION_NAME, null);
+    assertThat(bindingsView.getBindings()).extracting(Binding::getLabel).contains(CONNECTION_NAME);
+    new WaitWhile(new JobIsRunning(), TimePeriod.LONG);
   }
 
 }

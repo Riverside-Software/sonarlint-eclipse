@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,6 +21,7 @@ package org.sonarlint.eclipse.core.internal.preferences;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class RuleConfig {
   String key;
@@ -29,8 +30,8 @@ public class RuleConfig {
   Map<String, String> params = new HashMap<>();
 
   public RuleConfig(String key, boolean isActive) {
-    setKey(key);
-    setActive(isActive);
+    this.key = key;
+    this.isActive = isActive;
   }
 
   public boolean isActive() {
@@ -56,4 +57,25 @@ public class RuleConfig {
   public void setParams(Map<String, String> params) {
     this.params = params;
   }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(isActive, key, params);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null) {
+      return false;
+    }
+    if (getClass() != obj.getClass()) {
+      return false;
+    }
+    RuleConfig other = (RuleConfig) obj;
+    return isActive == other.isActive && Objects.equals(key, other.key) && Objects.equals(params, other.params);
+  }
+
 }

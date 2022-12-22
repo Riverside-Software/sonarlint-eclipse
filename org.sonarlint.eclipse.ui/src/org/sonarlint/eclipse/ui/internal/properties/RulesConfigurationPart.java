@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,13 +19,14 @@
  */
 package org.sonarlint.eclipse.ui.internal.properties;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.GroupMarker;
@@ -40,7 +41,6 @@ import org.eclipse.jface.viewers.ICheckStateListener;
 import org.eclipse.jface.viewers.ICheckStateProvider;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.IStructuredSelection;
-import org.eclipse.jface.viewers.ITreeSelection;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.viewers.TreeNodeContentProvider;
@@ -48,15 +48,14 @@ import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerComparator;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.ui.IWorkbenchActionConstants;
@@ -64,17 +63,19 @@ import org.eclipse.ui.dialogs.FilteredTree;
 import org.eclipse.ui.dialogs.PatternFilter;
 import org.sonarlint.eclipse.core.internal.preferences.RuleConfig;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
-import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 import org.sonarlint.eclipse.ui.internal.util.SonarLintRuleBrowser;
-import org.sonarsource.sonarlint.core.client.api.common.Language;
 import org.sonarsource.sonarlint.core.client.api.common.RuleDetails;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneRuleDetails;
+import org.sonarsource.sonarlint.core.commons.Language;
 
 // Inspired by: http://www.vogella.com/tutorials/EclipseJFaceTree/article.html
 public class RulesConfigurationPart {
 
-  private final Map<Language, List<RuleDetailsWrapper>> ruleDetailsWrappersByLanguage;
+  private final Supplier<Collection<StandaloneRuleDetails>> allRuleDetailsSupplier;
   private final Map<String, RuleConfig> initialRuleConfigs;
+
+  // Lazy-loaded
+  private Map<Language, List<RuleDetailsWrapper>> ruleDetailsWrappersByLanguage = Map.of();
 
   private final RuleDetailsWrapperFilter filter;
   private SonarLintRuleBrowser ruleBrowser;
@@ -83,24 +84,22 @@ public class RulesConfigurationPart {
   private Composite paramPanel;
   SashForm horizontalSplitter;
 
-  public RulesConfigurationPart(Collection<StandaloneRuleDetails> allRuleDetails, Collection<RuleConfig> initialConfig) {
-    this.initialRuleConfigs = initialConfig.stream()
+  public RulesConfigurationPart(Supplier<Collection<StandaloneRuleDetails>> allRuleDetailsSupplier, Collection<RuleConfig> initialConfig) {
+    this.allRuleDetailsSupplier = allRuleDetailsSupplier;
+    initialRuleConfigs = initialConfig.stream()
       .collect(Collectors.toMap(RuleConfig::getKey, it -> it));
-    this.ruleDetailsWrappersByLanguage = allRuleDetails.stream()
-      .sorted(Comparator.comparing(RuleDetails::getKey))
-      .map(rd -> new RuleDetailsWrapper(rd, initialRuleConfigs.getOrDefault(rd.getKey(), new RuleConfig(rd.getKey(), rd.isActiveByDefault()))))
-      .collect(Collectors.groupingBy(w -> w.ruleDetails.getLanguage(), Collectors.toList()));
     filter = new RuleDetailsWrapperFilter();
     filter.setIncludeLeadingWildcard(true);
   }
 
   protected void createControls(Composite parent) {
-    final SashForm verticalSplitter = new SashForm(parent, SWT.HORIZONTAL);
-    GridData fillGridData = new GridData(SWT.FILL, SWT.FILL, true, true);
+    BusyIndicator.showWhile(parent.getDisplay(), this::loadRules);
+    final var verticalSplitter = new SashForm(parent, SWT.HORIZONTAL);
+    var fillGridData = new GridData(SWT.FILL, SWT.FILL, true, true);
     verticalSplitter.setLayoutData(fillGridData);
 
-    Composite filterAndTree = new Composite(verticalSplitter, SWT.NONE);
-    GridLayout layout = new GridLayout();
+    var filterAndTree = new Composite(verticalSplitter, SWT.NONE);
+    var layout = new GridLayout();
     layout.marginWidth = 0;
     layout.marginHeight = 0;
     filterAndTree.setLayout(layout);
@@ -114,24 +113,32 @@ public class RulesConfigurationPart {
     paramPanelParent = new Composite(horizontalSplitter, SWT.NONE);
     paramPanelParent.setLayout(new GridLayout());
     paramPanel = emptyRuleParam();
-    horizontalSplitter.setWeights(new int[] {70, 30});
+    horizontalSplitter.setWeights(70, 30);
+  }
+
+  // Visible for testing
+  public void loadRules() {
+    ruleDetailsWrappersByLanguage = allRuleDetailsSupplier.get().stream()
+      .sorted(Comparator.comparing(RuleDetails::getKey))
+      .map(rd -> new RuleDetailsWrapper(rd, initialRuleConfigs.getOrDefault(rd.getKey(), new RuleConfig(rd.getKey(), rd.isActiveByDefault()))))
+      .collect(Collectors.groupingBy(w -> w.ruleDetails.getLanguage(), Collectors.toList()));
   }
 
   private void createFilterPart(Composite parent) {
-    Composite composite = new Composite(parent, SWT.NONE);
+    var composite = new Composite(parent, SWT.NONE);
     composite.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
-    GridLayout layout = new GridLayout(2, false);
+    var layout = new GridLayout(2, false);
     layout.marginHeight = 0;
     layout.marginWidth = 0;
     layout.horizontalSpacing = 40;
     composite.setLayout(layout);
-    ComboViewer combo = new ComboViewer(composite, SWT.READ_ONLY);
+    var combo = new ComboViewer(composite, SWT.READ_ONLY);
     combo.setContentProvider(ArrayContentProvider.getInstance());
     combo.setLabelProvider(new LabelProvider() {
       @Override
       public String getText(Object element) {
         if (element instanceof Type) {
-          Type type = (Type) element;
+          var type = (Type) element;
           return type.label;
         }
         return super.getText(element);
@@ -140,22 +147,22 @@ public class RulesConfigurationPart {
     combo.setInput(Type.values());
     combo.setSelection(new StructuredSelection(Type.ALL));
     ISelectionChangedListener selectionChangedListener = event -> {
-      IStructuredSelection selection = (IStructuredSelection) event.getSelection();
+      var selection = (IStructuredSelection) event.getSelection();
       if (selection.size() > 0) {
         filter.setType((Type) selection.getFirstElement());
       }
     };
     combo.addSelectionChangedListener(selectionChangedListener);
 
-    ToolBar toolbar = new ToolBar(composite, SWT.FLAT);
+    var toolbar = new ToolBar(composite, SWT.FLAT);
     toolbar.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false));
     createExpansionItem(toolbar, true, SonarLintImages.IMG_EXPAND_ALL, "Expand all");
     createExpansionItem(toolbar, false, SonarLintImages.IMG_COLLAPSE_ALL, "Collapse all");
   }
 
   private ToolItem createExpansionItem(ToolBar toolBar, final boolean expand, ImageDescriptor image, String tooltip) {
-    ToolItem item = new ToolItem(toolBar, SWT.PUSH);
-    final Image createdImage = image.createImage();
+    var item = new ToolItem(toolBar, SWT.PUSH);
+    final var createdImage = image.createImage();
     item.setImage(createdImage);
     item.setToolTipText(tooltip);
     item.addSelectionListener(new SelectionAdapter() {
@@ -174,11 +181,10 @@ public class RulesConfigurationPart {
 
   private void createTreeViewer(Composite parent) {
     tree = new CheckBoxFilteredTree(parent);
-    GridData data = new GridData(SWT.FILL, SWT.FILL, true, true);
+    var data = new GridData(SWT.FILL, SWT.FILL, true, true);
     tree.setLayoutData(data);
 
     tree.getViewer().setContentProvider(new ViewContentProvider());
-    tree.getViewer().setInput(ruleDetailsWrappersByLanguage.keySet().toArray(new Language[ruleDetailsWrappersByLanguage.size()]));
     tree.getViewer().setLabelProvider(new LanguageAndRuleLabelProvider());
     tree.getViewer().setComparator(new ViewerComparator() {
       @Override
@@ -194,17 +200,18 @@ public class RulesConfigurationPart {
     tree.getViewer().getTree().setSortDirection(SWT.DOWN);
 
     ISelectionChangedListener selectionChangedListener = event -> {
-      IStructuredSelection thisSelection = (IStructuredSelection) event.getSelection();
-      Object selectedNode = thisSelection.getFirstElement();
+      var thisSelection = (IStructuredSelection) event.getSelection();
+      var selectedNode = thisSelection.getFirstElement();
       refreshUiForRuleSelection(selectedNode);
     };
     tree.getViewer().addSelectionChangedListener(selectionChangedListener);
+    tree.getViewer().setInput(ruleDetailsWrappersByLanguage.keySet().toArray(new Language[ruleDetailsWrappersByLanguage.size()]));
   }
 
   private void refreshUiForRuleSelection(Object selectedNode) {
     paramPanel.dispose();
     if (selectedNode instanceof RuleDetailsWrapper) {
-      RuleDetailsWrapper wrapper = (RuleDetailsWrapper) selectedNode;
+      var wrapper = (RuleDetailsWrapper) selectedNode;
       ruleBrowser.updateRule(wrapper.ruleDetails);
       if (wrapper.ruleDetails.paramDetails().isEmpty()) {
         paramPanel = emptyRuleParam();
@@ -216,14 +223,14 @@ public class RulesConfigurationPart {
       ruleBrowser.updateRule(null);
       paramPanel = emptyRuleParam();
     }
-    paramPanel.getShell().requestLayout();
+    paramPanel.requestLayout();
   }
 
   private Composite emptyRuleParam() {
-    Composite composite = new Composite(paramPanelParent, SWT.BORDER);
+    var composite = new Composite(paramPanelParent, SWT.BORDER);
     composite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
     composite.setLayout(new GridLayout());
-    Label label = new Label(composite, SWT.NONE);
+    var label = new Label(composite, SWT.NONE);
     label.setLayoutData(new GridData(SWT.CENTER, SWT.CENTER, true, true));
     label.setText("No parameters");
     return composite;
@@ -269,22 +276,22 @@ public class RulesConfigurationPart {
   private class RuleCheckStateListener implements ICheckStateListener {
     @Override
     public void checkStateChanged(CheckStateChangedEvent event) {
-      Object element = event.getElement();
+      var element = event.getElement();
       if (element instanceof RuleDetailsWrapper) {
-        RuleDetailsWrapper wrapper = (RuleDetailsWrapper) element;
+        var wrapper = (RuleDetailsWrapper) element;
         wrapper.ruleConfig.setActive(event.getChecked());
         tree.getViewer().refresh(wrapper);
         // Refresh the parent to update the check state
         tree.getViewer().refresh(wrapper.ruleDetails.getLanguage());
       } else if (element instanceof Language) {
-        Language language = (Language) element;
+        var language = (Language) element;
         tree.getViewer().setExpandedState(element, true);
         ruleDetailsWrappersByLanguage.get(language).stream()
           .filter(filter::isRuleMatch)
           .forEach(w -> w.ruleConfig.setActive(event.getChecked()));
         tree.getViewer().refresh();
       }
-      Object currentSelection = tree.getViewer().getStructuredSelection().getFirstElement();
+      var currentSelection = tree.getViewer().getStructuredSelection().getFirstElement();
       refreshUiForRuleSelection(currentSelection);
     }
   }
@@ -296,10 +303,10 @@ public class RulesConfigurationPart {
         return false;
       }
       if (element instanceof Language) {
-        Language language = (Language) element;
-        boolean foundActive = false;
-        boolean foundInactive = false;
-        for (RuleDetailsWrapper wrapper : ruleDetailsWrappersByLanguage.get(language)) {
+        var language = (Language) element;
+        var foundActive = false;
+        var foundInactive = false;
+        for (var wrapper : ruleDetailsWrappersByLanguage.get(language)) {
           if (!filter.isRuleMatch(wrapper)) {
             continue;
           }
@@ -322,11 +329,11 @@ public class RulesConfigurationPart {
     @Override
     public boolean isChecked(Object element) {
       if (element instanceof RuleDetailsWrapper) {
-        RuleDetailsWrapper wrapper = (RuleDetailsWrapper) element;
+        var wrapper = (RuleDetailsWrapper) element;
         return wrapper.ruleConfig.isActive();
       }
       if (element instanceof Language) {
-        Language language = (Language) element;
+        var language = (Language) element;
         return ruleDetailsWrappersByLanguage.get(language).stream()
           .filter(filter::isRuleMatch)
           .anyMatch(w -> w.ruleConfig.isActive());
@@ -346,15 +353,15 @@ public class RulesConfigurationPart {
       if (!(parentElement instanceof Language)) {
         return new Object[0];
       }
-      Language language = (Language) parentElement;
-      List<RuleDetailsWrapper> list = ruleDetailsWrappersByLanguage.get(language);
-      return list.toArray(new RuleDetailsWrapper[list.size()]);
+      var language = (Language) parentElement;
+      var rules = ruleDetailsWrappersByLanguage.get(language);
+      return rules.toArray(new RuleDetailsWrapper[rules.size()]);
     }
 
     @Override
     public Object getParent(Object element) {
       if (element instanceof RuleDetailsWrapper) {
-        RuleDetailsWrapper wrapper = (RuleDetailsWrapper) element;
+        var wrapper = (RuleDetailsWrapper) element;
         return wrapper.ruleDetails.getLanguage();
       }
       return null;
@@ -373,7 +380,7 @@ public class RulesConfigurationPart {
         return ((Language) element).getLabel();
       }
       if (element instanceof RuleDetailsWrapper) {
-        RuleDetailsWrapper wrapper = (RuleDetailsWrapper) element;
+        var wrapper = (RuleDetailsWrapper) element;
         return wrapper.ruleDetails.getName();
       }
       return null;
@@ -399,8 +406,8 @@ public class RulesConfigurationPart {
   }
 
   // visible for testing
-  public Collection<RuleConfig> computeRulesConfig() {
-    Collection<RuleConfig> rules = new ArrayList<>();
+  public Set<RuleConfig> computeRulesConfig() {
+    var rules = new HashSet<RuleConfig>();
     ruleDetailsWrappersByLanguage.entrySet().stream()
       .flatMap(e -> e.getValue().stream())
       .filter(RuleDetailsWrapper::isNonDefault)
@@ -433,7 +440,7 @@ public class RulesConfigurationPart {
 
     @Override
     protected TreeViewer doCreateTreeViewer(Composite parent, int style) {
-      CheckboxTreeViewer cbTreeViewer = new CheckboxTreeViewer(parent, style);
+      var cbTreeViewer = new CheckboxTreeViewer(parent, style);
       cbTreeViewer.addCheckStateListener(new RuleCheckStateListener());
       cbTreeViewer.setCheckStateProvider(new RuleCheckStateProvider());
       createContextMenu(cbTreeViewer);
@@ -441,10 +448,10 @@ public class RulesConfigurationPart {
     }
 
     private void createContextMenu(TreeViewer viewer) {
-      MenuManager contextMenu = new MenuManager("#ViewerMenu"); //$NON-NLS-1$
+      var contextMenu = new MenuManager("#ViewerMenu"); //$NON-NLS-1$
       contextMenu.setRemoveAllWhenShown(true);
       contextMenu.addMenuListener(this::fillContextMenu);
-      Menu menu = contextMenu.createContextMenu(viewer.getControl());
+      var menu = contextMenu.createContextMenu(viewer.getControl());
       viewer.getControl().setMenu(menu);
     }
 
@@ -467,22 +474,22 @@ public class RulesConfigurationPart {
     }
 
     private void setActiveForSelection(boolean isActive) {
-      ITreeSelection selection = tree.getViewer().getStructuredSelection();
-      Iterator<?> iterator = selection.iterator();
+      var selection = tree.getViewer().getStructuredSelection();
+      var iterator = selection.iterator();
       while (iterator.hasNext()) {
         setActiveForElement(iterator.next(), isActive);
       }
       tree.getViewer().refresh();
-      Object currentSelection = selection.getFirstElement();
+      var currentSelection = selection.getFirstElement();
       refreshUiForRuleSelection(currentSelection);
     }
 
     private void setActiveForElement(Object element, boolean isActive) {
       if (element instanceof RuleDetailsWrapper) {
-        RuleDetailsWrapper wrapper = (RuleDetailsWrapper) element;
+        var wrapper = (RuleDetailsWrapper) element;
         wrapper.ruleConfig.setActive(isActive);
       } else if (element instanceof Language) {
-        Language language = (Language) element;
+        var language = (Language) element;
         ruleDetailsWrappersByLanguage.get(language).stream().forEach(w -> w.ruleConfig.setActive(isActive));
       }
     }
@@ -493,7 +500,7 @@ public class RulesConfigurationPart {
 
     @Override
     protected String getFilterString() {
-      String filterString = super.getFilterString();
+      var filterString = super.getFilterString();
       // Hack to trigger the filtering even if the search string is empty, to filter also on the combobox
       return filterString != null && filterString.length() == 0 ? "*" : filterString;
     }

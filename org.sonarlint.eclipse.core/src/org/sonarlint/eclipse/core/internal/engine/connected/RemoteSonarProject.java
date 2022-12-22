@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -59,7 +59,7 @@ public class RemoteSonarProject {
 
   @Override
   public int hashCode() {
-    return Objects.hash(projectKey, serverId);
+    return Objects.hash(projectKey, serverId, name);
   }
 
   @Override
@@ -73,8 +73,8 @@ public class RemoteSonarProject {
     if (getClass() != obj.getClass()) {
       return false;
     }
-    RemoteSonarProject other = (RemoteSonarProject) obj;
-    return Objects.equals(projectKey, other.projectKey) && Objects.equals(serverId, other.serverId);
+    var other = (RemoteSonarProject) obj;
+    return Objects.equals(projectKey, other.projectKey) && Objects.equals(serverId, other.serverId) && Objects.equals(name, other.name);
   }
 
 }

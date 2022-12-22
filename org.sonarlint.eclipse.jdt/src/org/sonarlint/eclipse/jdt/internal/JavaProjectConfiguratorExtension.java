@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -25,6 +25,7 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileTypeProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
@@ -33,21 +34,32 @@ import org.sonarlint.eclipse.core.resource.ISonarLintFileAdapterParticipant;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.quickfixes.IMarkerResolutionEnhancer;
 import org.sonarlint.eclipse.ui.quickfixes.ISonarLintMarkerResolver;
-import org.sonarsource.sonarlint.core.client.api.common.Language;
+import org.sonarsource.sonarlint.core.commons.Language;
 
 public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, ISonarLintFileAdapterParticipant, IFileTypeProvider, IMarkerResolutionEnhancer {
 
+  @Nullable
   private final JdtUtils javaProjectConfigurator;
   private final boolean jdtPresent;
+  private final boolean jdtUiPresent;
 
   public JavaProjectConfiguratorExtension() {
     jdtPresent = isJdtPresent();
+    jdtUiPresent = isJdtUiPresent();
     javaProjectConfigurator = jdtPresent ? new JdtUtils() : null;
   }
 
   private static boolean isJdtPresent() {
+    return isClassPresentAtRuntime("org.eclipse.jdt.core.JavaCore");
+  }
+
+  private static boolean isJdtUiPresent() {
+    return isClassPresentAtRuntime("org.eclipse.jdt.ui.text.java.IJavaCompletionProposal");
+  }
+
+  private static boolean isClassPresentAtRuntime(String className) {
     try {
-      Class.forName("org.eclipse.jdt.core.JavaCore");
+      Class.forName(className);
       return true;
     } catch (ClassNotFoundException e) {
       return false;
@@ -91,8 +103,8 @@ public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, 
 
   @Override
   public ISonarLintMarkerResolver enhance(ISonarLintMarkerResolver resolution, IMarker marker) {
-    if (jdtPresent) {
-      return JdtUtils.enhance(resolution, marker);
+    if (jdtUiPresent) {
+      return JdtUiUtils.enhance(resolution, marker);
     }
     return resolution;
   }

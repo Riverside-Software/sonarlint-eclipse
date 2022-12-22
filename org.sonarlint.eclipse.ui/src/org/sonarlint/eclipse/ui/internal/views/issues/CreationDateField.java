@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -56,8 +56,8 @@ public class CreationDateField extends MarkerField {
   }
 
   public static final int getFontWidth(Control control) {
-    GC gc = new GC(control.getDisplay());
-    int width = gc.getFontMetrics().getAverageCharWidth();
+    var gc = new GC(control.getDisplay());
+    var width = gc.getFontMetrics().getAverageCharWidth();
     gc.dispose();
     return width;
   }

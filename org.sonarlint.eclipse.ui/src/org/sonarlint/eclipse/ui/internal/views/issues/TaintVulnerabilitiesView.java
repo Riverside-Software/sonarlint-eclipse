@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,17 +19,13 @@
  */
 package org.sonarlint.eclipse.ui.internal.views.issues;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Link;
-import org.eclipse.ui.PartInitException;
-import org.eclipse.ui.PlatformUI;
-import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
+import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
 
 public class TaintVulnerabilitiesView extends MarkerViewWithBottomPanel {
 
@@ -38,23 +34,19 @@ public class TaintVulnerabilitiesView extends MarkerViewWithBottomPanel {
   public TaintVulnerabilitiesView() {
     super(SonarLintUiPlugin.PLUGIN_ID + ".views.issues.taintIssueMarkerGenerator");
   }
-  
+
   @Override
   protected void populateBottomPanel(Composite bottom) {
-    RowLayout bottomLayout = new RowLayout();
+    var bottomLayout = new RowLayout();
     bottomLayout.center = true;
     bottom.setLayout(bottomLayout);
-    GridData bottomLayoutData = new GridData(SWT.FILL, SWT.FILL, true, false);
+    var bottomLayoutData = new GridData(SWT.FILL, SWT.FILL, true, false);
     bottom.setLayoutData(bottomLayoutData);
 
-    Link label = new Link(bottom, SWT.NONE);
+    var label = new Link(bottom, SWT.NONE);
     label.setText("This view displays taint vulnerabilities found by SonarQube or SonarCloud on the main branch during last analysis. <a>Learn more</a>");
     label.addListener(SWT.Selection, e -> {
-      try {
-        PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL("https://github.com/SonarSource/sonarlint-eclipse/wiki/Taint-Vulnerabilities"));
-      } catch (PartInitException | MalformedURLException ex) {
-        SonarLintLogger.get().error("Unable to open the browser", ex);
-      }
+      BrowserUtils.openExternalBrowser("https://github.com/SonarSource/sonarlint-eclipse/wiki/Taint-Vulnerabilities");
     });
   }
 

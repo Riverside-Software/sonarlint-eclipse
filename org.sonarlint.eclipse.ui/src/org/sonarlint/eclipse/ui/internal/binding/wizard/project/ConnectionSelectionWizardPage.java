@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,13 +22,10 @@ package org.sonarlint.eclipse.ui.internal.binding.wizard.project;
 import org.eclipse.core.databinding.Binding;
 import org.eclipse.core.databinding.DataBindingContext;
 import org.eclipse.core.databinding.UpdateValueStrategy;
-import org.eclipse.core.databinding.beans.BeanProperties;
 import org.eclipse.jface.databinding.fieldassist.ControlDecorationSupport;
-import org.eclipse.jface.databinding.viewers.ViewersObservables;
 import org.eclipse.jface.databinding.wizard.WizardPageSupport;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ComboViewer;
-import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.swt.SWT;
@@ -39,10 +36,11 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.PlatformUI;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionWizard;
+import org.sonarlint.eclipse.ui.internal.util.wizard.BeanPropertiesCompat;
+import org.sonarlint.eclipse.ui.internal.util.wizard.ViewersObservablesCompat;
 
 public class ConnectionSelectionWizardPage extends AbstractProjectBindingWizardPage {
 
@@ -54,12 +52,12 @@ public class ConnectionSelectionWizardPage extends AbstractProjectBindingWizardP
 
   @Override
   protected void doCreateControl(Composite container) {
-    ComboViewer serverCombo = new ComboViewer(container, SWT.READ_ONLY);
+    var serverCombo = new ComboViewer(container, SWT.READ_ONLY);
     serverCombo.setContentProvider(ArrayContentProvider.getInstance());
     serverCombo.setLabelProvider(new LabelProvider() {
       @Override
       public String getText(Object element) {
-        IConnectedEngineFacade current = (IConnectedEngineFacade) element;
+        var current = (IConnectedEngineFacade) element;
         return current.getId();
       }
 
@@ -73,23 +71,23 @@ public class ConnectionSelectionWizardPage extends AbstractProjectBindingWizardP
       }
     });
     serverCombo.setInput(SonarLintCorePlugin.getServersManager().getServers());
-    ConnectedEngineFacade server = model.getServer();
+    var server = model.getServer();
     if (server != null) {
-      final ISelection selection = new StructuredSelection(server);
+      final var selection = new StructuredSelection(server);
       serverCombo.setSelection(selection);
     }
 
-    DataBindingContext dbc = new DataBindingContext();
-    serverBinding = dbc.bindValue(
-      ViewersObservables.observeSingleSelection(serverCombo),
-      BeanProperties.value(ProjectBindingModel.class, ProjectBindingModel.PROPERTY_SERVER)
+    var dataBindingContext = new DataBindingContext();
+    serverBinding = dataBindingContext.bindValue(
+      ViewersObservablesCompat.observeSingleSelection(serverCombo),
+      BeanPropertiesCompat.value(ProjectBindingModel.class, ProjectBindingModel.PROPERTY_SERVER)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(new MandatoryServerValidator("You must select a server connection")), null);
     ControlDecorationSupport.create(serverBinding, SWT.LEFT | SWT.TOP);
 
-    WizardPageSupport.create(this, dbc);
+    WizardPageSupport.create(this, dataBindingContext);
 
-    Button addBtn = new Button(container, SWT.PUSH);
+    var addBtn = new Button(container, SWT.PUSH);
     addBtn.setText("New...");
     addBtn.addSelectionListener(new SelectionAdapter() {
 

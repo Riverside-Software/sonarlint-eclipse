@@ -6,13 +6,12 @@ pool:
 
 variables:
   - group: sonarsource-build-variables
-
 resources:
   repositories:
     - repository: commonTemplates
       type: git
       name: pipelines-yaml-templates
-      ref:  refs/tags/v1.0.9
+      ref:  refs/tags/v2.0.0
 
 stages:
 - template: stage-with-burgr-notifications.yml@commonTemplates
@@ -80,7 +79,7 @@ stages:
           GIT_SHA1: $(Build.SourceVersion)
           GITHUB_BRANCH: $(fixedBranch)
         inputs:
-          goals: 'deploy'
+          goals: 'cyclonedx:makeAggregateBom deploy'
           ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
             options: >-
               $(commonMavenArguments)
@@ -101,6 +100,7 @@ stages:
       - bash: git checkout .
         name: revertPomChanges
         displayName: Revert changes made to pom.xml to not break cache feature
+
 - template: stage-with-burgr-notifications.yml@commonTemplates
   parameters:
     burgrName: 'validate'
@@ -177,22 +177,21 @@ stages:
       displayName: Run ITs
       strategy:
         matrix:
-          Photon:
-            TARGET_PLATFORM: 'photon'
+          Oldest:
+            TARGET_PLATFORM: 'oldest'
             SQ_VERSION: 'LATEST_RELEASE[7.9]'
             imageName: 'ubuntu-18.04'
-            Category: '-DexcludedGroups=SonarCloud'
-          2020_06:
-            TARGET_PLATFORM: '2020-06'
-            SQ_VERSION: 'SonarCloud'
+            JAVA_VERSION: '11'
+          Latest:
+            TARGET_PLATFORM: 'latest'
+            SQ_VERSION: 'LATEST_RELEASE[8.9]'
             imageName: 'ubuntu-18.04'
-            Category: '-Dgroups=SonarCloud'
-          Milestone:
-            TARGET_PLATFORM: 'milestones'
-            SQ_VERSION: 'DOGFOOD'
+            JAVA_VERSION: '17'
+          IBuilds:
+            TARGET_PLATFORM: 'ibuilds'
+            SQ_VERSION: 'DEV'
             imageName: 'ubuntu-18.04'
-            # SonarCloud category already excluded in the pom.xml
-            Category: ''
+            JAVA_VERSION: '17'
       variables:
         MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
         MAVEN_OPTS: '-Xmx3072m -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
@@ -202,7 +201,7 @@ stages:
       steps:
       - task: JavaToolInstaller@0
         inputs:
-          versionSpec: '11'
+          versionSpec: $(JAVA_VERSION)
           jdkArchitectureOption: 'x64'
           jdkSourceOption: 'PreInstalled'
       - checkout: self
@@ -273,7 +272,6 @@ stages:
             -Pcoverage
             -Dtarget.platform=$(TARGET_PLATFORM) -Dtycho.localArtifacts=ignore -Dsonarlint-eclipse.p2.url=$(stagedP2Url) -Dsonar.runtimeVersion=$(SQ_VERSION)
             -Djacoco.append=true -Djacoco.destFile=$(Agent.BuildDirectory)/it-coverage.exec
-            $(Category)
           publishJUnitResults: true
           testResultsFiles: '**/surefire-reports/TEST-*.xml'
           testRunTitle: 'ITs $(TARGET_PLATFORM)'
@@ -298,11 +296,11 @@ stages:
     burgrName: 'sonarqube'
     burgrType: 'sonarqube'
     stageName: 'sonarqube'
-    stageDisplayName: Run SonarQube analysis
+    stageDisplayName: Run SonarQube and Mend analysis
     stageDependencies: qa
     jobs:
-    - job: sonarqube
-      displayName: SonarQube analysis on Next
+    - job: sonarqubeAndMend
+      displayName: SonarQube analysis on Next, Mend scan
       variables:
         MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
         MAVEN_OPTS: '-Xmx3072m -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
@@ -343,24 +341,24 @@ stages:
       - task: DownloadBuildArtifacts@0
         displayName: 'Download IT Coverage report'
         inputs:
-          artifactName: ITCoverage_photon
+          artifactName: ITCoverage_oldest
           downloadPath: $(Agent.BuildDirectory)
       - task: DownloadBuildArtifacts@0
         displayName: 'Download IT Coverage report'
         inputs:
-          artifactName: ITCoverage_2020-06
+          artifactName: ITCoverage_latest
           downloadPath: $(Agent.BuildDirectory)
       - task: DownloadBuildArtifacts@0
         displayName: 'Download IT Coverage report'
         inputs:
-          artifactName: ITCoverage_milestones
+          artifactName: ITCoverage_ibuilds
           downloadPath: $(Agent.BuildDirectory)
       - bash: |
           set -e
           mkdir $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/
-          mv $(Agent.BuildDirectory)/ITCoverage_photon/it-coverage.exec $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/it-coverage-photon.exec
-          mv $(Agent.BuildDirectory)/ITCoverage_2020-06/it-coverage.exec $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/it-coverage-2020-06.exec
-          mv $(Agent.BuildDirectory)/ITCoverage_milestones/it-coverage.exec $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/it-coverage-milestones.exec
+          mv $(Agent.BuildDirectory)/ITCoverage_oldest/it-coverage.exec $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/it-coverage-oldest.exec
+          mv $(Agent.BuildDirectory)/ITCoverage_latest/it-coverage.exec $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/it-coverage-latest.exec
+          mv $(Agent.BuildDirectory)/ITCoverage_ibuilds/it-coverage.exec $(Build.Repository.LocalPath)/org.sonarlint.eclipse.core.tests/target/it-coverage-ibuilds.exec
         displayName: 'Move IT Coverage report to test target dir'
       - task: Maven@3
         env:
@@ -379,6 +377,12 @@ stages:
           mavenOptions: $(MAVEN_OPTS)
           sonarQubeRunAnalysis: true
           sqMavenPluginVersionChoice: 'latest'
+      - template: mend-with-maven-repox.yml@commonTemplates
+        parameters:
+          productName : 'SonarLint/Eclipse'
+          mavenRepositoryPath: '$(Pipeline.Workspace)/.m2/repository'
+          mavenSettingsFilePath: '$(mavenSettings.secureFilePath)'
+
 - template: promote-stage.yml@commonTemplates
   parameters:
     stageDependencies:

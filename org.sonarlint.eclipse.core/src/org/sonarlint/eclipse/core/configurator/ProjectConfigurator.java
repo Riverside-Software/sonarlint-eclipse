@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -29,7 +29,7 @@ import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 /**
  * Implemented by components that configure the analysis on certain environments.
  * For example, we have configurators for C/C++ projects in Eclipse CDT and for Java projects.
- * 
+ *
  * Other products also use this interface, so <b>it should be kept stable</b>.
  * @deprecated since 3.0 replaced by {@link IAnalysisConfigurator}
  */
@@ -65,7 +65,7 @@ public abstract class ProjectConfigurator {
     if (value == null) {
       return;
     }
-    String newValue = properties.get(key);
+    var newValue = properties.get(key);
     if (newValue != null) {
       newValue += SEPARATOR + value;
     } else {
@@ -75,11 +75,11 @@ public abstract class ProjectConfigurator {
   }
 
   public static void setPropertyList(Map<String, String> properties, String key, Collection<String> values) {
-    properties.put(key, StringUtils.joinSkipNull(values, SEPARATOR));
+    properties.put(key, StringUtils.joinWithCommaSkipNull(values));
   }
 
   public static void appendPropertyList(Map<String, String> properties, String key, Collection<String> values) {
-    appendProperty(properties, key, StringUtils.joinSkipNull(values, SEPARATOR));
+    appendProperty(properties, key, StringUtils.joinWithCommaSkipNull(values));
   }
 
 }

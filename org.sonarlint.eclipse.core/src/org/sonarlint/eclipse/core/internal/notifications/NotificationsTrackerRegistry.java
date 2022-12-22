@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -33,8 +33,8 @@ public class NotificationsTrackerRegistry {
   private final Map<String, NotificationsTracker> registry = new HashMap<>();
 
   public synchronized NotificationsTracker getOrCreate(ISonarLintProject project) {
-    String projectName = project.getName();
-    NotificationsTracker tracker = registry.get(projectName);
+    var projectName = project.getName();
+    var tracker = registry.get(projectName);
     if (tracker == null) {
       tracker = newTracker(project);
       registry.put(projectName, tracker);

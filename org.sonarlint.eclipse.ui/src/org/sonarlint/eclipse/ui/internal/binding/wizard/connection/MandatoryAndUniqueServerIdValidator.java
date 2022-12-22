@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -33,7 +33,7 @@ public class MandatoryAndUniqueServerIdValidator implements IValidator {
   }
 
   public IStatus validate(Object value) {
-    String errorMsg = SonarLintCorePlugin.getServersManager().validate((String) value, edit);
+    var errorMsg = SonarLintCorePlugin.getServersManager().validate((String) value, edit);
     if (errorMsg != null) {
       return ValidationStatus.error(errorMsg);
     }

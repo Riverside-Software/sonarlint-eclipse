@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -64,7 +64,6 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
 
   @Override
   protected void createFieldEditors() {
-
     addField(new ComboFieldEditor(SonarLintGlobalConfiguration.PREF_MARKER_SEVERITY,
       Messages.SonarPreferencePage_label_marker_severity,
       new String[][] {
@@ -88,13 +87,13 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
     protected void doFillIntoGrid(Composite parent, int numColumns) {
       super.doFillIntoGrid(parent, numColumns);
       getTextControl().setToolTipText(NODE_JS_TOOLTIP);
-      final Path detectedNodeJsPath = SonarLintCorePlugin.getNodeJsManager().getNodeJsPath();
+      final var detectedNodeJsPath = SonarLintCorePlugin.getNodeJsManager().getNodeJsPath();
       getTextControl().setMessage(detectedNodeJsPath != null ? detectedNodeJsPath.toString() : "Node.js not found");
     }
 
     @Override
     protected boolean doCheckState() {
-      String stringValue = getStringValue();
+      var stringValue = getStringValue();
       Path path;
       try {
         path = Paths.get(stringValue);
@@ -112,11 +111,11 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
     @Nullable
     @Override
     protected String changePressed() {
-      FileDialog dialog = new FileDialog(getShell(), SWT.OPEN);
+      var dialog = new FileDialog(getShell(), SWT.OPEN);
       if (getStringValue().trim().length() > 0) {
         dialog.setFileName(getStringValue());
       }
-      String file = dialog.open();
+      var file = dialog.open();
       if (file != null) {
         file = file.trim();
         if (file.length() > 0) {
@@ -130,10 +129,22 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
 
   @Override
   public boolean performOk() {
-    boolean result = super.performOk();
-    TestFileClassifier.get().reload();
-    SonarLintCorePlugin.getNodeJsManager().reload();
-    JobUtils.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STANDALONE_CONFIG_CHANGE);
+    var previousTestFileRegexps = SonarLintGlobalConfiguration.getTestFileRegexps();
+    var previousNodeJsPath = SonarLintGlobalConfiguration.getNodejsPath();
+    var result = super.performOk();
+    var anyPreferenceChanged = false;
+    if (!previousTestFileRegexps.equals(SonarLintGlobalConfiguration.getTestFileRegexps())) {
+      TestFileClassifier.get().reload();
+      anyPreferenceChanged = true;
+    }
+    if (!previousNodeJsPath.equals(SonarLintGlobalConfiguration.getNodejsPath())) {
+      SonarLintCorePlugin.getNodeJsManager().reload();
+      anyPreferenceChanged = true;
+    }
+    if (anyPreferenceChanged) {
+      JobUtils.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STANDALONE_CONFIG_CHANGE);
+    }
+
     return result;
   }
 

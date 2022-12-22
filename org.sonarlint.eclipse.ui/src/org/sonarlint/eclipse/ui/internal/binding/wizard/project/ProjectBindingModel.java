@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,7 +26,7 @@ import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacad
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.util.wizard.ModelObject;
 import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
-import org.sonarsource.sonarlint.core.serverapi.project.ServerProject;
+import org.sonarsource.sonarlint.core.serverapi.component.ServerProject;
 
 public class ProjectBindingModel extends ModelObject {
 
@@ -50,7 +50,7 @@ public class ProjectBindingModel extends ModelObject {
   }
 
   public void setServer(ConnectedEngineFacade server) {
-    ConnectedEngineFacade old = this.server;
+    var old = this.server;
     this.server = server;
     firePropertyChange(PROPERTY_SERVER, old, this.server);
   }
@@ -60,7 +60,7 @@ public class ProjectBindingModel extends ModelObject {
   }
 
   public void setRemoteProjectKey(String remoteProjectKey) {
-    String old = this.remoteProjectKey;
+    var old = this.remoteProjectKey;
     this.remoteProjectKey = remoteProjectKey;
     firePropertyChange(PROPERTY_REMOTE_PROJECT_KEY, old, this.remoteProjectKey);
   }
@@ -70,7 +70,7 @@ public class ProjectBindingModel extends ModelObject {
   }
 
   public void setEclipseProjects(List<ISonarLintProject> eclipseProjects) {
-    List<ISonarLintProject> old = this.eclipseProjects;
+    var old = this.eclipseProjects;
     this.eclipseProjects = new ArrayList<>(eclipseProjects);
     firePropertyChange(PROPERTY_SERVER, old, this.eclipseProjects);
   }

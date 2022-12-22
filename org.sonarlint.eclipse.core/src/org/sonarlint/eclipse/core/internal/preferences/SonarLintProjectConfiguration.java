@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -26,7 +26,7 @@ import java.util.Optional;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.internal.resources.ExclusionItem;
 import org.sonarlint.eclipse.core.internal.resources.SonarLintProperty;
-import org.sonarsource.sonarlint.core.client.api.connected.ProjectBinding;
+import org.sonarsource.sonarlint.core.serverconnection.ProjectBinding;
 
 public class SonarLintProjectConfiguration {
 
@@ -35,6 +35,7 @@ public class SonarLintProjectConfiguration {
   @Nullable
   private EclipseProjectBinding projectBinding;
   private boolean autoEnabled = false;
+  private boolean bindingSuggestionsDisabled = false;
 
   public List<ExclusionItem> getFileExclusions() {
     return fileExclusions;
@@ -79,8 +80,8 @@ public class SonarLintProjectConfiguration {
 
     @Override
     public int hashCode() {
-      final int prime = 31;
-      int result = super.hashCode();
+      final var prime = 31;
+      var result = super.hashCode();
       result = prime * result + ((connectionId == null) ? 0 : connectionId.hashCode());
       return result;
     }
@@ -96,10 +97,18 @@ public class SonarLintProjectConfiguration {
       if (getClass() != obj.getClass()) {
         return false;
       }
-      EclipseProjectBinding other = (EclipseProjectBinding) obj;
+      var other = (EclipseProjectBinding) obj;
       return Objects.equals(connectionId, other.connectionId);
     }
 
+  }
+
+  public boolean isBindingSuggestionsDisabled() {
+    return this.bindingSuggestionsDisabled;
+  }
+
+  public void setBindingSuggestionsDisabled(boolean bindingSuggestionsDisabled) {
+    this.bindingSuggestionsDisabled = bindingSuggestionsDisabled;
   }
 
 }

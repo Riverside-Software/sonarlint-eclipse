@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -24,10 +24,11 @@ import java.util.List;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IResourceDelta;
+import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.adapter.Adapters;
+import org.sonarlint.eclipse.core.internal.vcs.VcsService;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.job.SubscribeToNotificationsJob;
 
@@ -36,8 +37,8 @@ public class SonarLintProjectEventListener implements IResourceChangeListener {
   @Override
   public void resourceChanged(IResourceChangeEvent event) {
     if (event.getType() == IResourceChangeEvent.POST_CHANGE) {
-      List<ISonarLintProject> projectToSubscribeToNotifications = new ArrayList<>();
-      List<ISonarLintProject> projectToUnsubscribeFromNotifications = new ArrayList<>();
+      var projectToSubscribeToNotifications = new ArrayList<ISonarLintProject>();
+      var projectToUnsubscribeFromNotifications = new ArrayList<ISonarLintProject>();
       try {
         event.getDelta().accept(delta -> visitDelta(delta, projectToSubscribeToNotifications, projectToUnsubscribeFromNotifications));
       } catch (CoreException e) {
@@ -47,18 +48,25 @@ public class SonarLintProjectEventListener implements IResourceChangeListener {
         new SubscribeToNotificationsJob(projectToSubscribeToNotifications).schedule();
       }
       projectToUnsubscribeFromNotifications.forEach(p -> SonarLintCorePlugin.getInstance().notificationsManager().unsubscribe(p));
+      if (!projectToSubscribeToNotifications.isEmpty() || !projectToUnsubscribeFromNotifications.isEmpty()) {
+        SonarLintCorePlugin.getServersManager()
+          .subscribeForEvents(projectToSubscribeToNotifications.isEmpty() ? projectToUnsubscribeFromNotifications.get(0) : projectToSubscribeToNotifications.get(0));
+      }
     }
   }
 
   private static boolean visitDelta(IResourceDelta delta, List<ISonarLintProject> projectToSubscribeToNotifications,
     List<ISonarLintProject> projectToUnsubscribeFromNotifications) {
     if ((delta.getFlags() & IResourceDelta.OPEN) != 0) {
-      ISonarLintProject project = Adapters.adapt(delta.getResource(), ISonarLintProject.class);
+      var project = Adapters.adapt(delta.getResource(), ISonarLintProject.class);
       if (project != null) {
         if (project.isOpen() && SonarLintCorePlugin.loadConfig(project).isBound()) {
           projectToSubscribeToNotifications.add(project);
         } else {
           projectToUnsubscribeFromNotifications.add(project);
+        }
+        if (!project.isOpen()) {
+          VcsService.projectClosed(project);
         }
       }
       return false;

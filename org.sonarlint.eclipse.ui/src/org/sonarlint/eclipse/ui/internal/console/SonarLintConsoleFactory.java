@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -31,7 +31,7 @@ public class SonarLintConsoleFactory implements IConsoleFactory {
 
   @Override
   public void openConsole() {
-    SonarLintConsole console = SonarLintUiPlugin.getDefault().getSonarConsole();
+    var console = SonarLintUiPlugin.getDefault().getSonarConsole();
     console.bringConsoleToFront();
   }
 

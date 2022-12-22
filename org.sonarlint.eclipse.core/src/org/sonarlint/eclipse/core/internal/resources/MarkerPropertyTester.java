@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,9 +21,9 @@ package org.sonarlint.eclipse.core.internal.resources;
 
 import org.eclipse.core.expressions.PropertyTester;
 import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.runtime.Adapters;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.adapter.Adapters;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 
 public class MarkerPropertyTester extends PropertyTester {
@@ -33,12 +33,12 @@ public class MarkerPropertyTester extends PropertyTester {
    */
   @Override
   public boolean test(Object receiver, String property, Object[] args, @Nullable Object expectedValue) {
-    IMarker marker = Adapters.adapt(receiver, IMarker.class);
+    var marker = Adapters.adapt(receiver, IMarker.class);
     if (marker == null) {
       return false;
     }
 
-    ISonarLintFile sonarLintFile = Adapters.adapt(marker.getResource(), ISonarLintFile.class);
+    var sonarLintFile = Adapters.adapt(marker.getResource(), ISonarLintFile.class);
     if (sonarLintFile == null) {
       return false;
     }

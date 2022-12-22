@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,20 +20,22 @@
 package org.sonarlint.eclipse.ui.internal.notifications;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.resource.LocalResourceManager;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.MouseAdapter;
 import org.eclipse.swt.events.MouseEvent;
+import org.eclipse.swt.events.MouseListener;
 import org.eclipse.swt.events.MouseTrackAdapter;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
@@ -47,22 +49,24 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
-import org.eclipse.swt.widgets.Monitor;
 import org.eclipse.swt.widgets.Shell;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.notifications.internal.AnimationUtil;
 import org.sonarlint.eclipse.ui.internal.notifications.internal.AnimationUtil.FadeJob;
+import org.sonarlint.eclipse.ui.internal.notifications.internal.Messages;
 
 /**
  * Inspired from org.eclipse.jface.notifications
- * https://github.com/eclipse/eclipse.platform.ui/blob/05a41b55f173b46f989350eec13a8ad4cb37b7dd/bundles/org.eclipse.jface.notifications/src/org/eclipse/jface/notifications/AbstractNotificationPopup.java
+ * https://git.eclipse.org/c/platform/eclipse.platform.ui.git/tree/bundles/org.eclipse.jface.notifications/src/org/eclipse/jface/notifications/AbstractNotificationPopup.java
  *
  */
 public abstract class AbstractNotificationPopup extends Window {
 
-  private static final int TITLE_HEIGHT = 24;
+  static final int TITLE_HEIGHT = 24;
 
-  private static final String LABEL_JOB_CLOSE = "Close Notification Job";
+  private static final String LABEL_NOTIFICATION = Messages.AbstractNotificationPopup_Label;
+
+  private static final String LABEL_JOB_CLOSE = Messages.AbstractNotificationPopup_CloseJobTitle;
 
   private static final int MAX_WIDTH = 400;
 
@@ -73,12 +77,15 @@ public abstract class AbstractNotificationPopup extends Window {
   private static final int PADDING_EDGE = 5;
   private static final int PADDING_TOP = 30;
 
-  private long delayCloseMs = DEFAULT_DELAY_CLOSE;
+  private static final String LABEL_SDK = "SDK"; //$NON-NLS-1$
+
+  private long delayClose = DEFAULT_DELAY_CLOSE;
 
   protected LocalResourceManager resources;
 
   private final Display display;
 
+  @Nullable
   private Shell shell;
 
   private static final LinkedList<AbstractNotificationPopup> popupStack = new LinkedList<>();
@@ -89,6 +96,7 @@ public abstract class AbstractNotificationPopup extends Window {
     protected IStatus run(IProgressMonitor monitor) {
       if (!AbstractNotificationPopup.this.display.isDisposed()) {
         AbstractNotificationPopup.this.display.asyncExec(() -> {
+          var shell = AbstractNotificationPopup.this.getShell();
           if (shell == null || shell.isDisposed()) {
             return;
           }
@@ -109,14 +117,15 @@ public abstract class AbstractNotificationPopup extends Window {
     }
   };
 
+  @Nullable
   private FadeJob fadeJob;
 
   private boolean fadingEnabled;
-
+  
   private static Listener resizeListener = new Listener() {
     @Override
     public void handleEvent(Event e) {
-      Shell resized = (Shell) e.widget;
+      var resized = (Shell) e.widget;
       inSameParentShell(resized).forEach(AbstractNotificationPopup::initializeBounds);
     }
   };
@@ -125,19 +134,63 @@ public abstract class AbstractNotificationPopup extends Window {
     return popupStack.stream().filter(p -> p.getParentShell().equals(parent)).collect(Collectors.toList());
   }
 
-  protected AbstractNotificationPopup(Shell parentShell) {
-    super(parentShell);
-    setShellStyle(SWT.NO_TRIM | SWT.NO_FOCUS | SWT.TOOL);
+  @Nullable
+  private MouseListener windowActivationHelper;
 
-    this.display = parentShell.getDisplay();
+  protected AbstractNotificationPopup(Display display) {
+    // Bug 579019: NO_FOCUS leads to problems with main Window not being activated
+    // anymore if it is not visible but the notification shell is.
+    this(display, SWT.NO_TRIM | SWT.ON_TOP | SWT.TOOL);
+  }
+
+  protected AbstractNotificationPopup(Display display, int style) {
+    super((Shell) null);
+    setShellStyle(style);
+
+    this.display = display;
     this.resources = new LocalResourceManager(JFaceResources.getResources());
-
     this.closeJob.setSystem(true);
+  }
 
-    if (!Arrays.asList(getParentShell().getListeners(SWT.Resize)).contains(resizeListener)) {
-      getParentShell().addListener(SWT.Resize, resizeListener);
-      getParentShell().addListener(SWT.Move, resizeListener);
+  /**
+   * Overrides default implementation to add window activation helper.
+   * <p>
+   * {@inheritDoc}
+   */
+  @Override
+  protected void setParentShell(Shell newParentShell) {
+    super.setParentShell(newParentShell);
+    windowActivationHelper = createWindowActivationHelper(newParentShell);
+    
+    if (!List.of(newParentShell.getListeners(SWT.Resize)).contains(resizeListener)) {
+      newParentShell.addListener(SWT.Resize, resizeListener);
+      newParentShell.addListener(SWT.Move, resizeListener);
     }
+  }
+
+  /**
+   * Creates listener that shows and activates the main Eclipse window by clicking
+   * on the popup control if it was not in foreground.
+   * <p>
+   * Clients can override if the window activation shouldn't be added to the popup
+   * or a different behavior is desired by clicking on the popup.
+   *
+   * @param parentShell parent shell for this popup
+   * @return {@code null} if no window activation should be added to the popup
+   * @since 0.5
+   */
+  protected MouseListener createWindowActivationHelper(final Shell parentShell) {
+    return new MouseAdapter() {
+      @Override
+      public void mouseDown(MouseEvent e) {
+        // if not a top-level shell: show parent window notification on notification
+        // click
+        if (parentShell != null) {
+          parentShell.setActive();
+          parentShell.moveAbove(null);
+        }
+      }
+    };
   }
 
   public boolean isFadingEnabled() {
@@ -184,11 +237,11 @@ public abstract class AbstractNotificationPopup extends Window {
   }
 
   public long getDelayClose() {
-    return this.delayCloseMs;
+    return this.delayClose;
   }
 
-  public void setDelayClose(long delayCloseMs) {
-    this.delayCloseMs = delayCloseMs;
+  public void setDelayClose(long delayClose) {
+    this.delayClose = delayClose;
   }
 
   public void closeFade() {
@@ -224,8 +277,16 @@ public abstract class AbstractNotificationPopup extends Window {
    *
    * @return the name to be used in the title of the popup.
    */
-  protected abstract String getPopupShellTitle();
+  protected String getPopupShellTitle() {
+    String productName = getProductName();
+    if (productName != null) {
+      return productName + " " + LABEL_NOTIFICATION; //$NON-NLS-1$
+    } else {
+      return LABEL_NOTIFICATION;
+    }
+  }
 
+  @Nullable
   protected Image getPopupShellImage(int maximumHeight) {
     return null;
   }
@@ -245,17 +306,22 @@ public abstract class AbstractNotificationPopup extends Window {
   protected void createTitleArea(Composite parent) {
     ((GridData) parent.getLayoutData()).heightHint = TITLE_HEIGHT;
 
-    Label titleImageLabel = new Label(parent, SWT.NONE);
+    var titleImageLabel = new Label(parent, SWT.NONE);
     titleImageLabel.setImage(getPopupShellImage(TITLE_HEIGHT));
 
-    Label titleTextLabel = new Label(parent, SWT.NONE);
+    var titleTextLabel = new Label(parent, SWT.NONE);
     titleTextLabel.setText(getPopupShellTitle());
     titleTextLabel.setFont(JFaceResources.getFontRegistry().getBold(JFaceResources.DEFAULT_FONT));
     titleTextLabel.setForeground(getTitleForeground());
     titleTextLabel.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, true));
     titleTextLabel.setCursor(parent.getDisplay().getSystemCursor(SWT.CURSOR_HAND));
 
-    final Label button = new Label(parent, SWT.NONE);
+    createCloseButton(parent);
+    addWindowActivationHelper(titleTextLabel);
+  }
+
+  void createCloseButton(Composite parent) {
+    final var button = new Label(parent, SWT.NONE);
     button.setImage(SonarLintImages.NOTIFICATION_CLOSE);
     button.addMouseTrackListener(new MouseTrackAdapter() {
       @Override
@@ -292,8 +358,23 @@ public abstract class AbstractNotificationPopup extends Window {
   }
 
   protected void scheduleAutoClose() {
-    if (this.delayCloseMs > 0) {
-      this.closeJob.schedule(this.delayCloseMs);
+    if (this.delayClose > 0) {
+      this.closeJob.schedule(this.delayClose);
+    }
+  }
+
+  /**
+   * Allows to add activation listener to custom control. The listener shows and
+   * activates the main Eclipse window by clicking on the control if the window
+   * was not in foreground.
+   * <p>
+   * Clients can override to disable window activation on popup clicking
+   *
+   * @since 0.5
+   */
+  protected void addWindowActivationHelper(Control control) {
+    if (windowActivationHelper != null) {
+      control.addMouseListener(windowActivationHelper);
     }
   }
 
@@ -303,10 +384,10 @@ public abstract class AbstractNotificationPopup extends Window {
     ((GridLayout) parent.getLayout()).marginHeight = 1;
 
     /* Outer Composite holding the controls */
-    final Composite outerCircle = new Composite(parent, SWT.NO_FOCUS);
+    final var outerCircle = new Composite(parent, SWT.NO_FOCUS);
     outerCircle.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
-    GridLayout layout = new GridLayout(1, false);
+    var layout = new GridLayout(1, false);
     layout.marginWidth = 0;
     layout.marginHeight = 0;
     layout.verticalSpacing = 0;
@@ -314,7 +395,7 @@ public abstract class AbstractNotificationPopup extends Window {
     outerCircle.setLayout(layout);
 
     /* Title area containing label and close button */
-    final Composite titleCircle = new Composite(outerCircle, SWT.NO_FOCUS);
+    final var titleCircle = new Composite(outerCircle, SWT.NO_FOCUS);
     titleCircle.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false));
 
     layout = new GridLayout(4, false);
@@ -328,8 +409,8 @@ public abstract class AbstractNotificationPopup extends Window {
     /* Create Title Area */
     createTitleArea(titleCircle);
 
-    /* Outer composite to hold content controlls */
-    Composite outerContentCircle = new Composite(outerCircle, SWT.NONE);
+    /* Outer composite to hold content controls */
+    var outerContentCircle = new Composite(outerCircle, SWT.NONE);
 
     layout = new GridLayout(1, false);
     layout.marginWidth = 0;
@@ -339,7 +420,7 @@ public abstract class AbstractNotificationPopup extends Window {
     outerContentCircle.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
     /* Middle composite to show a 1px black line around the content controls */
-    Composite middleContentCircle = new Composite(outerContentCircle, SWT.NO_FOCUS);
+    var middleContentCircle = new Composite(outerContentCircle, SWT.NO_FOCUS);
 
     layout = new GridLayout(1, false);
     layout.marginWidth = 0;
@@ -350,7 +431,7 @@ public abstract class AbstractNotificationPopup extends Window {
     middleContentCircle.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
     /* Inner composite containing the content controls */
-    Composite innerContent = new Composite(middleContentCircle, SWT.NO_FOCUS);
+    var innerContent = new Composite(middleContentCircle, SWT.NO_FOCUS);
     innerContent.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
 
     layout = new GridLayout(1, false);
@@ -364,29 +445,45 @@ public abstract class AbstractNotificationPopup extends Window {
 
     /* Content Area */
     createContentArea(innerContent);
-
+    addWindowActivationHelper(innerContent);
     return outerCircle;
   }
 
   @Override
   protected void initializeBounds() {
-    Rectangle clArea = getPrimaryClientArea();
-    Point initialSize = this.shell.computeSize(MAX_WIDTH, SWT.DEFAULT);
-    int width = Math.min(initialSize.x, MAX_WIDTH);
-    int height = Math.max(initialSize.y, MIN_HEIGHT);
+    var clArea = getPrimaryClientArea();
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=539794
+    var initialSize = this.shell.computeSize(MAX_WIDTH, SWT.DEFAULT);
+    var height = Math.max(initialSize.y, MIN_HEIGHT);
+    var width = Math.min(initialSize.x, MAX_WIDTH);
+    
+    var startY = clArea.height + clArea.y - PADDING_EDGE;
 
-    int startY = clArea.height + clArea.y - PADDING_EDGE;
-
-    List<AbstractNotificationPopup> inSameParentShell = inSameParentShell(this.getParentShell());
-    int myIndex = inSameParentShell.indexOf(this);
+    var inSameParentShell = inSameParentShell(this.getParentShell());
+    var myIndex = inSameParentShell.indexOf(this);
     if (myIndex > 0) {
-      Shell popupBelow = inSameParentShell.get(myIndex - 1).getShell();
+      var popupBelow = inSameParentShell.get(myIndex - 1).getShell();
       startY = popupBelow.getLocation().y;
     }
 
-    Point size = new Point(width, height);
+    var size = new Point(width, height);
     this.shell.setLocation(clArea.width + clArea.x - size.x - PADDING_EDGE, Math.max(clArea.y + PADDING_TOP, startY - size.y));
     this.shell.setSize(size);
+  }
+
+  @Nullable
+  private static String getProductName() {
+    var product = Platform.getProduct();
+    if (product != null) {
+      var productName = product.getName();
+      if (productName != null) {
+        if (productName.endsWith(LABEL_SDK)) {
+          productName = productName.substring(0, productName.length() - LABEL_SDK.length()).trim();
+        }
+        return productName;
+      }
+    }
+    return null;
   }
 
   private boolean isMouseOver(Shell shell) {
@@ -397,11 +494,17 @@ public abstract class AbstractNotificationPopup extends Window {
   }
 
   private Rectangle getPrimaryClientArea() {
-    if (getParentShell() != null) {
-      return getParentShell().getBounds();
+    var parentShell = getParentShell();
+    if (parentShell != null) {
+      // calculate client area in display-relative coordinates
+      // (i.e. without window border / decorations)
+      var bounds = parentShell.getBounds();
+      var trim = parentShell.computeTrim(0, 0, 0, 0);
+      return new Rectangle(bounds.x - trim.x, bounds.y - trim.y, bounds.width - trim.width,
+        bounds.height - trim.height);
     }
     // else display on primary monitor
-    Monitor primaryMonitor = this.shell.getDisplay().getPrimaryMonitor();
+    var primaryMonitor = this.shell.getDisplay().getPrimaryMonitor();
     return (primaryMonitor != null) ? primaryMonitor.getClientArea() : this.shell.getDisplay().getClientArea();
   }
 

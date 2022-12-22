@@ -2,7 +2,7 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="6.2.2208"
+      version="7.6.2300"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
@@ -39,8 +39,7 @@
       <import plugin="org.eclipse.ui.navigator"/>
       <import plugin="org.eclipse.ui.editors"/>
       <import plugin="org.eclipse.ui.forms"/>
-      <import plugin="org.sonarsource.sonarlint.core.sonarlint-core" version="5.0.0" match="greaterOrEqual"/>
-      <import plugin="minimal-json" version="0.9.5" match="greaterOrEqual"/>
+      <import plugin="org.sonarsource.sonarlint.core.sonarlint-core-osgi" version="7.1.0" match="greaterOrEqual"/>
    </requires>
 
    <plugin
@@ -58,7 +57,7 @@
          unpack="false"/>
 
    <plugin
-         id="org.sonarsource.sonarlint.core.sonarlint-core"
+         id="org.sonarsource.sonarlint.core.sonarlint-core-osgi"
          download-size="0"
          install-size="0"
          version="0.0.0"
@@ -84,9 +83,16 @@
          install-size="0"
          version="0.0.0"
          unpack="false"/>
+         
+   <plugin
+         id="org.jetbrains.kotlin.osgi-bundle"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
 
    <plugin
-         id="minimal-json"
+         id="org.slf4j.api"
          download-size="0"
          install-size="0"
          version="0.0.0"

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -43,7 +43,7 @@ public class InMemoryIssueTrackerCache implements IssueTrackerCache {
 
   @Override
   public Collection<Trackable> getLiveOrFail(String file) {
-    Collection<Trackable> trackables = cache.get(file);
+    var trackables = cache.get(file);
     if (trackables != null) {
       return trackables;
     }

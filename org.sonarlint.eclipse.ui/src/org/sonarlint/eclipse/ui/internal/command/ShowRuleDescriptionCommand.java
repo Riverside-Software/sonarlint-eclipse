@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -29,10 +29,10 @@ public class ShowRuleDescriptionCommand extends AbstractIssueCommand {
   @Override
   protected void execute(IMarker selectedMarker) {
     try {
-      RuleDescriptionWebView view = (RuleDescriptionWebView) PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(RuleDescriptionWebView.ID);
+      var view = (RuleDescriptionWebView) PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(RuleDescriptionWebView.ID);
       view.setInput(selectedMarker);
     } catch (Exception e) {
-      SonarLintLogger.get().error("Unable to open RuleConfig Description Web View", e);
+      SonarLintLogger.get().error("Unable to open Rule Description Web View", e);
     }
   }
 

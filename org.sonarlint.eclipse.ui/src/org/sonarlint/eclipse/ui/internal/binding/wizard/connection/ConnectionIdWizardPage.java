@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,9 +22,7 @@ package org.sonarlint.eclipse.ui.internal.binding.wizard.connection;
 import org.eclipse.core.databinding.Binding;
 import org.eclipse.core.databinding.DataBindingContext;
 import org.eclipse.core.databinding.UpdateValueStrategy;
-import org.eclipse.core.databinding.beans.BeanProperties;
 import org.eclipse.jface.databinding.fieldassist.ControlDecorationSupport;
-import org.eclipse.jface.databinding.swt.WidgetProperties;
 import org.eclipse.jface.databinding.wizard.WizardPageSupport;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -33,6 +31,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionModel.ConnectionType;
+import org.sonarlint.eclipse.ui.internal.util.wizard.BeanPropertiesCompat;
+import org.sonarlint.eclipse.ui.internal.util.wizard.WidgetPropertiesCompat;
 
 public class ConnectionIdWizardPage extends AbstractServerConnectionWizardPage {
 
@@ -45,24 +45,24 @@ public class ConnectionIdWizardPage extends AbstractServerConnectionWizardPage {
   @SuppressWarnings("unchecked")
   @Override
   protected void doCreateControl(Composite container) {
-    Label labelId = new Label(container, SWT.NULL);
+    var labelId = new Label(container, SWT.NULL);
     labelId.setText(Messages.ServerLocationWizardPage_label_id);
-    Text serverIdText = new Text(container, SWT.BORDER | SWT.SINGLE);
-    GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+    var serverIdText = new Text(container, SWT.BORDER | SWT.SINGLE);
+    var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
     serverIdText.setLayoutData(gd);
 
-    DataBindingContext dbc = new DataBindingContext();
-    serverIdTextBinding = dbc.bindValue(
-      WidgetProperties.text(SWT.Modify).observe(serverIdText),
-      BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_CONNECTION_ID)
+    var dataBindingContext = new DataBindingContext();
+    serverIdTextBinding = dataBindingContext.bindValue(
+      WidgetPropertiesCompat.text(SWT.Modify).observe(serverIdText),
+      BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_CONNECTION_ID)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(
         new MandatoryAndUniqueServerIdValidator(model.isEdit())),
       null);
     ControlDecorationSupport.create(serverIdTextBinding, SWT.LEFT | SWT.TOP);
 
-    WizardPageSupport.create(this, dbc);
+    WizardPageSupport.create(this, dataBindingContext);
   }
 
   @Override

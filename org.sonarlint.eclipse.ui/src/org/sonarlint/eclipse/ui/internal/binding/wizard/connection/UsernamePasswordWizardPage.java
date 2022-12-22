@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,9 +22,7 @@ package org.sonarlint.eclipse.ui.internal.binding.wizard.connection;
 import org.eclipse.core.databinding.Binding;
 import org.eclipse.core.databinding.DataBindingContext;
 import org.eclipse.core.databinding.UpdateValueStrategy;
-import org.eclipse.core.databinding.beans.BeanProperties;
 import org.eclipse.jface.databinding.fieldassist.ControlDecorationSupport;
-import org.eclipse.jface.databinding.swt.WidgetProperties;
 import org.eclipse.jface.databinding.wizard.WizardPageSupport;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -32,6 +30,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.sonarlint.eclipse.ui.internal.Messages;
+import org.sonarlint.eclipse.ui.internal.util.wizard.BeanPropertiesCompat;
+import org.sonarlint.eclipse.ui.internal.util.wizard.WidgetPropertiesCompat;
 
 public class UsernamePasswordWizardPage extends AbstractServerConnectionWizardPage {
 
@@ -52,41 +52,41 @@ public class UsernamePasswordWizardPage extends AbstractServerConnectionWizardPa
     createUsernameOrTokenField(container);
     createPasswordField(container);
 
-    DataBindingContext dbc = new DataBindingContext();
-    usernameTextBinding = dbc.bindValue(
-      WidgetProperties.text(SWT.Modify).observe(serverUsernameText),
-      BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_USERNAME)
+    var dataBindingContext = new DataBindingContext();
+    usernameTextBinding = dataBindingContext.bindValue(
+      WidgetPropertiesCompat.text(SWT.Modify).observe(serverUsernameText),
+      BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_USERNAME)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(
         new MandatoryStringValidator("You must provide a login")),
       null);
     ControlDecorationSupport.create(usernameTextBinding, SWT.LEFT | SWT.TOP);
-    passwordTextBinding = dbc.bindValue(
-      WidgetProperties.text(SWT.Modify).observe(serverPasswordText),
-      BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_PASSWORD)
+    passwordTextBinding = dataBindingContext.bindValue(
+      WidgetPropertiesCompat.text(SWT.Modify).observe(serverPasswordText),
+      BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_PASSWORD)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(
         new MandatoryStringValidator("You must provide a password")),
       null);
     ControlDecorationSupport.create(passwordTextBinding, SWT.LEFT | SWT.TOP);
 
-    WizardPageSupport.create(this, dbc);
+    WizardPageSupport.create(this, dataBindingContext);
   }
 
   private void createPasswordField(final Composite container) {
-    Label labelPassword = new Label(container, SWT.NULL);
+    var labelPassword = new Label(container, SWT.NULL);
     labelPassword.setText(Messages.ServerLocationWizardPage_label_password);
     serverPasswordText = new Text(container, SWT.BORDER | SWT.SINGLE | SWT.PASSWORD);
-    GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+    var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
     serverPasswordText.setLayoutData(gd);
   }
 
   private void createUsernameOrTokenField(final Composite container) {
-    Label labelUsername = new Label(container, SWT.NULL);
+    var labelUsername = new Label(container, SWT.NULL);
     labelUsername.setText("Username:");
     serverUsernameText = new Text(container, SWT.BORDER | SWT.SINGLE);
-    GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+    var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
     serverUsernameText.setLayoutData(gd);
   }

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -38,7 +38,7 @@ public class IssueTrackerRegistry {
   }
 
   public synchronized IssueTracker getOrCreate(ISonarLintProject project) {
-    IssueTracker tracker = registry.get(project.getName());
+    var tracker = registry.get(project.getName());
     if (tracker == null) {
       tracker = newTracker(project);
       registry.put(project.getName(), tracker);

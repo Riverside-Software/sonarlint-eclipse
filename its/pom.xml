@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>59.0.29</version>
+    <version>64.0.211</version>
     <relativePath />
   </parent>
 
@@ -18,45 +17,18 @@
   <name>SonarLint for Eclipse Integration Tests</name>
 
   <properties>
-    <tycho.version>2.3.0</tycho.version>
+    <tycho.version>2.7.4</tycho.version>
     <license.title>SonarLint for Eclipse ITs</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <target.platform>2019-06</target.platform>
+    <target.platform>latest</target.platform>
     <tycho.localArtifacts>ignore</tycho.localArtifacts>
     <!-- http://stackoverflow.com/questions/36317684/eclipse-jsdt-internal-error-noclassdeffounderror-jdk-nashorn-internal-runtime -->
     <tycho.testArgLine>-Dorg.osgi.framework.bundle.parent=ext -Dsonarlint.telemetry.disabled=true</tycho.testArgLine>
     <sonar.runtimeVersion>LATEST_RELEASE</sonar.runtimeVersion>
+    <jdk.min.version>11</jdk.min.version>
+    <version.jacoco.plugin>0.8.8</version.jacoco.plugin>
   </properties>
-
-  <!-- These dependencies will be added to the target platform -->
-  <dependencies>
-    <dependency>
-      <groupId>commons-io</groupId>
-      <artifactId>commons-io</artifactId>
-      <version>2.6</version>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>3.3.3</version>
-    </dependency>
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.15.0</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-    </dependency>
-    <dependency>
-      <groupId>org.sonarsource.orchestrator</groupId>
-      <artifactId>sonar-orchestrator-osgi</artifactId>
-      <version>3.35.1.2719</version>
-    </dependency>
-  </dependencies>
 
   <build>
     <pluginManagement>
@@ -134,7 +106,6 @@
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>target-platform-configuration</artifactId>
         <configuration>
-          <pomDependencies>consider</pomDependencies>
           <target>
             <file>target-platforms/${target.platform}.target</file>
           </target>
@@ -194,15 +165,15 @@
       <layout>p2</layout>
     </repository>
   </repositories>
-  
-  
+
+
   <profiles>
     <profile>
-      <id>milestones</id>
+      <id>ibuilds</id>
       <activation>
         <property>
           <name>target.platform</name>
-          <value>milestones</value>
+          <value>ibuilds</value>
         </property>
       </activation>
       <build>
@@ -211,7 +182,7 @@
             <groupId>org.eclipse.tycho</groupId>
             <artifactId>tycho-surefire-plugin</artifactId>
             <configuration>
-              <excludedGroups>org.sonarlint.eclipse.its.RequiresExtraDependency,org.sonarlint.eclipse.its.SonarCloud</excludedGroups>
+              <excludedGroups>org.sonarlint.eclipse.its.RequiresExtraDependency</excludedGroups>
               <dependencies>
                 <dependency>
                   <type>p2-installable-unit</type>
@@ -227,7 +198,7 @@
                 </dependency>
                 <dependency>
                   <type>p2-installable-unit</type>
-                  <artifactId>org.eclipse.jgit.feature.group</artifactId>
+                  <artifactId>org.eclipse.egit.feature.group</artifactId>
                 </dependency>
               </dependencies>
             </configuration>
@@ -240,7 +211,7 @@
       <activation>
         <property>
           <name>target.platform</name>
-          <value>!milestones</value>
+          <value>!ibuilds</value>
         </property>
       </activation>
       <build>
@@ -249,6 +220,8 @@
             <groupId>org.eclipse.tycho</groupId>
             <artifactId>tycho-surefire-plugin</artifactId>
             <configuration>
+              <!-- Don't run SonarCloud ITs on all axis, just one (ibuilds) is enough -->
+              <excludedGroups>org.sonarlint.eclipse.its.SonarCloud</excludedGroups>
               <dependencies>
                 <dependency>
                   <type>p2-installable-unit</type>
@@ -278,10 +251,10 @@
                   <type>p2-installable-unit</type>
                   <artifactId>org.eclipse.rse.feature.group</artifactId>
                 </dependency>
-                <dependency>
+                <!--dependency>
                   <type>p2-installable-unit</type>
                   <artifactId>org.python.pydev.feature.feature.group</artifactId>
-                </dependency>
+                </dependency-->
                 <dependency>
                   <type>p2-installable-unit</type>
                   <artifactId>org.eclipse.php.feature.group</artifactId>
@@ -292,7 +265,7 @@
                 </dependency>
                 <dependency>
                   <type>p2-installable-unit</type>
-                  <artifactId>org.eclipse.jgit.feature.group</artifactId>
+                  <artifactId>org.eclipse.egit.feature.group</artifactId>
                 </dependency>
               </dependencies>
             </configuration>

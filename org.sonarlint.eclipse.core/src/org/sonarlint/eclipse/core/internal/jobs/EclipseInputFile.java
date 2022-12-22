@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -34,8 +34,8 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentExtension4;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
-import org.sonarsource.sonarlint.core.client.api.common.Language;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.ClientInputFile;
+import org.sonarsource.sonarlint.core.analysis.api.ClientInputFile;
+import org.sonarsource.sonarlint.core.commons.Language;
 
 /**
  * Two situations:
@@ -46,11 +46,14 @@ import org.sonarsource.sonarlint.core.client.api.common.analysis.ClientInputFile
 class EclipseInputFile implements ClientInputFile {
   private final boolean isTestFile;
   private final ISonarLintFile file;
+  @Nullable
   private final Language language;
+  @Nullable
   private final IDocument editorDocument;
   private final Path tempDirectory;
+  @Nullable
   private Path filePath;
-  private long documentModificationStamp;
+  private final long documentModificationStamp;
 
   EclipseInputFile(boolean isTestFile, ISonarLintFile file, Path tempDirectory, @Nullable IDocument editorDocument, @Nullable Language language) {
     this.isTestFile = isTestFile;
@@ -73,7 +76,7 @@ class EclipseInputFile implements ClientInputFile {
     IFileStore fileStore;
     try {
       fileStore = EFS.getStore(file.getResource().getLocationURI());
-      File localFile = fileStore.toLocalFile(EFS.NONE, null);
+      var localFile = fileStore.toLocalFile(EFS.NONE, null);
       if (localFile == null) {
         // For analyzers to properly work we should ensure the temporary file has a "correct" name, and not a generated one
         localFile = new File(temporaryDirectory.toFile(), file.getProjectRelativePath());

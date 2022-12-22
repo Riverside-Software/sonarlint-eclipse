@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,23 +19,19 @@
  */
 package org.sonarlint.eclipse.ui.internal;
 
-import java.util.Arrays;
-import org.eclipse.core.resources.IFile;
-import org.eclipse.jface.text.IDocument;
-import org.eclipse.ui.IEditorInput;
+import java.util.List;
 import org.eclipse.ui.IEditorPart;
-import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IPartListener2;
-import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchPartReference;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
-import org.sonarlint.eclipse.core.internal.adapter.Adapters;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDocument;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
+
+import static org.sonarlint.eclipse.ui.internal.util.PlatformUtils.doIfSonarLintFileInEditor;
 
 /**
  * Responsible to trigger analysis when editor are opened
@@ -43,23 +39,12 @@ import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
 public class OpenEditorAnalysisTrigger implements IPartListener2 {
   @Override
   public void partOpened(IWorkbenchPartReference partRef) {
-    IWorkbenchPart part = partRef.getPart(true);
-    if (part instanceof IEditorPart) {
-      IEditorPart editorPart = (IEditorPart) part;
-      IEditorInput input = ((IEditorPart) part).getEditorInput();
-      if (input instanceof IFileEditorInput) {
-        IFile file = ((IFileEditorInput) input).getFile();
-        ISonarLintFile sonarLintFile = Adapters.adapt(file, ISonarLintFile.class);
-        if (sonarLintFile != null) {
-          scheduleUpdate(editorPart, sonarLintFile);
-        }
-      }
-    }
+    doIfSonarLintFileInEditor(partRef, (f, p) -> scheduleUpdate(p, f));
   }
 
   private static void scheduleUpdate(IEditorPart editorPart, ISonarLintFile sonarLintFile) {
     if (editorPart instanceof ITextEditor) {
-      IDocument doc = ((ITextEditor) editorPart).getDocumentProvider().getDocument(editorPart.getEditorInput());
+      var doc = ((ITextEditor) editorPart).getDocumentProvider().getDocument(editorPart.getEditorInput());
       scheduleUpdate(new FileWithDocument(sonarLintFile, doc));
     } else {
       scheduleUpdate(new FileWithDocument(sonarLintFile, null));
@@ -67,11 +52,11 @@ public class OpenEditorAnalysisTrigger implements IPartListener2 {
   }
 
   private static void scheduleUpdate(FileWithDocument fileWithDoc) {
-    ISonarLintFile file = fileWithDoc.getFile();
+    var file = fileWithDoc.getFile();
     if (!SonarLintCorePlugin.loadConfig(file.getProject()).isAutoEnabled()) {
       return;
     }
-    AnalyzeProjectRequest request = new AnalyzeProjectRequest(file.getProject(), Arrays.asList(fileWithDoc), TriggerType.EDITOR_OPEN);
+    var request = new AnalyzeProjectRequest(file.getProject(), List.of(fileWithDoc), TriggerType.EDITOR_OPEN);
     JobUtils.scheduleAutoAnalysisIfEnabled(request);
   }
 

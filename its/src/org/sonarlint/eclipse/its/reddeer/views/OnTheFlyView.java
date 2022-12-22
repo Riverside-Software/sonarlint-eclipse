@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -74,10 +74,10 @@ public class OnTheFlyView extends AbstractMarkersSupportView {
   }
 
   protected List<SonarLintIssue> getMarkers(AbstractMarkerMatcher... matchers) {
-    List<SonarLintIssue> filteredResult = new ArrayList<>();
-    List<TreeItem> markerItems = new DefaultTree(cTabItem).getItems();
+    var filteredResult = new ArrayList<SonarLintIssue>();
+    var markerItems = new DefaultTree(cTabItem).getItems();
     if (markerItems != null) {
-      for (TreeItem markerItem : markerItems) {
+      for (var markerItem : markerItems) {
         if (matchMarkerTreeItem(markerItem, matchers)) {
           try {
             filteredResult.add(new SonarLintIssue(markerItem));
@@ -93,9 +93,9 @@ public class OnTheFlyView extends AbstractMarkersSupportView {
   }
 
   private boolean matchMarkerTreeItem(TreeItem item, AbstractMarkerMatcher... matchers) {
-    boolean itemFitsMatchers = true;
+    var itemFitsMatchers = true;
     if (matchers != null) {
-      for (AbstractMarkerMatcher matcher : matchers) {
+      for (var matcher : matchers) {
         try {
           if (!matcher.matches(item.getCell(getIndexOfColumn(matcher.getColumn())))) {
             itemFitsMatchers = false;

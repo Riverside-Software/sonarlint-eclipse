@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,13 +19,12 @@
  */
 package org.sonarlint.eclipse.core.internal.jobs;
 
-import java.util.Optional;
+import java.util.Set;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
 
 public class ProjectStorageUpdateJob extends Job {
 
@@ -41,8 +40,11 @@ public class ProjectStorageUpdateJob extends Job {
   @Override
   protected IStatus run(IProgressMonitor monitor) {
     try {
-      Optional<IConnectedEngineFacade> server = SonarLintCorePlugin.getServersManager().findById(connectionId);
-      server.ifPresent(s -> s.updateProjectStorage(projectKey, monitor));
+      var server = SonarLintCorePlugin.getServersManager().findById(connectionId);
+      server.ifPresent(s -> {
+        s.updateProjectStorage(projectKey, monitor);
+        s.manualSync(Set.of(projectKey), monitor);
+      });
       return Status.OK_STATUS;
     } catch (Exception e) {
       return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, "Unable to update SonarLint binding data for project '" + projectKey + "' on '" + connectionId + "'", e);

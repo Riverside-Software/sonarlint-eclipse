@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +21,6 @@ package org.sonarlint.eclipse.core.internal.resources;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -30,6 +29,7 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceVisitor;
+import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.team.core.RepositoryProvider;
@@ -38,7 +38,6 @@ import org.eclipse.team.core.subscribers.Subscriber;
 import org.eclipse.team.core.synchronize.SyncInfo;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.adapter.Adapters;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
@@ -70,7 +69,7 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
 
   @Override
   public Optional<ISonarLintFile> find(String relativeFilePath) {
-    IFile file = project.getFile(relativeFilePath);
+    var file = project.getFile(relativeFilePath);
     return file.exists() ? Optional.of(new DefaultSonarLintFileAdapter(this, file)) : Optional.empty();
   }
 
@@ -81,7 +80,7 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
 
   @Override
   public Collection<ISonarLintFile> files() {
-    List<ISonarLintFile> result = new ArrayList<>();
+    var result = new ArrayList<ISonarLintFile>();
     try {
       project.accept(new IResourceVisitor() {
         @Override
@@ -89,7 +88,7 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
           if (!SonarLintUtils.isSonarLintFileCandidate(resource)) {
             return false;
           }
-          ISonarLintFile sonarLintFile = Adapters.adapt(resource, ISonarLintFile.class);
+          var sonarLintFile = Adapters.adapt(resource, ISonarLintFile.class);
           if (sonarLintFile != null) {
             result.add(sonarLintFile);
           }
@@ -103,14 +102,14 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
   }
 
   public Collection<ISonarLintFile> getScmChangedFiles(IProgressMonitor monitor) {
-    List<ISonarLintFile> result = new ArrayList<>();
-    RepositoryProvider provider = RepositoryProvider.getProvider(project);
+    var result = new ArrayList<ISonarLintFile>();
+    var provider = RepositoryProvider.getProvider(project);
     if (provider == null) {
       SonarLintLogger.get().debug("Project " + project.getName() + " doesn't have any RepositoryProvider");
       return result;
     }
 
-    Subscriber subscriber = provider.getSubscriber();
+    var subscriber = provider.getSubscriber();
     if (subscriber == null) {
       // Some providers (like Clear Case SCM Adapter) don't provide a Subscriber.
       SonarLintLogger.get().debug("No Subscriber for provider " + provider.getID() + " on project " + project.getName());
@@ -118,8 +117,8 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
     }
 
     try {
-      IResource[] roots = subscriber.roots();
-      if (Arrays.asList(roots).contains(project)) {
+      var roots = subscriber.roots();
+      if (List.of(roots).contains(project)) {
         // Refresh
         subscriber.refresh(new IResource[] {project}, IResource.DEPTH_INFINITE, monitor);
 
@@ -135,17 +134,17 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
   }
 
   private static void collect(Subscriber subscriber, IResource resource, Collection<ISonarLintFile> changedFiles) throws TeamException {
-    IFile file = Adapters.adapt(resource, IFile.class);
+    var file = Adapters.adapt(resource, IFile.class);
     if (file != null) {
-      ISonarLintFile sonarLintFile = Adapters.adapt(file, ISonarLintFile.class);
+      var sonarLintFile = Adapters.adapt(file, ISonarLintFile.class);
       if (sonarLintFile != null) {
-        SyncInfo syncInfo = subscriber.getSyncInfo(resource);
+        var syncInfo = subscriber.getSyncInfo(resource);
         if (syncInfo != null && !SyncInfo.isInSync(syncInfo.getKind())) {
           changedFiles.add(sonarLintFile);
         }
       }
     } else {
-      for (IResource child : subscriber.members(resource)) {
+      for (var child : subscriber.members(resource)) {
         collect(subscriber, child, changedFiles);
       }
     }
@@ -172,7 +171,7 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
     if (getClass() != obj.getClass()) {
       return false;
     }
-    DefaultSonarLintProjectAdapter other = (DefaultSonarLintProjectAdapter) obj;
+    var other = (DefaultSonarLintProjectAdapter) obj;
     return Objects.equals(project, other.project);
   }
 

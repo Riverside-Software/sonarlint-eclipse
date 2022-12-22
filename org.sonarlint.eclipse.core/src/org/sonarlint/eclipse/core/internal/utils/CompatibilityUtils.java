@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,29 +19,14 @@
  */
 package org.sonarlint.eclipse.core.internal.utils;
 
-import org.eclipse.core.runtime.Platform;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.Version;
-
 public class CompatibilityUtils {
 
   private CompatibilityUtils() {
     // utility class, forbidden constructor
   }
 
-  // SLE-516
-  public static boolean supportDifferentIconsForZoomLevels() {
-    return platformVersion().compareTo(Version.parseVersion("4.7")) >= 0;
-  }
-
-  private static Version platformVersion() {
-    Bundle platform = Platform.getBundle("org.eclipse.platform");
-    return platform != null ? platform.getVersion() : Version.emptyVersion;
-  }
-
   public static boolean supportMarkerResolutionRelevance() {
-    Bundle eclipseUiIde = Platform.getBundle("org.eclipse.ui.ide");
-    return eclipseUiIde != null && eclipseUiIde.getVersion().compareTo(Version.parseVersion("3.14")) >= 0;
+    return BundleUtils.isBundleInstalledWithMinVersion("org.eclipse.ui.ide", 3, 14);
   }
 
 }

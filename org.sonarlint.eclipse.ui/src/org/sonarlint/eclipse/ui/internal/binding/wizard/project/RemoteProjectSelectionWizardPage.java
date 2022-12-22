@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,9 +22,7 @@ package org.sonarlint.eclipse.ui.internal.binding.wizard.project;
 import org.eclipse.core.databinding.Binding;
 import org.eclipse.core.databinding.DataBindingContext;
 import org.eclipse.core.databinding.UpdateValueStrategy;
-import org.eclipse.core.databinding.beans.BeanProperties;
 import org.eclipse.jface.databinding.fieldassist.ControlDecorationSupport;
-import org.eclipse.jface.databinding.swt.WidgetProperties;
 import org.eclipse.jface.databinding.wizard.WizardPageSupport;
 import org.eclipse.jface.fieldassist.ContentProposalAdapter;
 import org.eclipse.jface.fieldassist.TextContentAdapter;
@@ -35,6 +33,8 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.fieldassist.ContentAssistCommandAdapter;
 import org.eclipse.ui.texteditor.ITextEditorActionDefinitionIds;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.MandatoryStringValidator;
+import org.sonarlint.eclipse.ui.internal.util.wizard.BeanPropertiesCompat;
+import org.sonarlint.eclipse.ui.internal.util.wizard.WidgetPropertiesCompat;
 
 public class RemoteProjectSelectionWizardPage extends AbstractProjectBindingWizardPage {
 
@@ -46,24 +46,24 @@ public class RemoteProjectSelectionWizardPage extends AbstractProjectBindingWiza
 
   @Override
   protected void doCreateControl(Composite container) {
-    Text projectKeyText = new Text(container, SWT.BORDER | SWT.SINGLE);
+    var projectKeyText = new Text(container, SWT.BORDER | SWT.SINGLE);
     projectKeyText.setMessage("Start typing to search for your project by name or enter the project key");
-    GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+    var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
     projectKeyText.setLayoutData(gd);
 
-    DataBindingContext dbc = new DataBindingContext();
-    projectTextBinding = dbc.bindValue(
-      WidgetProperties.text(SWT.Modify).observe(projectKeyText),
-      BeanProperties.value(ProjectBindingModel.class, ProjectBindingModel.PROPERTY_REMOTE_PROJECT_KEY)
+    var dataBindingContext = new DataBindingContext();
+    projectTextBinding = dataBindingContext.bindValue(
+      WidgetPropertiesCompat.text(SWT.Modify).observe(projectKeyText),
+      BeanPropertiesCompat.value(ProjectBindingModel.class, ProjectBindingModel.PROPERTY_REMOTE_PROJECT_KEY)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(new MandatoryStringValidator("You must select a project key")),
       null);
     ControlDecorationSupport.create(projectTextBinding, SWT.LEFT | SWT.TOP);
 
-    WizardPageSupport.create(this, dbc);
+    WizardPageSupport.create(this, dataBindingContext);
 
-    ContentProposalAdapter contentProposalAdapter = new ContentAssistCommandAdapter(
+    var contentProposalAdapter = new ContentAssistCommandAdapter(
       projectKeyText,
       new TextContentAdapter(),
       new RemoteProjectProvider(model, this),

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -35,13 +35,14 @@ import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.client.api.common.Language;
+import org.sonarsource.sonarlint.core.commons.Language;
 
 /**
  * Responsible for checking at runtime if CDT plugin is installed.
  */
 public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider {
 
+  @Nullable
   private final CdtUtils cdtUtils;
 
   public CProjectConfiguratorExtension() {
@@ -77,7 +78,7 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
   @Override
   public boolean canConfigure(ISonarLintProject project) {
     try {
-      IProject underlyingProject = project.getResource() instanceof IProject ? (IProject) project.getResource() : null;
+      var underlyingProject = project.getResource() instanceof IProject ? (IProject) project.getResource() : null;
       // Constants are inlined so this should not cause ClassNotFound
       return cdtUtils != null &&
         underlyingProject != null &&
@@ -97,7 +98,7 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
   @Override
   public String language(ISonarLintFile file) {
     if (canConfigure(file.getProject())) {
-      IFile iFile = file.getResource() instanceof IFile ? (IFile) file.getResource() : null;
+      var iFile = file.getResource() instanceof IFile ? (IFile) file.getResource() : null;
       if (cdtUtils != null && iFile != null) {
         return cdtUtils.language(iFile);
       }

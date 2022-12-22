@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -23,8 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.sonarlint.eclipse.core.internal.NotificationListener;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
-import org.sonarsource.sonarlint.core.client.api.common.Language;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue;
+import org.sonarsource.sonarlint.core.commons.Language;
 
 public class SonarLintNotifications {
   private static final SonarLintNotifications instance = new SonarLintNotifications();
@@ -38,7 +38,6 @@ public class SonarLintNotifications {
     return instance;
   }
 
-
   public void addNotificationListener(NotificationListener listener) {
     notifListeners.add(listener);
   }
@@ -47,9 +46,8 @@ public class SonarLintNotifications {
     notifListeners.remove(listener);
   }
 
-
   public void showNotification(Notification notification) {
-    for (NotificationListener listener : notifListeners) {
+    for (var listener : notifListeners) {
       listener.showNotification(notification);
     }
   }
@@ -57,11 +55,11 @@ public class SonarLintNotifications {
   public void showNotificationIfFirstSecretDetected(Issue issue) {
     if (issue.getRuleKey().startsWith(Language.SECRETS.getPluginKey()) && SonarLintGlobalConfiguration.secretsNeverDetected()) {
       SonarLintNotifications.get().showNotification(new SonarLintNotifications.Notification(
-              "Secret(s) detected", "SonarLint detected some secrets in one of the open files.",
-              "SonarLint detected some secrets in one of the open files. " +
-                      "We strongly advise you to review those secrets " +
-                      "and ensure they are not committed into repositories. " +
-                      "Please refer to the SonarLint On-The-Fly view for more information."));
+        "Secret(s) detected", "SonarLint detected some secrets in one of the open files.",
+        "SonarLint detected some secrets in one of the open files. " +
+          "We strongly advise you to review those secrets " +
+          "and ensure they are not committed into repositories. " +
+          "Please refer to the SonarLint On-The-Fly view for more information."));
       SonarLintGlobalConfiguration.setSecretsWereDetected();
     }
   }

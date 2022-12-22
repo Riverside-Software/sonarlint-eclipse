@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,22 +21,23 @@ package org.sonarlint.eclipse.core.internal.engine.connected;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.client.api.common.RuleDetails;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.AnalysisResults;
+import org.sonarsource.sonarlint.core.analysis.api.AnalysisResults;
 import org.sonarsource.sonarlint.core.client.api.common.analysis.IssueListener;
 import org.sonarsource.sonarlint.core.client.api.connected.ConnectedAnalysisConfiguration;
-import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine.State;
-import org.sonarsource.sonarlint.core.client.api.connected.ProjectBinding;
+import org.sonarsource.sonarlint.core.client.api.connected.ConnectedRuleDetails;
+import org.sonarsource.sonarlint.core.client.api.connected.ProjectBranches;
 import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
-import org.sonarsource.sonarlint.core.serverapi.hotspot.ServerHotspot;
-import org.sonarsource.sonarlint.core.serverapi.project.ServerProject;
+import org.sonarsource.sonarlint.core.serverapi.component.ServerProject;
+import org.sonarsource.sonarlint.core.serverapi.hotspot.ServerHotspotDetails;
+import org.sonarsource.sonarlint.core.serverconnection.ProjectBinding;
 
 public interface IConnectedEngineFacade {
 
@@ -66,14 +67,6 @@ public interface IConnectedEngineFacade {
 
   void delete();
 
-  String getUpdateDate();
-
-  String getServerVersion();
-
-  String getSonarLintStorageStateLabel();
-
-  void updateStorage(IProgressMonitor monitor);
-
   /**
    * Adds the given state listener to this engine.
    * Once registered, a listener starts receiving notification of
@@ -97,19 +90,16 @@ public interface IConnectedEngineFacade {
 
   TextSearchIndex<ServerProject> computeProjectIndex();
 
-  Map<String, ServerProject> getCachedRemoteProjects();
-
-  Optional<ServerProject> getRemoteProject(String projectKey, IProgressMonitor monitor);
+  Optional<ServerProject> getCachedRemoteProject(String projectKey);
 
   @Nullable
   AnalysisResults runAnalysis(ConnectedAnalysisConfiguration config, IssueListener issueListener, IProgressMonitor monitor);
 
-  @Nullable
-  RuleDetails getRuleDescription(String ruleKey, @Nullable String projectKey);
+  CompletableFuture<ConnectedRuleDetails> getRuleDescription(String ruleKey, @Nullable String projectKey);
 
-  void updateProjectStorage(String moduleKey, IProgressMonitor monitor);
+  void updateProjectStorage(String projectKey, IProgressMonitor monitor);
 
-  State getStorageState();
+  Set<String> getBoundProjectKeys();
 
   List<ISonarLintProject> getBoundProjects();
 
@@ -119,10 +109,6 @@ public interface IConnectedEngineFacade {
 
   void updateConfig(String url, @Nullable String organization, String username, String password, boolean notificationsDisabled);
 
-  void checkForUpdates(IProgressMonitor progress);
-
-  boolean hasUpdates();
-
   void updateProjectList(IProgressMonitor monitor);
 
   boolean isSonarCloud();
@@ -131,5 +117,13 @@ public interface IConnectedEngineFacade {
 
   List<ISonarLintFile> getServerFileExclusions(ProjectBinding binding, Collection<ISonarLintFile> files, Predicate<ISonarLintFile> testFilePredicate);
 
-  Optional<ServerHotspot> getServerHotspot(String hotspotKey, String projectKey);
+  Optional<ServerHotspotDetails> getServerHotspot(String hotspotKey, String projectKey);
+
+  void autoSync(Set<String> projectKeys, IProgressMonitor monitor);
+
+  void manualSync(Set<String> projectKeysToUpdate, IProgressMonitor monitor);
+
+  ProjectBranches getServerBranches(String projectKey);
+
+  void subscribeForEventsForBoundProjects();
 }

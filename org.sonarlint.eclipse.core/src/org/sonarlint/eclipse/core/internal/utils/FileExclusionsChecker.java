@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -30,32 +30,31 @@ import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintMarkerUpdater;
 import org.sonarlint.eclipse.core.internal.jobs.TestFileClassifier;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
-import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.resources.ExclusionItem;
 import org.sonarlint.eclipse.core.internal.resources.ExclusionItem.Type;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.client.api.common.FileExclusions;
-import org.sonarsource.sonarlint.core.client.api.exceptions.SonarLintException;
+import org.sonarsource.sonarlint.core.client.api.common.ClientFileExclusions;
+import org.sonarsource.sonarlint.core.commons.SonarLintException;
 
 import static java.util.stream.Collectors.toCollection;
 
 public class FileExclusionsChecker {
-  private FileExclusions projectExclusions;
-  private FileExclusions globalExclusions;
+  private final ClientFileExclusions projectExclusions;
+  private final ClientFileExclusions globalExclusions;
 
   public FileExclusionsChecker(ISonarLintProject project) {
-    SonarLintProjectConfiguration projectConfiguration = SonarLintCorePlugin.loadConfig(project);
-    List<ExclusionItem> globalExclusionItems = SonarLintGlobalConfiguration.getGlobalExclusions();
-    List<ExclusionItem> projectExclusionItems = projectConfiguration.getFileExclusions();
+    var projectConfiguration = SonarLintCorePlugin.loadConfig(project);
+    var globalExclusionItems = SonarLintGlobalConfiguration.getGlobalExclusions();
+    var projectExclusionItems = projectConfiguration.getFileExclusions();
 
-    Set<String> projectFileExclusions = getExclusionsOfType(projectExclusionItems, Type.FILE);
-    Set<String> projectDirectoryExclusions = getExclusionsOfType(projectExclusionItems, Type.DIRECTORY);
-    Set<String> projectGlobExclusions = getExclusionsOfType(projectExclusionItems, Type.GLOB);
-    Set<String> globalGlobExclusions = getExclusionsOfType(globalExclusionItems, Type.GLOB);
+    var projectFileExclusions = getExclusionsOfType(projectExclusionItems, Type.FILE);
+    var projectDirectoryExclusions = getExclusionsOfType(projectExclusionItems, Type.DIRECTORY);
+    var projectGlobExclusions = getExclusionsOfType(projectExclusionItems, Type.GLOB);
+    var globalGlobExclusions = getExclusionsOfType(globalExclusionItems, Type.GLOB);
 
-    projectExclusions = new FileExclusions(projectFileExclusions, projectDirectoryExclusions, projectGlobExclusions);
-    globalExclusions = new FileExclusions(globalGlobExclusions);
+    projectExclusions = new ClientFileExclusions(projectFileExclusions, projectDirectoryExclusions, projectGlobExclusions);
+    globalExclusions = new ClientFileExclusions(Collections.emptySet(), Collections.emptySet(), globalGlobExclusions);
   }
 
   public Collection<ISonarLintFile> filterExcludedFiles(ISonarLintProject project, Collection<ISonarLintFile> files) {
@@ -63,7 +62,7 @@ public class FileExclusionsChecker {
   }
 
   public Collection<ISonarLintFile> filterExcludedFiles(ISonarLintProject project, Collection<ISonarLintFile> files, boolean log) {
-    Set<ISonarLintFile> notExcluded = files
+    var notExcluded = files
       .stream()
       .filter(file -> !isExcludedByLocalConfiguration(file, log))
       .collect(toCollection(HashSet::new));
@@ -71,9 +70,9 @@ public class FileExclusionsChecker {
     SonarLintCorePlugin.getServersManager()
       .resolveBinding(project)
       .ifPresent(binding -> {
-        TestFileClassifier testFileClassifier = TestFileClassifier.get();
+        var testFileClassifier = TestFileClassifier.get();
         try {
-          List<ISonarLintFile> excludedByServerSideExclusions = binding.getEngineFacade().getServerFileExclusions(binding.getProjectBinding(), notExcluded,
+          var excludedByServerSideExclusions = binding.getEngineFacade().getServerFileExclusions(binding.getProjectBinding(), notExcluded,
             testFileClassifier::isTest);
           notExcluded.removeAll(excludedByServerSideExclusions);
           excludedByServerSideExclusions.forEach(file -> {
@@ -88,11 +87,11 @@ public class FileExclusionsChecker {
   }
 
   public boolean isExcluded(ISonarLintFile file, boolean log) {
-    return filterExcludedFiles(file.getProject(), Collections.singletonList(file), log).isEmpty();
+    return filterExcludedFiles(file.getProject(), List.of(file), log).isEmpty();
   }
 
   private boolean isExcludedByLocalConfiguration(ISonarLintFile file, boolean log) {
-    String relativePath = file.getProjectRelativePath();
+    var relativePath = file.getProjectRelativePath();
 
     if (globalExclusions.test(relativePath)) {
       logIfNeeded(file, log, "global");
@@ -114,17 +113,17 @@ public class FileExclusionsChecker {
   }
 
   public static void addProjectFileExclusion(ISonarLintProject project, ISonarLintFile file, ExclusionItem exclusion) {
-    SonarLintProjectConfiguration projectConfiguration = SonarLintCorePlugin.loadConfig(project);
+    var projectConfiguration = SonarLintCorePlugin.loadConfig(project);
     projectConfiguration.getFileExclusions().add(exclusion);
     SonarLintCorePlugin.saveConfig(project, projectConfiguration);
     SonarLintMarkerUpdater.clearMarkers(file);
   }
 
   public static boolean isPathAlreadyExcludedInProject(ISonarLintFile file) {
-    ISonarLintProject project = file.getProject();
-    String path = file.getProjectRelativePath();
-    SonarLintProjectConfiguration projectConfiguration = SonarLintCorePlugin.loadConfig(project);
-    List<ExclusionItem> fileExclusions = projectConfiguration.getFileExclusions();
+    var project = file.getProject();
+    var path = file.getProjectRelativePath();
+    var projectConfiguration = SonarLintCorePlugin.loadConfig(project);
+    var fileExclusions = projectConfiguration.getFileExclusions();
     return fileExclusions.stream().anyMatch(e -> e.type() == Type.FILE && path.equals(e.item()));
   }
 

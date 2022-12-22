@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,8 +22,6 @@ package org.sonarlint.eclipse.ui.internal.binding.wizard.connection;
 import org.eclipse.core.databinding.Binding;
 import org.eclipse.core.databinding.DataBindingContext;
 import org.eclipse.core.databinding.UpdateValueStrategy;
-import org.eclipse.core.databinding.beans.BeanProperties;
-import org.eclipse.jface.databinding.swt.WidgetProperties;
 import org.eclipse.jface.databinding.wizard.WizardPageSupport;
 import org.eclipse.jface.fieldassist.ContentProposalAdapter;
 import org.eclipse.jface.fieldassist.TextContentAdapter;
@@ -34,6 +32,8 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.fieldassist.ContentAssistCommandAdapter;
 import org.eclipse.ui.texteditor.ITextEditorActionDefinitionIds;
+import org.sonarlint.eclipse.ui.internal.util.wizard.BeanPropertiesCompat;
+import org.sonarlint.eclipse.ui.internal.util.wizard.WidgetPropertiesCompat;
 
 public class OrganizationWizardPage extends AbstractServerConnectionWizardPage {
 
@@ -47,25 +47,25 @@ public class OrganizationWizardPage extends AbstractServerConnectionWizardPage {
   @SuppressWarnings("unchecked")
   @Override
   protected void doCreateControl(Composite container) {
-    Label labelOrganization = new Label(container, SWT.NULL);
+    var labelOrganization = new Label(container, SWT.NULL);
     labelOrganization.setText("Organization:");
-    Text organizationText = new Text(container, SWT.BORDER | SWT.SINGLE);
+    var organizationText = new Text(container, SWT.BORDER | SWT.SINGLE);
     organizationText.setMessage("Start typing to search for your organization");
-    GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+    var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
     organizationText.setLayoutData(gd);
 
-    DataBindingContext dbc = new DataBindingContext();
-    orgaTextBinding = dbc.bindValue(
-      WidgetProperties.text(SWT.Modify).observe(organizationText),
-      BeanProperties.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_ORGANIZATION)
+    var dataBindingContext = new DataBindingContext();
+    orgaTextBinding = dataBindingContext.bindValue(
+      WidgetPropertiesCompat.text(SWT.Modify).observe(organizationText),
+      BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_ORGANIZATION)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(new MandatoryStringValidator("You must enter a valid organization key")),
       null);
 
-    WizardPageSupport.create(this, dbc);
+    WizardPageSupport.create(this, dataBindingContext);
 
-    ContentProposalAdapter contentProposalAdapter = new ContentAssistCommandAdapter(
+    var contentProposalAdapter = new ContentAssistCommandAdapter(
       organizationText,
       new TextContentAdapter(),
       new OrganizationProvider(model, this),

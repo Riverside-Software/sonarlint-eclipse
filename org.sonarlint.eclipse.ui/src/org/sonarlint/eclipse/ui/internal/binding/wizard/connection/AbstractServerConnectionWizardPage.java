@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -41,13 +41,13 @@ public abstract class AbstractServerConnectionWizardPage extends WizardPage {
 
   @Override
   public final void createControl(Composite parent) {
-    Composite container = new Composite(parent, SWT.NONE);
+    var container = new Composite(parent, SWT.NONE);
 
-    GridLayout layout = new GridLayout();
+    var layout = new GridLayout();
     layout.numColumns = numCols;
     container.setLayout(layout);
 
-    GridData layoutData = new GridData(SWT.FILL, SWT.FILL, true, true);
+    var layoutData = new GridData(SWT.FILL, SWT.FILL, true, true);
     container.setLayoutData(layoutData);
 
     doCreateControl(container);

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -27,8 +27,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.io.FileUtils;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.IJobChangeListener;
@@ -49,15 +49,21 @@ import org.eclipse.reddeer.eclipse.core.resources.Resource;
 import org.eclipse.reddeer.eclipse.ui.navigator.resources.ProjectExplorer;
 import org.eclipse.reddeer.eclipse.ui.wizards.datatransfer.ExternalProjectImportWizardDialog;
 import org.eclipse.reddeer.eclipse.ui.wizards.datatransfer.WizardProjectsImportPage;
-import org.eclipse.reddeer.eclipse.ui.wizards.datatransfer.WizardProjectsImportPage.ImportProject;
+import org.eclipse.reddeer.jface.condition.WindowIsAvailable;
 import org.eclipse.reddeer.junit.runner.RedDeerSuite;
 import org.eclipse.reddeer.requirements.cleanworkspace.CleanWorkspaceRequirement;
 import org.eclipse.reddeer.requirements.cleanworkspace.CleanWorkspaceRequirement.CleanWorkspace;
 import org.eclipse.reddeer.requirements.closeeditors.CloseAllEditorsRequirement.CloseAllEditors;
+import org.eclipse.reddeer.swt.api.Button;
+import org.eclipse.reddeer.swt.impl.button.FinishButton;
+import org.eclipse.reddeer.swt.impl.button.PushButton;
+import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
 import org.eclipse.reddeer.workbench.ui.dialogs.WorkbenchPreferenceDialog;
 import org.junit.After;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.osgi.framework.Version;
 import org.osgi.service.prefs.BackingStoreException;
@@ -87,22 +93,46 @@ public abstract class AbstractSonarLintTest {
 
   private static final ISecurePreferences ROOT_SECURE = SecurePreferencesFactory.getDefault().node(PLUGIN_ID);
   private static final IEclipsePreferences ROOT = InstanceScope.INSTANCE.getNode(PLUGIN_ID);
-  private static SonarLintConsole consoleView;
+
+  @ClassRule
+  public static final TemporaryFolder tempFolder = new TemporaryFolder();
 
   @After
-  public void cleanup() {
+  public final void cleanup() {
+    // first wait for previous analyzes to finish properly
+    // this prevents trying to clear the console in the middle of a job
+    waitSonarLintAnalysisJobs();
 
-    restoreDefaultRulesConfiguration();
+    SonarLintConsole consoleView = new SonarLintConsole();
+    System.out.println(consoleView.getConsoleView().getConsoleText());
+    consoleView.clear();
 
     new CleanWorkspaceRequirement().fulfill();
 
+    restoreDefaultRulesConfiguration();
+
     ConfigurationScope.INSTANCE.getNode(UI_PLUGIN_ID).remove(PREF_SECRETS_EVER_DETECTED);
+  }
+
+  private void waitSonarLintAnalysisJobs() {
+    sonarlintJobFamilies.forEach(jobFamily -> {
+      try {
+        Job.getJobManager().join(jobFamily, null);
+      } catch (Exception e) {
+        System.out.println("Error while waiting jobs to finish");
+        e.printStackTrace();
+      }
+    });
   }
 
   protected static int hotspotServerPort = -1;
   private static IJobChangeListener sonarlintItJobListener;
   protected static final AtomicInteger scheduledAnalysisJobCount = new AtomicInteger();
   private static final List<CountDownLatch> analysisJobCountDownLatch = new CopyOnWriteArrayList<>();
+  private static File projectsFolder;
+  private static final List<String> sonarlintJobFamilies = List.of(
+    "org.sonarlint.eclipse.projectJob",
+    "org.sonarlint.eclipse.projectsJob");
 
   @BeforeClass
   public static final void beforeClass() throws BackingStoreException {
@@ -127,52 +157,81 @@ public abstract class AbstractSonarLintTest {
         public void done(IJobChangeEvent event) {
           if (isSonarLintAnalysisJob(event)) {
             System.out.println("Job done: " + event.getJob().getName());
-            analysisJobCountDownLatch.forEach(l -> l.countDown());
+            analysisJobCountDownLatch.forEach(CountDownLatch::countDown);
           }
         }
 
         private boolean isSonarLintAnalysisJob(IJobChangeEvent event) {
-          return event.getJob().belongsTo("org.sonarlint.eclipse.projectJob") || event.getJob().belongsTo("org.sonarlint.eclipse.projectsJob");
+          return sonarlintJobFamilies.stream().anyMatch(family -> event.getJob().belongsTo(family));
         }
       };
       Job.getJobManager().addJobChangeListener(sonarlintItJobListener);
     }
 
-    if (consoleView == null) {
-      consoleView = new SonarLintConsole();
-      consoleView.open();
-      consoleView.openConsole("SonarLint");
-      consoleView.enableAnalysisLogs();
-      consoleView.showConsole(ShowConsoleOption.NEVER);
-      new WaitUntil(new ConsoleHasText(consoleView, "Started security hotspot handler on port"));
-      String consoleText = consoleView.getConsoleText();
-      Pattern p = Pattern.compile(".*Started security hotspot handler on port (\\d+).*");
-      Matcher m = p.matcher(consoleText);
-      assertThat(m.find()).isTrue();
-      hotspotServerPort = Integer.parseInt(m.group(1));
+    SonarLintConsole consoleView = new SonarLintConsole();
+    consoleView.enableVerboseOutput();
+    consoleView.enableAnalysisLogs();
+    consoleView.showConsole(ShowConsoleOption.NEVER);
+    if (hotspotServerPort == -1) {
+      ConsoleHasText consoleHasText = new ConsoleHasText(consoleView.getConsoleView(), "Started security hotspot handler on port");
+      new WaitUntil(consoleHasText);
+      var consoleText = consoleHasText.getResult();
+      var pattern = Pattern.compile(".*Started security hotspot handler on port (\\d+).*");
+      var matcher = pattern.matcher(consoleText);
+      assertThat(matcher.find()).isTrue();
+      hotspotServerPort = Integer.parseInt(matcher.group(1));
+    }
+
+    try {
+      projectsFolder = tempFolder.newFolder();
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
     }
   }
 
   protected static final void importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder) {
-    ExternalProjectImportWizardDialog dialog = new ExternalProjectImportWizardDialog();
+    File projectFolder = new File(projectsFolder, relativePathFromProjectsFolder);
+    try {
+      FileUtils.copyDirectory(new File("projects", relativePathFromProjectsFolder), projectFolder);
+      File gitFolder = new File(projectFolder, "git");
+      if (gitFolder.exists()) {
+        FileUtils.moveDirectory(gitFolder, new File(projectFolder, ".git"));
+      }
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+    var dialog = new ExternalProjectImportWizardDialog();
     dialog.open();
-    WizardProjectsImportPage importPage = new WizardProjectsImportPage(dialog);
-    importPage.copyProjectsIntoWorkspace(true);
-    importPage.setRootDirectory(new File("projects", relativePathFromProjectsFolder).getAbsolutePath());
-    List<ImportProject> projects = importPage.getProjects();
+    var importPage = new WizardProjectsImportPage(dialog);
+    importPage.copyProjectsIntoWorkspace(false);
+    importPage.setRootDirectory(projectFolder.getAbsolutePath());
+    var projects = importPage.getProjects();
     assertThat(projects).hasSize(1);
-    dialog.finish();
+
+    // Don't use dialog.finish() as in PyDev there is an extra step before waiting for the windows to be closed
+    Button button = new FinishButton(dialog);
+    button.click();
+
+    try {
+      var pythonNotConfiguredDialog = new DefaultShell("Python not configured");
+      new PushButton(pythonNotConfiguredDialog, "Don't ask again").click();
+    } catch (Exception e) {
+      // Do nothing
+    }
+
+    new WaitWhile(new WindowIsAvailable(dialog), TimePeriod.LONG);
+    new WaitWhile(new JobIsRunning(), TimePeriod.LONG);
   }
 
   protected static final Project importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder, String projectName) {
     importExistingProjectIntoWorkspace(relativePathFromProjectsFolder);
-    ProjectExplorer projectExplorer = new ProjectExplorer();
+    var projectExplorer = new ProjectExplorer();
     new WaitUntil(new ProjectExists(projectName, projectExplorer));
     return projectExplorer.getProject(projectName);
   }
 
   protected final void doAndWaitForSonarLintAnalysisJob(Runnable r) {
-    CountDownLatch latch = new CountDownLatch(1);
+    var latch = new CountDownLatch(1);
     analysisJobCountDownLatch.add(latch);
     r.run();
     try {
@@ -197,36 +256,6 @@ public abstract class AbstractSonarLintTest {
     resource.select();
   }
 
-  /**
-   * JavaSE-1.8 was added in Kepler SR2 / Luna
-   */
-  protected boolean supportJava8() {
-    return platformVersion().compareTo(new Version("4.4")) >= 0;
-  }
-
-  /**
-   * JUnit was shipped in ???
-   */
-  protected boolean supportJunit() {
-    return platformVersion().compareTo(new Version("4.4")) >= 0;
-  }
-
-  public static boolean isPhotonOrGreater() {
-    return platformVersion().compareTo(new Version("4.8")) >= 0;
-  }
-
-  public static boolean isOxygenOrGreater() {
-    return platformVersion().compareTo(new Version("4.7")) >= 0;
-  }
-
-  public static boolean isMarsOrGreater() {
-    return platformVersion().compareTo(new Version("4.5")) >= 0;
-  }
-
-  public static boolean isNeonOrGreater() {
-    return platformVersion().compareTo(new Version("4.6")) >= 0;
-  }
-
   public static boolean is2020_12OrGreater() {
     return platformVersion().compareTo(new Version("4.18")) >= 0;
   }
@@ -240,7 +269,7 @@ public abstract class AbstractSonarLintTest {
   }
 
   protected static WsClient newAdminWsClient(Orchestrator orchestrator) {
-    Server server = orchestrator.getServer();
+    var server = orchestrator.getServer();
     return WsClientFactories.getDefault().newClient(HttpConnector.newBuilder()
       .url(server.getUrl())
       .credentials(Server.ADMIN_LOGIN, Server.ADMIN_PASSWORD)
@@ -248,12 +277,12 @@ public abstract class AbstractSonarLintTest {
   }
 
   void restoreDefaultRulesConfiguration() {
-    WorkbenchPreferenceDialog preferenceDialog = new WorkbenchPreferenceDialog();
+    var preferenceDialog = new WorkbenchPreferenceDialog();
     if (!preferenceDialog.isOpen()) {
       preferenceDialog.open();
     }
 
-    RuleConfigurationPreferences ruleConfigurationPreferences = new RuleConfigurationPreferences(preferenceDialog);
+    var ruleConfigurationPreferences = new RuleConfigurationPreferences(preferenceDialog);
     preferenceDialog.select(ruleConfigurationPreferences);
     ruleConfigurationPreferences.restoreDefaults();
     preferenceDialog.ok();

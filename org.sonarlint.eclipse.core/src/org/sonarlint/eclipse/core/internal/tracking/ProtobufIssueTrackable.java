@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,11 +21,13 @@ package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.util.List;
 import org.eclipse.jdt.annotation.Nullable;
-import org.sonarlint.eclipse.core.internal.markers.TextRange;
 import org.sonarlint.eclipse.core.internal.proto.Sonarlint.Issues.Issue;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
-import org.sonarsource.sonarlint.core.client.api.common.QuickFix;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue.Flow;
+import org.sonarsource.sonarlint.core.analysis.api.Flow;
+import org.sonarsource.sonarlint.core.analysis.api.QuickFix;
+import org.sonarsource.sonarlint.core.commons.IssueSeverity;
+import org.sonarsource.sonarlint.core.commons.RuleType;
+import org.sonarsource.sonarlint.core.commons.TextRange;
 
 public class ProtobufIssueTrackable implements Trackable {
 
@@ -73,11 +75,6 @@ public class ProtobufIssueTrackable implements Trackable {
     return issue.getRuleKey();
   }
 
-  @Override
-  public String getRuleName() {
-    throw new UnsupportedOperationException();
-  }
-
   @Nullable
   @Override
   public String getServerIssueKey() {
@@ -95,28 +92,27 @@ public class ProtobufIssueTrackable implements Trackable {
     return issue.getResolved();
   }
 
+  @Nullable
   @Override
-  public String getAssignee() {
-    return issue.getAssignee();
+  public IssueSeverity getSeverity() {
+    if (!StringUtils.isEmpty(issue.getSeverity())) {
+      return IssueSeverity.valueOf(issue.getSeverity());
+    }
+    return null;
   }
 
   @Override
-  public String getSeverity() {
-    return issue.getSeverity();
-  }
-
-  @Override
-  public String getRawSeverity() {
+  public IssueSeverity getRawSeverity() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public String getType() {
-    return issue.getType();
+  public RuleType getType() {
+    return RuleType.valueOf(issue.getType());
   }
 
   @Override
-  public String getRawType() {
+  public RuleType getRawType() {
     throw new UnsupportedOperationException();
   }
 

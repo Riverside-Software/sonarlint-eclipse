@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,16 +20,14 @@
 package org.sonarlint.eclipse.ui.internal.binding.actions;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.actions.SelectionProviderAction;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
-import org.sonarlint.eclipse.core.internal.jobs.ServerUpdateJob;
+import org.sonarlint.eclipse.core.internal.jobs.ConnectionStorageUpdateJob;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
@@ -49,12 +47,12 @@ public class ConnectionUpdateAction extends SelectionProviderAction {
       return;
     }
     servers = new ArrayList<>();
-    boolean enabled = false;
-    Iterator iterator = sel.iterator();
+    var enabled = false;
+    var iterator = sel.iterator();
     while (iterator.hasNext()) {
-      Object obj = iterator.next();
+      var obj = iterator.next();
       if (obj instanceof IConnectedEngineFacade) {
-        IConnectedEngineFacade server = (IConnectedEngineFacade) obj;
+        var server = (IConnectedEngineFacade) obj;
         servers.add(server);
         enabled = true;
       } else {
@@ -76,15 +74,15 @@ public class ConnectionUpdateAction extends SelectionProviderAction {
     // To handle the case where servers is null, the selectionChanged method is called
     // to ensure servers will be populated.
     if (servers == null) {
-      IStructuredSelection sel = getStructuredSelection();
+      var sel = getStructuredSelection();
       if (sel != null) {
         selectionChanged(sel);
       }
     }
 
     if (servers != null) {
-      for (final IConnectedEngineFacade server : servers) {
-        Job job = new ServerUpdateJob(server);
+      for (final var server : servers) {
+        var job = new ConnectionStorageUpdateJob(server);
         // note: this is only necessary for projects bound before SQ 6.6
         JobUtils.scheduleAfterSuccess(job,
           () -> SonarLintCorePlugin.getInstance().notificationsManager().subscribeToNotifications(server.getBoundProjects(), SonarLintUiPlugin.getDefault().listenerFactory()));

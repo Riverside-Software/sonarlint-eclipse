@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2021 SonarSource SA
+ * Copyright (C) 2009-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 package org.sonarlint.eclipse.its.reddeer.wizards;
 
 import org.eclipse.reddeer.jface.dialogs.TitleAreaDialog;
-import org.eclipse.reddeer.swt.impl.button.PushButton;
+import org.eclipse.reddeer.swt.impl.button.OkButton;
 import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.swt.impl.text.DefaultText;
 
@@ -32,8 +32,8 @@ public class ProjectSelectionDialog extends TitleAreaDialog {
   public void setProjectName(String projectName) {
     new DefaultText(this).setText(projectName);
   }
-  
+
   public void ok() {
-    new PushButton(this, "OK").click();
+    new OkButton(this).click();
   }
 }

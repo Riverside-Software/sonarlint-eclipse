@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,19 +19,24 @@
  */
 package org.sonarlint.eclipse.core.internal.tracking;
 
-import org.sonarlint.eclipse.core.internal.utils.StringUtils;
+import org.eclipse.jdt.annotation.Nullable;
+import org.sonarsource.sonarlint.core.commons.IssueSeverity;
+import org.sonarsource.sonarlint.core.commons.RuleType;
 
 /**
  * Combine a new Trackable ("raw") with a previous state ("base")
  */
 public class PreviousTrackable extends WrappedTrackable {
 
+  @Nullable
   private final String serverIssueKey;
+  @Nullable
   private final Long creationDate;
   private final boolean resolved;
-  private final String assignee;
-  private final String severity;
-  private final String type;
+  @Nullable
+  private final IssueSeverity severity;
+  private final RuleType type;
+  @Nullable
   private Long markerId;
 
   public PreviousTrackable(Trackable base, Trackable raw) {
@@ -40,12 +45,16 @@ public class PreviousTrackable extends WrappedTrackable {
     // Warning: do not store a reference to base, as it might never get garbage collected
     this.serverIssueKey = base.getServerIssueKey();
     this.creationDate = base.getCreationDate();
-    this.resolved = base.isResolved();
-    this.assignee = base.getAssignee();
     this.markerId = base.getMarkerId();
-    // Migration: severity & type were initially not stored in protobuf file
-    this.severity = StringUtils.isBlank(base.getSeverity()) ? raw.getSeverity() : base.getSeverity();
-    this.type = StringUtils.isBlank(base.getType()) ? raw.getType() : base.getType();
+    if (base.getServerIssueKey() != null) {
+      this.resolved = base.isResolved();
+      this.severity = base.getSeverity();
+      this.type = base.getType();
+    } else {
+      this.resolved = false;
+      this.severity = raw.getRawSeverity();
+      this.type = raw.getRawType();
+    }
   }
 
   @Override
@@ -64,11 +73,6 @@ public class PreviousTrackable extends WrappedTrackable {
   }
 
   @Override
-  public String getAssignee() {
-    return assignee;
-  }
-
-  @Override
   public Long getMarkerId() {
     return markerId;
   }
@@ -79,12 +83,12 @@ public class PreviousTrackable extends WrappedTrackable {
   }
 
   @Override
-  public String getSeverity() {
+  public IssueSeverity getSeverity() {
     return severity;
   }
 
   @Override
-  public String getType() {
+  public RuleType getType() {
     return type;
   }
 }

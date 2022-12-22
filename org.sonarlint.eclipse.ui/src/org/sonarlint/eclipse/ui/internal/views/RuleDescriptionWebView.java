@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,13 +20,12 @@
 package org.sonarlint.eclipse.ui.internal.views;
 
 import java.util.Objects;
-import java.util.Optional;
 import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IAction;
-import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.widgets.Composite;
@@ -37,16 +36,12 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.adapter.Adapters;
-import org.sonarlint.eclipse.core.internal.engine.connected.ResolvedBinding;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
-import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
+import org.sonarlint.eclipse.ui.internal.job.AsyncDisplayRuleDescriptionJob;
 import org.sonarlint.eclipse.ui.internal.util.SelectionUtils;
 import org.sonarlint.eclipse.ui.internal.util.SonarLintRuleBrowser;
-import org.sonarsource.sonarlint.core.client.api.common.RuleDetails;
-import org.sonarsource.sonarlint.core.client.api.exceptions.SonarLintException;
 
 /**
  * Display details of a rule in a web browser
@@ -80,7 +75,7 @@ public class RuleDescriptionWebView extends ViewPart implements ISelectionListen
   }
 
   private void createToolbar() {
-    IToolBarManager toolbarManager = getViewSite().getActionBars().getToolBarManager();
+    var toolbarManager = getViewSite().getActionBars().getToolBarManager();
     toolbarManager.add(new LinkAction());
     toolbarManager.add(new Separator());
     toolbarManager.update(false);
@@ -153,21 +148,14 @@ public class RuleDescriptionWebView extends ViewPart implements ISelectionListen
       return;
     }
 
-    ISonarLintIssuable issuable = Adapters.adapt(element.getResource(), ISonarLintIssuable.class);
-    ISonarLintProject p = issuable.getProject();
+    var issuable = Adapters.adapt(element.getResource(), ISonarLintIssuable.class);
+    var project = issuable.getProject();
 
-    Optional<ResolvedBinding> resolveBindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(p);
-    RuleDetails ruleDetails;
-    if (resolveBindingOpt.isPresent()) {
-      ResolvedBinding resolvedBinding = resolveBindingOpt.get();
-      try {
-        ruleDetails = resolvedBinding.getEngineFacade().getRuleDescription(ruleKey, resolvedBinding.getProjectBinding().projectKey());
-        browser.updateRule(ruleDetails);
-      } catch (SonarLintException e) {
-        SonarLintLogger.get().error("Unable to display rule descrioption", e);
-      }
+    var resolvedBindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(project);
+    if (resolvedBindingOpt.isPresent()) {
+      new AsyncDisplayRuleDescriptionJob(project, resolvedBindingOpt.get(), ruleKey, browser).schedule();
     } else {
-      ruleDetails = SonarLintCorePlugin.getInstance().getDefaultSonarLintClientFacade().getRuleDescription(ruleKey);
+      var ruleDetails = SonarLintCorePlugin.getInstance().getDefaultSonarLintClientFacade().getRuleDescription(ruleKey);
       browser.updateRule(ruleDetails);
     }
 
@@ -175,7 +163,7 @@ public class RuleDescriptionWebView extends ViewPart implements ISelectionListen
 
   @Override
   public void selectionChanged(IWorkbenchPart part, ISelection selection) {
-    IMarker selectedMarker = SelectionUtils.findSelectedSonarLintMarker(selection);
+    var selectedMarker = SelectionUtils.findSelectedSonarLintMarker(selection);
     if (selectedMarker != null) {
       lastSelection = selectedMarker;
       if (linking && !Objects.equals(selectedMarker, currentElement)) {

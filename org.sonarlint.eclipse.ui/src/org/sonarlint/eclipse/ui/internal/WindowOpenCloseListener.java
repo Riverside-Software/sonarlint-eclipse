@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -28,7 +28,7 @@ import org.sonarlint.eclipse.ui.internal.flowlocations.SonarLintFlowAnnotator;
 class WindowOpenCloseListener implements IWindowListener {
 
   private static final OpenEditorAnalysisTrigger OPEN_EDITOR_ANALYSIS_TRIGGER = new OpenEditorAnalysisTrigger();
-  private static final DeleteTaintMarkersOnEditorClosed DELETE_TAINT_MARKERS_ON_EDITOR_CLOSED = new DeleteTaintMarkersOnEditorClosed();
+  private static final TaintMarkersPartListener TAINT_MARKER_PART_LISTENER = new TaintMarkersPartListener();
 
   private static final IPageListener PAGE_OPEN_CLOSE_LISTENER = new IPageListener() {
 
@@ -73,27 +73,27 @@ class WindowOpenCloseListener implements IWindowListener {
   }
 
   static void addListenerToAllPages(IWorkbenchWindow window) {
-    for (IWorkbenchPage page : window.getPages()) {
+    for (var page : window.getPages()) {
       addListenersToPage(page);
     }
   }
 
   private static void addListenersToPage(IWorkbenchPage page) {
     page.addPartListener(OPEN_EDITOR_ANALYSIS_TRIGGER);
-    page.addPartListener(DELETE_TAINT_MARKERS_ON_EDITOR_CLOSED);
+    page.addPartListener(TAINT_MARKER_PART_LISTENER);
     page.addPartListener(SonarLintFlowAnnotator.PART_LISTENER);
     page.addPostSelectionListener(SonarLintUiPlugin.getSonarlintMarkerSelectionService());
   }
 
   static void removeListenerFromAllPages(IWorkbenchWindow window) {
-    for (IWorkbenchPage page : window.getPages()) {
+    for (var page : window.getPages()) {
       removeListenersFromPage(page);
     }
   }
 
   private static void removeListenersFromPage(IWorkbenchPage page) {
     page.removePartListener(OPEN_EDITOR_ANALYSIS_TRIGGER);
-    page.removePartListener(DELETE_TAINT_MARKERS_ON_EDITOR_CLOSED);
+    page.removePartListener(TAINT_MARKER_PART_LISTENER);
     page.removePartListener(SonarLintFlowAnnotator.PART_LISTENER);
     page.removePostSelectionListener(SonarLintUiPlugin.getSonarlintMarkerSelectionService());
   }

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,10 +20,8 @@
 package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import org.eclipse.jdt.annotation.Nullable;
@@ -82,22 +80,19 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
       return;
     }
 
-    Map<SearchKey, List<BASE>> baseSearch = new HashMap<>();
-    for (BASE base : tracking.getUnmatchedBases()) {
-      SearchKey searchKey = factory.apply(base);
-      if (!baseSearch.containsKey(searchKey)) {
-        baseSearch.put(searchKey, new ArrayList<>());
-      }
-      baseSearch.get(searchKey).add(base);
+    var baseSearch = new HashMap<SearchKey, List<BASE>>();
+    for (var base : tracking.getUnmatchedBases()) {
+      var searchKey = factory.apply(base);
+      baseSearch.computeIfAbsent(searchKey, k -> new ArrayList<>()).add(base);
     }
 
-    for (RAW raw : tracking.getUnmatchedRaws()) {
-      SearchKey rawKey = factory.apply(raw);
-      Collection<BASE> bases = baseSearch.get(rawKey);
+    for (var raw : tracking.getUnmatchedRaws()) {
+      var rawKey = factory.apply(raw);
+      var bases = baseSearch.get(rawKey);
       if (bases != null && !bases.isEmpty()) {
         // TODO taking the first one. Could be improved if there are more than 2 issues on the same line.
         // Message could be checked to take the best one.
-        BASE match = bases.iterator().next();
+        var match = bases.iterator().next();
         tracking.match(raw, match);
         baseSearch.get(rawKey).remove(match);
       }
@@ -115,7 +110,9 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
 
   private static class LineAndTextRangeHashKey implements SearchKey {
     private final String ruleKey;
+    @Nullable
     private final Integer textRangeHash;
+    @Nullable
     private final Integer line;
 
     LineAndTextRangeHashKey(Trackable trackable) {
@@ -162,7 +159,9 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
 
   private static class LineAndLineHashKey implements SearchKey {
     private final String ruleKey;
+    @Nullable
     private final Integer line;
+    @Nullable
     private final Integer lineHash;
 
     LineAndLineHashKey(Trackable trackable) {
@@ -209,6 +208,7 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
 
   private static class LineHashKey implements SearchKey {
     private final String ruleKey;
+    @Nullable
     private final Integer lineHash;
 
     LineHashKey(Trackable trackable) {
@@ -252,7 +252,9 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
 
   private static class TextRangeHashAndMessageKey implements SearchKey {
     private final String ruleKey;
+    @Nullable
     private final String message;
+    @Nullable
     private final Integer textRangeHash;
 
     TextRangeHashAndMessageKey(Trackable trackable) {
@@ -299,7 +301,9 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
 
   private static class LineAndMessageKey implements SearchKey {
     private final String ruleKey;
+    @Nullable
     private final String message;
+    @Nullable
     private final Integer line;
 
     LineAndMessageKey(Trackable trackable) {
@@ -346,6 +350,7 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
 
   private static class TextRangeHashKey implements SearchKey {
     private final String ruleKey;
+    @Nullable
     private final Integer textRangeHash;
 
     TextRangeHashKey(Trackable trackable) {
@@ -388,6 +393,7 @@ public class Tracker<RAW extends Trackable, BASE extends Trackable> {
   }
 
   private static class ServerIssueSearchKey implements SearchKey {
+    @Nullable
     private final String serverIssueKey;
 
     ServerIssueSearchKey(Trackable trackable) {

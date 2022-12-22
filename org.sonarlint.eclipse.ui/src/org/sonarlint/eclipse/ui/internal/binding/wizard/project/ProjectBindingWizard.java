@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -23,10 +23,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.annotation.Nullable;
@@ -52,9 +50,7 @@ import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionWizard;
 import org.sonarlint.eclipse.ui.internal.util.wizard.SonarLintWizardDialog;
-import org.sonarsource.sonarlint.core.client.api.connected.ConnectedSonarLintEngine.State;
-import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
-import org.sonarsource.sonarlint.core.serverapi.project.ServerProject;
+import org.sonarsource.sonarlint.core.serverapi.component.ServerProject;
 
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toCollection;
@@ -93,13 +89,13 @@ public class ProjectBindingWizard extends Wizard implements INewWizard, IPageCha
       // Only one server configured, pre-select it
       this.model.setServer((ConnectedEngineFacade) SonarLintCorePlugin.getServersManager().getServers().get(0));
     } else {
-      String lastSelectedServer = this.getDialogSettings().get(STORE_LAST_SELECTED_SERVER_ID);
+      var lastSelectedServer = this.getDialogSettings().get(STORE_LAST_SELECTED_SERVER_ID);
       if (lastSelectedServer != null) {
         SonarLintCorePlugin.getServersManager().findById(lastSelectedServer)
           .ifPresent(s -> this.model.setServer((ConnectedEngineFacade) s));
       }
     }
-    Set<String> projectKeys = selectedProjects.stream()
+    var projectKeys = selectedProjects.stream()
       .map(SonarLintCorePlugin::loadConfig)
       .map(SonarLintProjectConfiguration::getProjectBinding)
       .filter(Optional<EclipseProjectBinding>::isPresent)
@@ -171,32 +167,28 @@ public class ProjectBindingWizard extends Wizard implements INewWizard, IPageCha
 
   @Override
   public boolean canFinish() {
-    IWizardPage currentPage = getContainer().getCurrentPage();
+    var currentPage = getContainer().getCurrentPage();
     return currentPage == remoteProjectSelectionWizardPage && super.canFinish();
   }
 
   @Override
   public boolean performFinish() {
-    String serverId = model.getServer().getId();
-    getDialogSettings().put(STORE_LAST_SELECTED_SERVER_ID, serverId);
-    ProjectBindingProcess.scheduleProjectBinding(serverId, model.getEclipseProjects(), model.getRemoteProjectKey());
-    return true;
+    var server = model.getServer();
+    if (server == null) {
+      return false;
+    } else {
+      var serverId = server.getId();
+      getDialogSettings().put(STORE_LAST_SELECTED_SERVER_ID, serverId);
+      ProjectBindingProcess.scheduleProjectBinding(serverId, model.getEclipseProjects(), model.getRemoteProjectKey());
+      return true;
+    }
   }
 
   @Override
   public void pageChanged(PageChangedEvent event) {
     if (event.getSelectedPage() == remoteProjectSelectionWizardPage) {
       Display.getDefault().asyncExec(() -> {
-        boolean success = true;
-        boolean fetchProjectList = false;
-        if (model.getServer().getStorageState() == State.UPDATING) {
-          success = waitForServerUpdate(remoteProjectSelectionWizardPage);
-        } else if (model.getServer().getStorageState() != State.UPDATED) {
-          success = tryUpdateServerStorage(remoteProjectSelectionWizardPage);
-        } else {
-          fetchProjectList = true;
-        }
-        success = tryLoadProjectList(remoteProjectSelectionWizardPage, fetchProjectList);
+        var success = tryLoadProjectList(remoteProjectSelectionWizardPage);
         if (success && isEmpty(model.getRemoteProjectKey())) {
           tryAutoBind();
         }
@@ -205,14 +197,18 @@ public class ProjectBindingWizard extends Wizard implements INewWizard, IPageCha
   }
 
   private void tryAutoBind() {
-    TextSearchIndex<ServerProject> index = model.getProjectIndex();
+    var index = model.getProjectIndex();
+    if (index == null) {
+      // Give up, inconsistent model state
+      return;
+    }
     ServerProject bestCandidate = null;
-    for (ISonarLintProject project : model.getEclipseProjects()) {
-      Map<ServerProject, Double> results = index.search(project.getName());
+    for (var project : model.getEclipseProjects()) {
+      var results = index.search(project.getName());
       if (results.isEmpty()) {
         continue;
       }
-      List<Map.Entry<ServerProject, Double>> entries = new ArrayList<>(results.entrySet());
+      var entries = new ArrayList<>(results.entrySet());
       entries.sort(
         Comparator.comparing(Map.Entry<ServerProject, Double>::getValue).reversed()
           .thenComparing(Comparator.comparing(e -> e.getKey().getName(), String.CASE_INSENSITIVE_ORDER)));
@@ -229,63 +225,11 @@ public class ProjectBindingWizard extends Wizard implements INewWizard, IPageCha
 
   }
 
-  private boolean waitForServerUpdate(WizardPage currentPage) {
-    currentPage.setMessage(null);
-    try {
-      getContainer().run(true, true, new IRunnableWithProgress() {
-
-        @Override
-        public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-          monitor.beginTask("Waiting for background server storage update task to complete", IProgressMonitor.UNKNOWN);
-          try {
-            while (model.getServer().getStorageState() == State.UPDATING) {
-              if (monitor.isCanceled()) {
-                throw new InterruptedException("Cancelled");
-              }
-              Thread.sleep(500);
-            }
-          } finally {
-            monitor.done();
-          }
-        }
-      });
-    } catch (InvocationTargetException e) {
-      SonarLintLogger.get().debug("Error wating for server storage update to complete", e.getCause());
-      currentPage.setMessage(e.getCause().getMessage(), IMessageProvider.ERROR);
-      return false;
-    } catch (InterruptedException e) {
+  private boolean tryLoadProjectList(WizardPage currentPage) {
+    var server = model.getServer();
+    if (server == null) {
       return false;
     }
-    return true;
-  }
-
-  private boolean tryUpdateServerStorage(WizardPage currentPage) {
-    currentPage.setMessage(null);
-    try {
-      getContainer().run(true, true, new IRunnableWithProgress() {
-
-        @Override
-        public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-          monitor.beginTask("Update SonarLint storage for the server", IProgressMonitor.UNKNOWN);
-          try {
-            model.getServer().updateStorage(monitor);
-          } finally {
-            monitor.done();
-          }
-        }
-      });
-    } catch (InvocationTargetException e) {
-      SonarLintLogger.get().debug("Unable to update the storage for the server", e.getCause());
-      currentPage.setMessage(e.getCause().getMessage(), IMessageProvider.ERROR);
-      return false;
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
-    return true;
-  }
-
-  private boolean tryLoadProjectList(WizardPage currentPage, boolean fetchProjectList) {
     currentPage.setMessage(null);
     try {
       getContainer().run(true, true, new IRunnableWithProgress() {
@@ -293,10 +237,8 @@ public class ProjectBindingWizard extends Wizard implements INewWizard, IPageCha
         @Override
         public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
           try {
-            if (fetchProjectList) {
-              model.getServer().updateProjectList(monitor);
-            }
-            model.setProjectIndex(model.getServer().computeProjectIndex());
+            server.updateProjectList(monitor);
+            model.setProjectIndex(server.computeProjectIndex());
           } finally {
             monitor.done();
           }

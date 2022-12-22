@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,41 +20,62 @@
 package org.sonarlint.eclipse.ui.internal.popup;
 
 import java.util.function.Consumer;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Link;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.PlatformUI;
 import org.sonarlint.eclipse.ui.internal.notifications.AbstractNotificationPopup;
 
 public abstract class AbstractSonarLintPopup extends AbstractNotificationPopup {
 
   protected AbstractSonarLintPopup() {
-    super(PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell());
+    super(Display.getDefault());
     setDelayClose(0);
+    var parentShell = findParentShell();
+    if (parentShell != null) {
+      setParentShell(parentShell);
+    }
+  }
+
+  @Nullable
+  private static Shell findParentShell() {
+    var window = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+    if (window == null) {
+      var windows = PlatformUI.getWorkbench().getWorkbenchWindows();
+      if (windows.length > 0) {
+        return windows[0].getShell();
+      }
+    } else {
+      return window.getShell();
+    }
+    return null;
   }
 
   private Composite linksContainer;
 
   @Override
-  protected void createContentArea(Composite composite) {
-    Label messageLabel = new Label(composite, SWT.WRAP);
-    GridData messageLayoutData = new GridData(SWT.FILL, SWT.FILL, true, true);
+  protected void createContentArea(Composite parent) {
+    var messageLabel = new Label(parent, SWT.WRAP);
+    var messageLayoutData = new GridData(SWT.FILL, SWT.FILL, true, true);
     messageLabel.setLayoutData(messageLayoutData);
 
     messageLabel.setText(getMessage());
 
-    linksContainer = new Composite(composite, SWT.NONE);
-    GridData linksLayoutData = new GridData(SWT.FILL, SWT.FILL, true, false);
+    linksContainer = new Composite(parent, SWT.NONE);
+    var linksLayoutData = new GridData(SWT.FILL, SWT.FILL, true, false);
     linksLayoutData.horizontalAlignment = SWT.END;
     linksLayoutData.verticalAlignment = SWT.BOTTOM;
     linksContainer.setLayoutData(linksLayoutData);
 
-    RowLayout rowLayout = new RowLayout();
+    var rowLayout = new RowLayout();
     rowLayout.spacing = 20;
     linksContainer.setLayout(rowLayout);
   }
@@ -62,8 +83,15 @@ public abstract class AbstractSonarLintPopup extends AbstractNotificationPopup {
   protected abstract String getMessage();
 
   protected void addLink(String text, Consumer<SelectionEvent> selectionHandler) {
-    Link detailsLink = new Link(linksContainer, SWT.NONE);
+    addLinkWithTooltip(text, null, selectionHandler);
+  }
+
+  protected void addLinkWithTooltip(String text, @Nullable String tooltipText, Consumer<SelectionEvent> selectionHandler) {
+    var detailsLink = new Link(linksContainer, SWT.NONE);
     detailsLink.setText("<a>" + text + "</a>");
+    if (tooltipText != null) {
+      detailsLink.setToolTipText(tooltipText);
+    }
     detailsLink.addSelectionListener(new SelectionAdapter() {
       @Override
       public void widgetSelected(SelectionEvent e) {

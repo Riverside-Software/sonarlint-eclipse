@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2021 SonarSource SA
+ * Copyright (C) 2015-2022 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,13 +19,8 @@
  */
 package org.sonarlint.eclipse.ui.internal.util;
 
-import java.lang.reflect.Method;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Objects;
 import org.eclipse.jdt.annotation.Nullable;
-import org.eclipse.jface.preference.PreferenceDialog;
-import org.eclipse.jface.resource.ColorRegistry;
 import org.eclipse.jface.resource.JFaceColors;
 import org.eclipse.jface.resource.JFaceResources;
 import org.eclipse.jface.util.IPropertyChangeListener;
@@ -42,17 +37,11 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Control;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
-import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.PartInitException;
-import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.dialogs.PreferencesUtil;
-import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.ui.internal.properties.RulesConfigurationPage;
 
 import static org.eclipse.jface.preference.JFacePreferences.INFORMATION_BACKGROUND_COLOR;
@@ -78,10 +67,10 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
   private Font defaultFont;
   private final boolean useEditorFontSize;
 
-  public SonarLintWebView(Composite parent, boolean useEditorFontSize) {
+  protected SonarLintWebView(Composite parent, boolean useEditorFontSize) {
     super(parent, SWT.NONE);
     this.useEditorFontSize = useEditorFontSize;
-    GridLayout layout = new GridLayout(1, false);
+    var layout = new GridLayout(1, false);
     layout.marginWidth = 0;
     layout.marginHeight = 0;
     this.setLayout(layout);
@@ -102,7 +91,7 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
 
     } catch (SWTError e) {
       // Browser is probably not available but it will be partially initialized in parent
-      for (Control c : this.getChildren()) {
+      for (var c : this.getChildren()) {
         if (c instanceof Browser) {
           c.dispose();
         }
@@ -114,9 +103,9 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
   }
 
   private void openSonarLintPreferences() {
-    PreferenceDialog dialog = PreferencesUtil.createPreferenceDialogOn(
-            getShell(), RulesConfigurationPage.RULES_CONFIGURATION_ID,
-            new String[]{RulesConfigurationPage.RULES_CONFIGURATION_ID}, null);
+    var dialog = PreferencesUtil.createPreferenceDialogOn(
+      getShell(), RulesConfigurationPage.RULES_CONFIGURATION_ID,
+      new String[] {RulesConfigurationPage.RULES_CONFIGURATION_ID}, null);
     dialog.open();
   }
 
@@ -139,27 +128,27 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
   }
 
   private void updateColorAndFontCache() {
-    boolean shouldRefresh = false;
+    var shouldRefresh = false;
     if (!getDefaultFont().equals(defaultFont)) {
       this.defaultFont = getDefaultFont();
       shouldRefresh = true;
     }
-    Color newFg = getFgColor();
+    var newFg = getFgColor();
     if (!Objects.equals(newFg, foreground)) {
       SonarLintWebView.this.foreground = newFg;
       shouldRefresh = true;
     }
-    Color newBg = getBgColor();
+    var newBg = getBgColor();
     if (!Objects.equals(newBg, background)) {
       SonarLintWebView.this.background = newBg;
       shouldRefresh = true;
     }
-    Color newLink = getLinkColor();
+    var newLink = getLinkColor();
     if (!Objects.equals(newLink, linkColor)) {
       SonarLintWebView.this.linkColor = newLink;
       shouldRefresh = true;
     }
-    Color newActiveLink = getActiveLinkColor();
+    var newActiveLink = getActiveLinkColor();
     if (!Objects.equals(newActiveLink, activeLinkColor)) {
       SonarLintWebView.this.activeLinkColor = newActiveLink;
       shouldRefresh = true;
@@ -174,7 +163,7 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
     browser.addLocationListener(new LocationAdapter() {
       @Override
       public void changing(LocationEvent event) {
-        String loc = event.location;
+        var loc = event.location;
 
         if ("about:blank".equals(loc)) { //$NON-NLS-1$
           /*
@@ -190,18 +179,14 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
         if (RulesConfigurationPage.RULES_CONFIGURATION_LINK.equals(loc)) {
           openSonarLintPreferences();
         } else {
-          try {
-            PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(loc));
-          } catch (PartInitException | MalformedURLException e) {
-            SonarLintLogger.get().error("Unable to open URL: " + loc, e);
-          }
+          BrowserUtils.openExternalBrowser(loc);
         }
       }
     });
   }
 
   private String css() {
-    int fontSizePt = defaultFont.getFontData()[0].getHeight();
+    var fontSizePt = defaultFont.getFontData()[0].getHeight();
     return "<style type=\"text/css\">"
       + "body { font-family: Helvetica Neue,Segoe UI,Helvetica,Arial,sans-serif; font-size: " + fontSizePt + UNIT + "; "
       + "color: " + hexColor(this.foreground) + ";background-color: " + hexColor(this.background)
@@ -220,6 +205,7 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
       + "pre { padding: .7em; border-top: 1px solid " + hexColor(this.foreground, 200) + "; border-bottom: 1px solid "
       + hexColor(this.foreground, 100)
       + "; overflow: auto;}"
+      + "pre > code {padding: 0; background-color: transparent; white-space: pre; overflow-x: scroll;}"
       + "code, pre { font-family: Consolas,Liberation Mono,Menlo,Courier,monospace;}"
       + "ul { padding-left: 2.5em; list-style: disc;}"
       + ".rule-desc { line-height: 1.5em }"
@@ -231,55 +217,21 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
   }
 
   private Color getBgColor() {
-    ColorRegistry colorRegistry = JFaceResources.getColorRegistry();
-    Color bg = colorRegistry.get(INFORMATION_BACKGROUND_COLOR);
+    var colorRegistry = JFaceResources.getColorRegistry();
+    var bg = colorRegistry.get(INFORMATION_BACKGROUND_COLOR);
     if (bg == null) {
-      bg = getInformationViewerBackgroundColor(this.getDisplay());
+      bg = JFaceColors.getInformationViewerBackgroundColor(this.getDisplay());
     }
     return bg;
   }
 
-  /** FIXME JFaceColors#getInformationViewerBackgroundColor was only introduced in Oxygen */
-  public static Color getInformationViewerBackgroundColor(Display display) {
-    if (Util.isWin32() || Util.isCocoa()) {
-      // Technically COLOR_INFO_* should only be used for tooltips. But on
-      // Windows/Cocoa COLOR_INFO_* gives info viewers/hovers a
-      // yellow background which is very suitable for information
-      // presentation.
-      return display.getSystemColor(SWT.COLOR_INFO_BACKGROUND);
-    }
-
-    // Technically, COLOR_LIST_* is not the best system color for this
-    // because it is only supposed to be used for Tree/List controls. But at
-    // the moment COLOR_TEXT_* is not implemented, so this should work for
-    // now. See Bug 508612.
-    return display.getSystemColor(SWT.COLOR_LIST_BACKGROUND);
-  }
-
   private Color getFgColor() {
-    ColorRegistry colorRegistry = JFaceResources.getColorRegistry();
-    Color fg = colorRegistry.get(INFORMATION_FOREGROUND_COLOR);
+    var colorRegistry = JFaceResources.getColorRegistry();
+    var fg = colorRegistry.get(INFORMATION_FOREGROUND_COLOR);
     if (fg == null) {
-      fg = getInformationViewerForegroundColor(this.getDisplay());
+      fg = JFaceColors.getInformationViewerForegroundColor(this.getDisplay());
     }
     return fg;
-  }
-
-  /** FIXME JFaceColors#getInformationViewerForegroundColor was only introduced in Oxygen */
-  public static Color getInformationViewerForegroundColor(Display display) {
-    if (Util.isWin32() || Util.isCocoa()) {
-      // Technically COLOR_INFO_* should only be used for tooltips. But on
-      // Windows/Cocoa COLOR_INFO_* gives info viewers/hovers a
-      // yellow background which is very suitable for information
-      // presentation.
-      return display.getSystemColor(SWT.COLOR_INFO_FOREGROUND);
-    }
-
-    // Technically, COLOR_LIST_* is not the best system color for this
-    // because it is only supposed to be used for Tree/List controls. But at
-    // the moment COLOR_TEXT_* is not implemented, so this should work for
-    // now. See Bug 508612.
-    return display.getSystemColor(SWT.COLOR_LIST_FOREGROUND);
   }
 
   @Nullable
@@ -302,9 +254,9 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
   protected abstract String body();
 
   public static String escapeHTML(String s) {
-    StringBuilder out = new StringBuilder(Math.max(16, s.length()));
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
+    var out = new StringBuilder(Math.max(16, s.length()));
+    for (var i = 0; i < s.length(); i++) {
+      var c = s.charAt(i);
       if (c > 127 || c == '"' || c == '<' || c == '>' || c == '&') {
         out.append("&#");
         out.append((int) c);
@@ -333,7 +285,7 @@ public abstract class SonarLintWebView extends Composite implements Listener, IP
 
   private static int getAlpha(Color c) {
     try {
-      Method m = Color.class.getMethod("getAlpha");
+      var m = Color.class.getMethod("getAlpha");
       return (int) m.invoke(c);
     } catch (Exception e) {
       return 255;
