@@ -11,7 +11,7 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.filebuffers,
  com.openedge.pdt.core,
  org.sonarlint.eclipse.core,
- org.sonarsource.sonarlint.core.sonarlint-core,
+ org.sonarsource.sonarlint.core.sonarlint-core-osgi,
  org.eclipse.core.filesystem,
  com.openedge.pdt.project
 Export-Package: org.sonarlint.eclipse.pdt.internal;x-friends:="org.sonarlint.eclipse.core.tests"
