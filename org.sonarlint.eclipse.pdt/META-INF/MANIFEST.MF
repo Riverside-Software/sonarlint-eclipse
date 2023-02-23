@@ -3,8 +3,9 @@ Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.pdt;singleton:=true
 Bundle-Version: 6.2.2220
+Bundle-ClassPath: .,
+ lib/rcode-reader.jar
 Bundle-Vendor: %bundle_vendor
-Bundle-ClassPath: .
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.resources,
  org.eclipse.jface.text,

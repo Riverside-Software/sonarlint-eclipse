@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
@@ -35,6 +36,11 @@ import java.util.List;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import eu.rssw.pct.FileEntry;
+import eu.rssw.pct.PLReader;
+import eu.rssw.pct.PLReader.InvalidLibraryException;
+import eu.rssw.pct.RCodeInfo;
+import eu.rssw.pct.RCodeInfo.InvalidRCodeException;
 
 import com.openedge.core.runtime.IAVMClient;
 import com.openedge.core.runtime.IDatabaseAlias;
@@ -132,6 +138,15 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
       rCodePath = rCodePath + (rCodePath.length() == 0 ? "" : ",") + oeProject.getConfiguration().getRCodePath().toOSString();
     }
 
+    // List of full path to all .PL files
+    List<String> plList = new ArrayList<>();
+    for (IPath pp : oeProject.getPropathHandler().translateEntriesToPaths(oeProject.getPropathHandler().getPropathEntries())) {
+      if (pp.toOSString().endsWith(".pl")) {
+        SonarLintLogger.get().debug("Add PL to cache list: " + pp.toOSString());
+        plList.add(pp.toOSString());
+      }
+    }
+
     String propath = "";
     for (IPath pp : oeProject.getPropathHandler().translateEntriesToPaths(oeProject.getPropathHandler().getPropathEntries())) {
       propath = propath + (propath.length() == 0 ? "" : ",") + pp.toOSString();
@@ -153,6 +168,9 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     // Make sure .sonarlint is available in project directory
     File sonarLintDir = new File(underlyingProject.getLocation().toFile(), ".sonarlint");
     sonarLintDir.mkdirs();
+
+    File slintPL = generatePLCache(plList, sonarLintDir);
+    context.setAnalysisProperty("sonar.oe.lint.pl.cache", slintPL.getAbsolutePath());
 
     boolean hasDB = false;
     try {
@@ -268,6 +286,48 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     }
 
     return null;
+  }
+
+  private File generatePLCache(List<String> plList, File sonarLintDir) {
+    File slintPL = new File(sonarLintDir, "pl.txt");
+    final long timeStamp = slintPL.lastModified(); // 0 if does not exist
+    boolean overwrite = plList.stream().anyMatch(it -> new File(it).lastModified() > timeStamp);
+    if (overwrite) {
+      try (OutputStream out = new FileOutputStream(slintPL);
+           OutputStreamWriter osw = new OutputStreamWriter(out, Charset.forName("utf-8"));
+           BufferedWriter writer = new BufferedWriter(osw)) {
+        for (String entry : plList) {
+          try {
+            PLReader plr = new PLReader(Paths.get(entry));
+            for (FileEntry entry2 : plr.getFileList()) {
+              if (entry2.getFileName().endsWith(".r")) {
+                try {
+                  RCodeInfo rci = new RCodeInfo(plr.getInputStream(entry2));
+                  if (rci.isClass()) {
+                    writer.write(rci.getTypeInfo().getTypeName());
+                    writer.write(':');
+                    writer.write(entry);
+                    writer.write('#');
+                    writer.write(entry2.getFileName());
+                    writer.newLine();
+                  }
+                } catch (InvalidRCodeException | IOException caught) {
+                  // Silently discards file
+                }
+              }
+            }
+          } catch (InvalidLibraryException caught) {
+            SonarLintLogger.get().error("Invalid library: " + caught.getMessage());
+          }
+        }
+      } catch (IOException caught) {
+        SonarLintLogger.get().error("Unable to serialize PL cache: " + caught.getMessage());
+      }
+    } else {
+      SonarLintLogger.get().debug("No PL cache overwrite");
+    }
+
+    return slintPL;
   }
 
   private File generateSchemaFile(IProject prj, IDatabaseSchemaReference ref, File workDir) {

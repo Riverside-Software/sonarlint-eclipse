@@ -26,6 +26,36 @@
         </includes>
       </resource>
     </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-libraries</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>eu.rssw.openedge.rcode</groupId>
+                  <artifactId>rcode-reader</artifactId>
+                  <version>2.19.5</version>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>lib</outputDirectory>
+              <stripVersion>true</stripVersion>
+              <overWriteReleases>true</overWriteReleases>
+              <overWriteSnapshots>true</overWriteSnapshots>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+
   </build>
 
 </project>
