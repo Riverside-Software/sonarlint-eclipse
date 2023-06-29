@@ -2,7 +2,7 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="7.6.2312"
+      version="7.12.2400"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
@@ -83,7 +83,7 @@
          install-size="0"
          version="0.0.0"
          unpack="false"/>
-         
+
    <plugin
          id="org.jetbrains.kotlin.osgi-bundle"
          download-size="0"
@@ -100,6 +100,20 @@
 
    <plugin
          id="org.sonarlint.eclipse.pdt"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="com.squareup.okhttp3"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="com.squareup.okio"
          download-size="0"
          install-size="0"
          version="0.0.0"

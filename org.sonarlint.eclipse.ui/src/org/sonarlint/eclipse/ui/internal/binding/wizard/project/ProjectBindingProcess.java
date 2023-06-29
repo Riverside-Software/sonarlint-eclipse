@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -28,9 +28,7 @@ import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.jobs.ProjectStorageUpdateJob;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration.EclipseProjectBinding;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
-import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
-import org.sonarlint.eclipse.ui.internal.job.SubscribeToNotificationsJob;
+import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
 
 public class ProjectBindingProcess {
 
@@ -48,19 +46,16 @@ public class ProjectBindingProcess {
         changed = true;
       }
       if (changed) {
-        SonarLintUiPlugin.unsubscribeToNotifications(p);
         SonarLintCorePlugin.saveConfig(p, projectConfig);
         p.deleteAllMarkers(SonarLintCorePlugin.MARKER_ON_THE_FLY_ID);
         p.deleteAllMarkers(SonarLintCorePlugin.MARKER_REPORT_ID);
         SonarLintCorePlugin.clearIssueTracker(p);
-        JobUtils.notifyServerViewAfterBindingChange(p, oldServerId);
+        AnalysisJobsScheduler.notifyServerViewAfterBindingChange(p, oldServerId);
         projectToSubscribeToNotifications.add(p);
       }
     });
-    if (!projectToSubscribeToNotifications.isEmpty()) {
-      new SubscribeToNotificationsJob(projectToSubscribeToNotifications).schedule();
-    }
-    JobUtils.scheduleAnalysisOfOpenFiles(job, projects, TriggerType.BINDING_CHANGE);
+
+    AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(job, projects, TriggerType.BINDING_CHANGE);
     job.schedule();
     return job;
   }

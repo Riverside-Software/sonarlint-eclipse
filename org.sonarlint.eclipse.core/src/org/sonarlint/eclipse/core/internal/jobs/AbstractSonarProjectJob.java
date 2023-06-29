@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,16 +19,12 @@
  */
 package org.sonarlint.eclipse.core.internal.jobs;
 
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.jobs.Job;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
-public abstract class AbstractSonarProjectJob extends Job {
-
+/** Base class for all jobs running at a project level */
+public abstract class AbstractSonarProjectJob extends AbstractSonarJob {
   private final ISonarLintProject project;
   private final SonarLintProjectConfiguration config;
 
@@ -36,16 +32,6 @@ public abstract class AbstractSonarProjectJob extends Job {
     super(title);
     this.project = project;
     this.config = SonarLintCorePlugin.loadConfig(project);
-    setPriority(Job.DECORATE);
-  }
-
-  @Override
-  public final IStatus run(final IProgressMonitor monitor) {
-    try {
-      return doRun(monitor);
-    } catch (CoreException e) {
-      return e.getStatus();
-    }
   }
 
   protected ISonarLintProject getProject() {
@@ -56,11 +42,8 @@ public abstract class AbstractSonarProjectJob extends Job {
     return config;
   }
 
-  protected abstract IStatus doRun(final IProgressMonitor monitor) throws CoreException;
-  
   @Override
   public final boolean belongsTo(Object family) {
     return "org.sonarlint.eclipse.projectJob".equals(family);
   }
-
 }

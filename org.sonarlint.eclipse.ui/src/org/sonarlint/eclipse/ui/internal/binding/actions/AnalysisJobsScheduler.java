@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -45,9 +45,9 @@ import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.SonarLintProjectDecorator;
 
-public class JobUtils {
+public class AnalysisJobsScheduler {
 
-  private JobUtils() {
+  private AnalysisJobsScheduler() {
     // utility class, forbidden constructor
   }
 
@@ -56,9 +56,7 @@ public class JobUtils {
    * Use null for project parameter to analyze open files in all projects.
    */
   public static void scheduleAnalysisOfOpenFiles(@Nullable ISonarLintProject project, TriggerType triggerType, Predicate<ISonarLintFile> filter) {
-    var filesByProject = new HashMap<ISonarLintProject, List<FileWithDocument>>();
-
-    collectOpenedFiles(project, filesByProject, filter);
+    var filesByProject = collectOpenedFiles(project, filter);
 
     for (var entry : filesByProject.entrySet()) {
       var aProject = entry.getKey();
@@ -82,12 +80,12 @@ public class JobUtils {
     scheduleAnalysisOfOpenFiles(project, triggerType, f -> true);
   }
 
-  private static void collectOpenedFiles(@Nullable ISonarLintProject project, Map<ISonarLintProject, List<FileWithDocument>> filesByProject,
-    Predicate<ISonarLintFile> filter) {
+  private static Map<ISonarLintProject, List<FileWithDocument>> collectOpenedFiles(@Nullable ISonarLintProject project, Predicate<ISonarLintFile> filter) {
     if (!PlatformUI.isWorkbenchRunning()) {
       // headless tests
-      return;
+      return Map.of();
     }
+    var filesByProject = new HashMap<ISonarLintProject, List<FileWithDocument>>();
     for (var win : PlatformUI.getWorkbench().getWorkbenchWindows()) {
       for (var page : win.getPages()) {
         for (var ref : page.getEditorReferences()) {
@@ -95,6 +93,7 @@ public class JobUtils {
         }
       }
     }
+    return filesByProject;
   }
 
   private static void collectOpenedFile(@Nullable ISonarLintProject project, Map<ISonarLintProject, List<FileWithDocument>> filesByProject,

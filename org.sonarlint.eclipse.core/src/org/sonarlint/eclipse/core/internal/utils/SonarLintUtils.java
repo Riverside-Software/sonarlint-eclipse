@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -96,9 +96,15 @@ public class SonarLintUtils {
     return newBuilder;
   }
 
+  /**
+   *  Enabled language should be consistent with https://www.sonarsource.com/products/sonarlint/features/eclipse!
+   *  Exceptions are: - C/C++ only available with CDT (see CProjectConfiguratorExtension.whitelistedLanguages)
+   *                  - Java/JSP only available with JDT (see JavaProjectConfiguratorExtension.whitelistedLanguages)
+   */
   public static Set<Language> getEnabledLanguages() {
-    var languagesDisabledByDefault = EnumSet.of(Language.JAVA, Language.CPP, Language.C, Language.OBJC, Language.SWIFT, Language.CS);
-    var enabledLanguages = EnumSet.complementOf(languagesDisabledByDefault);
+    var enabledLanguages = EnumSet.of(Language.ABAP, Language.APEX, Language.CSS, Language.COBOL, Language.HTML,
+      Language.JS, Language.KOTLIN, Language.PHP, Language.PLI, Language.PLSQL, Language.PYTHON, Language.RPG,
+      Language.RUBY, Language.SCALA, Language.SECRETS, Language.TSQL, Language.TS, Language.XML);
     var configurators = SonarLintExtensionTracker.getInstance().getAnalysisConfigurators();
     for (var configurator : configurators) {
       enabledLanguages.addAll(configurator.whitelistedLanguages());

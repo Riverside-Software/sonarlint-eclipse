@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -33,12 +33,11 @@ import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.preferences.RuleConfig;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
+import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneRuleDetails;
 
 public class RulesConfigurationPage extends PropertyPage implements IWorkbenchPreferencePage {
 
-  public static final String RULES_CONFIGURATION_LINK = "sonarlint://rules-configuration";
   public static final String RULES_CONFIGURATION_ID = "org.sonarlint.eclipse.ui.properties.RulesConfigurationPage";
 
   private RulesConfigurationPart rulesConfigurationPart;
@@ -76,7 +75,8 @@ public class RulesConfigurationPage extends PropertyPage implements IWorkbenchPr
     var newRuleConfigs = rulesConfigurationPart.computeRulesConfig();
     SonarLintGlobalConfiguration.saveRulesConfig(newRuleConfigs);
     if (!newRuleConfigs.equals(initialRuleConfigs)) {
-      JobUtils.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STANDALONE_CONFIG_CHANGE);
+      initialRuleConfigs = newRuleConfigs;
+      AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STANDALONE_CONFIG_CHANGE);
     }
     return true;
   }

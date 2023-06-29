@@ -2,10 +2,8 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.core;singleton:=true
-Bundle-Version: 7.6.2312
-Bundle-ClassPath: .,
- lib/okhttp.jar,
- lib/okio.jar
+Bundle-Version: 7.12.2400
+Bundle-ClassPath: .
 Bundle-Activator: org.sonarlint.eclipse.core.internal.SonarLintCorePlugin
 Bundle-Vendor: %bundle_vendor
 Bundle-Localization: OSGI-INF/l10n/bundle
@@ -21,7 +19,6 @@ Export-Package: org.sonarlint.eclipse.core,
  org.sonarlint.eclipse.core.internal.extension;x-friends:="org.sonarlint.eclipse.ui",
  org.sonarlint.eclipse.core.internal.jobs;x-friends:="org.sonarlint.eclipse.ui,org.sonarlint.eclipse.core.tests,org.sonarlint.eclipse.cdt",
  org.sonarlint.eclipse.core.internal.markers;x-friends:="org.sonarlint.eclipse.ui,org.sonarlint.eclipse.core.tests",
- org.sonarlint.eclipse.core.internal.notifications;x-friends:="org.sonarlint.eclipse.ui,org.sonarlint.eclipse.core.tests",
  org.sonarlint.eclipse.core.internal.preferences;x-friends:="org.sonarlint.eclipse.core.tests,org.sonarlint.eclipse.ui",
  org.sonarlint.eclipse.core.internal.proto;x-friends:="org.sonarlint.eclipse.core.tests",
  org.sonarlint.eclipse.core.internal.quickfixes;x-friends:="org.sonarlint.eclipse.core.tests,org.sonarlint.eclipse.ui",
@@ -31,7 +28,8 @@ Export-Package: org.sonarlint.eclipse.core,
  org.sonarlint.eclipse.core.internal.utils;x-friends:="org.sonarlint.eclipse.core.tests,org.sonarlint.eclipse.jdt,org.sonarlint.eclipse.ui",
  org.sonarlint.eclipse.core.internal.vcs;x-friends:="org.sonarlint.eclipse.ui",
  org.sonarlint.eclipse.core.listener,
- org.sonarlint.eclipse.core.resource
+ org.sonarlint.eclipse.core.resource,
+ org.sonarlint.eclipse.core.rule
 Require-Bundle: org.eclipse.equinox.security,
  org.eclipse.core.runtime;bundle-version="3.14.0",
  org.eclipse.core.resources,
@@ -45,6 +43,9 @@ Require-Bundle: org.eclipse.equinox.security,
  org.sonarsource.sonarlint.core.sonarlint-core-osgi;bundle-version="7.1.0",
  org.eclipse.jgit;resolution:=optional,
  org.eclipse.egit.core;resolution:=optional,
- org.eclipse.egit.ui;resolution:=optional
+ org.eclipse.egit.ui;resolution:=optional,
+ com.squareup.okhttp3;bundle-version="4.10.0",
+ com.squareup.okio;bundle-version="3.0.0",
+ org.eclipse.text
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-11

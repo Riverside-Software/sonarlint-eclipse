@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -36,6 +36,8 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.http.SonarLintHttpClientOkHttpImpl;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarsource.sonarlint.core.clientapi.SonarLintClient;
 import org.sonarsource.sonarlint.core.clientapi.client.fs.FindFileByNamesInScopeParams;
@@ -95,6 +97,12 @@ public abstract class SonarLintEclipseHeadlessClient implements SonarLintClient 
       return null;
     }
     return ((ConnectedEngineFacade) connectionOpt.get()).buildClientWithProxyAndCredentials();
+  }
+
+  @Override
+  public HttpClient getHttpClientNoAuth(String forUrl) {
+    var withProxy = SonarLintUtils.withProxy(forUrl, SonarLintCorePlugin.getOkHttpClient());
+    return new SonarLintHttpClientOkHttpImpl(withProxy.build());
   }
 
 }

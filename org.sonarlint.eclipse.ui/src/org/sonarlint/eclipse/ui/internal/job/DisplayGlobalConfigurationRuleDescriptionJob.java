@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,42 +19,41 @@
  */
 package org.sonarlint.eclipse.ui.internal.job;
 
-import java.util.concurrent.TimeUnit;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.swt.widgets.Display;
 import org.sonarlint.eclipse.core.SonarLintLogger;
-import org.sonarlint.eclipse.core.internal.engine.connected.ResolvedBinding;
-import org.sonarlint.eclipse.core.internal.jobs.AbstractSonarProjectJob;
-import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarlint.eclipse.ui.internal.util.SonarLintRuleBrowser;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
+import org.sonarlint.eclipse.core.internal.jobs.AbstractSonarGlobalConfigurationJob;
+import org.sonarlint.eclipse.ui.internal.rule.RuleDetailsPanel;
 
-public class AsyncDisplayRuleDescriptionJob extends AbstractSonarProjectJob {
-  private final ResolvedBinding binding;
+/** Update rule details view for the global configuration rule description in a separate thread */
+public class DisplayGlobalConfigurationRuleDescriptionJob extends AbstractSonarGlobalConfigurationJob {
   private final String ruleKey;
-  private final SonarLintRuleBrowser browser;
+  private final RuleDetailsPanel ruleDetailsPanel;
 
-  public AsyncDisplayRuleDescriptionJob(ISonarLintProject project, ResolvedBinding binding, String ruleKey, SonarLintRuleBrowser browser) {
-    super("Fetching rule description for rule '" + ruleKey + "'...", project);
-    this.binding = binding;
+  public DisplayGlobalConfigurationRuleDescriptionJob(String ruleKey, RuleDetailsPanel ruleDetailsPanel) {
+    super("Fetching rule description for rule '" + ruleKey + "'...");
     this.ruleKey = ruleKey;
-    this.browser = browser;
+    this.ruleDetailsPanel = ruleDetailsPanel;
   }
 
   @Override
   protected IStatus doRun(IProgressMonitor monitor) throws CoreException {
     try {
-      var ruleDetails = binding.getEngineFacade().getRuleDescription(ruleKey, binding.getProjectBinding().projectKey()).get(1, TimeUnit.MINUTES);
-      if (ruleDetails != null) {
-        Display.getDefault().syncExec(() -> browser.updateRule(ruleDetails));
-      } else {
-        SonarLintLogger.get().error("Cannot fetch rule description for rule" + ruleKey);
-      }
+      Display.getDefault().syncExec(ruleDetailsPanel::displayLoadingIndicator);
+      // Getting the CompletableFuture<...> object before running the UI update to not block the UI thread
+      var ruleDetails = SonarLintBackendService.get().getStandaloneRuleDetails(ruleKey);
+      Display.getDefault().syncExec(() -> ruleDetailsPanel.updateRule(ruleDetails));
     } catch (Exception e) {
-      SonarLintLogger.get().error("Unable to display rule description for rule " + ruleKey, e);
+      SonarLintLogger.get().error("Unable to display global configuration rule description for rule " + ruleKey, e);
+      Display.getDefault().syncExec(ruleDetailsPanel::clearRule);
+      return Status.error(e.getMessage(), e);
     }
+
     return Status.OK_STATUS;
   }
+
 }

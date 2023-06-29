@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,6 +21,7 @@ package org.sonarlint.eclipse.jdt.internal;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -97,6 +98,9 @@ public class JdtUtils {
 
     context.setAnalysisProperty("sonar.java.source", javaSource);
     context.setAnalysisProperty("sonar.java.target", javaTarget);
+    
+    var javaPreview = Optional.ofNullable(javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true)).orElse(JavaCore.DISABLED);
+    context.setAnalysisProperty("sonar.java.enablePreview", javaPreview.equalsIgnoreCase(JavaCore.ENABLED) ? "true" : "false");
 
     try {
       var configuration = new JavaProjectConfiguration();

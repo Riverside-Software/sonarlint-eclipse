@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -17,32 +17,28 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.ui.internal.job;
+package org.sonarlint.eclipse.core.internal.jobs;
 
-import java.util.Collection;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
-import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 
-public class SubscribeToNotificationsJob extends Job {
-
-  private final Collection<ISonarLintProject> projects;
-
-  public SubscribeToNotificationsJob(Collection<ISonarLintProject> projects) {
-    super("Subscribe to notifications");
-    this.projects = projects;
-    setPriority(DECORATE);
-    setSystem(true);
+/** Base class for all SonarLint jobs, for level specific jobs see subclasses */
+public abstract class AbstractSonarJob extends Job {
+  public AbstractSonarJob(String title) {
+    super(title);
+    setPriority(Job.DECORATE);
   }
 
   @Override
-  protected IStatus run(IProgressMonitor monitor) {
-    SonarLintCorePlugin.getInstance().notificationsManager().subscribeToNotifications(projects, SonarLintUiPlugin.getDefault().listenerFactory());
-    return Status.OK_STATUS;
+  public final IStatus run(final IProgressMonitor monitor) {
+    try {
+      return doRun(monitor);
+    } catch (CoreException e) {
+      return e.getStatus();
+    }
   }
 
+  protected abstract IStatus doRun(final IProgressMonitor monitor) throws CoreException;
 }

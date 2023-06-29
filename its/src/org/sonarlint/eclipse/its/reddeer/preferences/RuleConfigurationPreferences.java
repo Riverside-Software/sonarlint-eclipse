@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2022 SonarSource SA
+ * Copyright (C) 2009-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -70,5 +70,23 @@ public class RuleConfigurationPreferences extends PropertyPage {
 
   public void ok() {
     ((WorkbenchPreferenceDialog) referencedComposite).ok();
+  }
+
+  public static RuleConfigurationPreferences open() {
+    var preferenceDialog = new WorkbenchPreferenceDialog();
+    if (!preferenceDialog.isOpen()) {
+      preferenceDialog.open();
+    }
+
+    var ruleConfigurationPreferences = new RuleConfigurationPreferences(preferenceDialog);
+    preferenceDialog.select(ruleConfigurationPreferences);
+    return ruleConfigurationPreferences;
+  }
+
+  public TreeItem selectRule(String key, String language, String name) {
+    filter(key);
+    var ruleItem = getItem(language, name);
+    ruleItem.select();
+    return ruleItem;
   }
 }

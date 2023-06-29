@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -35,13 +35,12 @@ import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.ViewPart;
 import org.sonarlint.eclipse.core.SonarLintLogger;
-import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
-import org.sonarlint.eclipse.ui.internal.job.AsyncDisplayRuleDescriptionJob;
+import org.sonarlint.eclipse.ui.internal.job.DisplayProjectRuleDescriptionJob;
+import org.sonarlint.eclipse.ui.internal.rule.RuleDetailsPanel;
 import org.sonarlint.eclipse.ui.internal.util.SelectionUtils;
-import org.sonarlint.eclipse.ui.internal.util.SonarLintRuleBrowser;
 
 /**
  * Display details of a rule in a web browser
@@ -59,19 +58,19 @@ public class RuleDescriptionWebView extends ViewPart implements ISelectionListen
    */
   private IMarker lastSelection;
 
-  private SonarLintRuleBrowser browser;
+  private RuleDetailsPanel ruleDetailsPanel;
 
   @Override
   public void createPartControl(Composite parent) {
     createToolbar();
-    browser = new SonarLintRuleBrowser(parent, true);
+    ruleDetailsPanel = new RuleDetailsPanel(parent, true);
 
     startListeningForSelectionChanges();
   }
 
   @Override
   public final void setFocus() {
-    browser.setFocus();
+    ruleDetailsPanel.setFocus();
   }
 
   private void createToolbar() {
@@ -124,12 +123,8 @@ public class RuleDescriptionWebView extends ViewPart implements ISelectionListen
     if (marker != null) {
       showRuleDescription(marker);
     } else {
-      clear();
+      ruleDetailsPanel.clearRule();
     }
-  }
-
-  private void clear() {
-    browser.updateRule(null);
   }
 
   @Override
@@ -140,25 +135,19 @@ public class RuleDescriptionWebView extends ViewPart implements ISelectionListen
   }
 
   private void showRuleDescription(IMarker element) {
-    String ruleKey;
-    try {
-      ruleKey = element.getAttribute(MarkerUtils.SONAR_MARKER_RULE_KEY_ATTR).toString();
-    } catch (CoreException e) {
-      SonarLintLogger.get().error("Unable to open rule description", e);
+    var ruleKey = element.getAttribute(MarkerUtils.SONAR_MARKER_RULE_KEY_ATTR, null);
+    if (ruleKey == null) {
+      SonarLintLogger.get().error("No rule key on marker");
       return;
     }
 
-    var issuable = Adapters.adapt(element.getResource(), ISonarLintIssuable.class);
-    var project = issuable.getProject();
-
-    var resolvedBindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(project);
-    if (resolvedBindingOpt.isPresent()) {
-      new AsyncDisplayRuleDescriptionJob(project, resolvedBindingOpt.get(), ruleKey, browser).schedule();
-    } else {
-      var ruleDetails = SonarLintCorePlugin.getInstance().getDefaultSonarLintClientFacade().getRuleDescription(ruleKey);
-      browser.updateRule(ruleDetails);
-    }
-
+    // Update project rule description asynchronous
+    new DisplayProjectRuleDescriptionJob(Adapters.adapt(
+      element.getResource(), ISonarLintIssuable.class).getProject(),
+      ruleKey,
+      element.getAttribute(MarkerUtils.SONAR_MARKER_RULE_DESC_CONTEXT_KEY_ATTR, null),
+      ruleDetailsPanel)
+        .schedule();
   }
 
   @Override

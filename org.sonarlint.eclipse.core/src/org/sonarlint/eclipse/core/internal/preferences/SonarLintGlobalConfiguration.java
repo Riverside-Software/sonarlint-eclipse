@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -41,10 +41,13 @@ import org.osgi.service.prefs.BackingStoreException;
 import org.osgi.service.prefs.Preferences;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.resources.ExclusionItem;
 import org.sonarlint.eclipse.core.internal.resources.SonarLintProperty;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarsource.sonarlint.core.clientapi.backend.rules.StandaloneRuleConfigDto;
+import org.sonarsource.sonarlint.core.clientapi.backend.rules.UpdateStandaloneRulesConfigurationParams;
 import org.sonarsource.sonarlint.core.commons.RuleKey;
 import org.sonarsource.sonarlint.shaded.com.google.gson.Gson;
 import org.sonarsource.sonarlint.shaded.com.google.gson.JsonParseException;
@@ -60,16 +63,6 @@ public class SonarLintGlobalConfiguration {
   public static final int PREF_MARKER_SEVERITY_DEFAULT = IMarker.SEVERITY_INFO;
   public static final String PREF_EXTRA_ARGS = "extraArgs"; //$NON-NLS-1$
   public static final String PREF_FILE_EXCLUSIONS = "fileExclusions"; //$NON-NLS-1$
-  /**
-   * @deprecated replaced by {@link #PREF_RULES_CONFIG}
-   */
-  @Deprecated
-  public static final String PREF_RULE_EXCLUSIONS = "ruleExclusions"; //$NON-NLS-1$
-  /**
-   * @deprecated replaced by {@link #PREF_RULES_CONFIG}
-   */
-  @Deprecated
-  public static final String PREF_RULE_INCLUSIONS = "ruleInclusions"; //$NON-NLS-1$
   public static final String PREF_RULES_CONFIG = "rulesConfig"; //$NON-NLS-1$
   public static final String PREF_DEFAULT = ""; //$NON-NLS-1$
   public static final String PREF_TEST_FILE_REGEXPS = "testFileRegexps"; //$NON-NLS-1$
@@ -194,10 +187,6 @@ public class SonarLintGlobalConfiguration {
       .collect(toList());
   }
 
-  public static void setExcludedRules(Collection<RuleKey> excludedRules) {
-    setPreferenceString(PREF_RULE_EXCLUSIONS, serializeRuleKeyList(excludedRules));
-  }
-
   public static Collection<RuleKey> getIncludedRules() {
     return readRulesConfig().stream()
       .filter(RuleConfig::isActive)
@@ -205,37 +194,12 @@ public class SonarLintGlobalConfiguration {
       .collect(toList());
   }
 
-  public static void setIncludedRules(Collection<RuleKey> includedRules) {
-    setPreferenceString(PREF_RULE_INCLUSIONS, serializeRuleKeyList(includedRules));
-  }
-
-  private static Set<RuleKey> deserializeRuleKeyList(@Nullable String property) {
-    return Stream.of(StringUtils.split(property, ";"))
-      .map(RuleKey::parse)
-      .collect(Collectors.toSet());
+  public static Map<String, StandaloneRuleConfigDto> buildStandaloneRulesConfig() {
+    return readRulesConfig().stream()
+      .collect(Collectors.toMap(r -> r.getKey(), r -> new StandaloneRuleConfigDto(r.isActive(), Map.copyOf(r.getParams()))));
   }
 
   public static Set<RuleConfig> readRulesConfig() {
-    var instancePreferenceNode = getInstancePreferenceNode();
-    try {
-      if (!instancePreferenceNode.nodeExists(PREF_RULES_CONFIG)) {
-        var result = new ArrayList<RuleConfig>();
-        // Migration
-        if (List.of(instancePreferenceNode.keys()).contains(PREF_RULE_EXCLUSIONS)) {
-          deserializeRuleKeyList(getPreferenceString(PREF_RULE_EXCLUSIONS)).stream().map(r -> new RuleConfig(r.toString(), false)).forEach(result::add);
-          instancePreferenceNode.remove(PREF_RULE_EXCLUSIONS);
-        }
-        if (List.of(instancePreferenceNode.keys()).contains(PREF_RULE_INCLUSIONS)) {
-          deserializeRuleKeyList(getPreferenceString(PREF_RULE_INCLUSIONS)).stream().map(r -> new RuleConfig(r.toString(), true)).forEach(result::add);
-          instancePreferenceNode.remove(PREF_RULE_INCLUSIONS);
-        }
-        if (!result.isEmpty()) {
-          saveRulesConfig(result);
-        }
-      }
-    } catch (BackingStoreException e) {
-      throw new IllegalStateException("Unable to migrate rules configuration", e);
-    }
     var json = getPreferenceString(PREF_RULES_CONFIG);
     return deserializeRulesJson(json);
   }
@@ -279,6 +243,7 @@ public class SonarLintGlobalConfiguration {
   public static void saveRulesConfig(Collection<RuleConfig> rules) {
     var json = serializeRulesJson(rules);
     setPreferenceString(PREF_RULES_CONFIG, json);
+    SonarLintBackendService.get().getBackend().getRulesService().updateStandaloneRulesConfiguration(new UpdateStandaloneRulesConfigurationParams(buildStandaloneRulesConfig()));
   }
 
   private static String serializeRulesJson(Collection<RuleConfig> rules) {

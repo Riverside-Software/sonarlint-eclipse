@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -34,7 +34,7 @@ import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacad
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
-import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
+import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
 
 /**
  * Dialog that prompts a user to unbind project(s).
@@ -84,8 +84,8 @@ public class UnbindProjectDialog extends MessageDialog {
           binding.ifPresent(b -> {
             var oldConnectionId = b.connectionId();
             ConnectedEngineFacade.unbind(project);
-            JobUtils.scheduleAnalysisOfOpenFiles(project, TriggerType.BINDING_CHANGE);
-            JobUtils.notifyServerViewAfterBindingChange(project, oldConnectionId);
+            AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(project, TriggerType.BINDING_CHANGE);
+            AnalysisJobsScheduler.notifyServerViewAfterBindingChange(project, oldConnectionId);
           });
         }
       } catch (Exception e) {

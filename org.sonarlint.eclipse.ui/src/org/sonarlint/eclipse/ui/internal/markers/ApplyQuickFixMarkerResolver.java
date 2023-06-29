@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -46,7 +46,7 @@ import org.sonarlint.eclipse.core.internal.quickfixes.MarkerQuickFix;
 import org.sonarlint.eclipse.core.internal.quickfixes.MarkerTextEdit;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
-import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
+import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
 import org.sonarlint.eclipse.ui.internal.util.LocationsUtils;
 
 public class ApplyQuickFixMarkerResolver extends SortableMarkerResolver {
@@ -89,7 +89,7 @@ public class ApplyQuickFixMarkerResolver extends SortableMarkerResolver {
   private static void scheduleAnalysis(FileWithDocument fileWithDoc) {
     var file = fileWithDoc.getFile();
     var request = new AnalyzeProjectRequest(file.getProject(), List.of(fileWithDoc), TriggerType.QUICK_FIX);
-    JobUtils.scheduleAutoAnalysisIfEnabled(request);
+    AnalysisJobsScheduler.scheduleAutoAnalysisIfEnabled(request);
   }
 
   @Nullable

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2022 SonarSource SA
+ * Copyright (C) 2009-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -19,7 +19,16 @@
  */
 package org.sonarlint.eclipse.its.reddeer.views;
 
+import org.eclipse.reddeer.common.wait.TimePeriod;
+import org.eclipse.reddeer.common.wait.WaitUntil;
+import org.eclipse.reddeer.core.condition.WidgetIsFound;
+import org.eclipse.reddeer.swt.api.Browser;
+import org.eclipse.reddeer.swt.api.Label;
+import org.eclipse.reddeer.swt.api.TabFolder;
+import org.eclipse.reddeer.swt.condition.PageIsLoaded;
 import org.eclipse.reddeer.swt.impl.browser.InternalBrowser;
+import org.eclipse.reddeer.swt.impl.label.DefaultLabel;
+import org.eclipse.reddeer.swt.impl.tab.DefaultTabFolder;
 import org.eclipse.reddeer.workbench.impl.view.WorkbenchView;
 
 public class RuleDescriptionView extends WorkbenchView {
@@ -28,8 +37,39 @@ public class RuleDescriptionView extends WorkbenchView {
     super("SonarLint Rule Description");
   }
 
-  public String getContent() {
-    return new InternalBrowser(getCTabItem()).getText();
+  public Label getRuleName() {
+    return new DefaultLabel(getCTabItem(), 0);
+  }
+
+  public Label getRuleType() {
+    return new DefaultLabel(getCTabItem(), 2);
+  }
+
+  public Label getRuleSeverity() {
+    return new DefaultLabel(getCTabItem(), 4);
+  }
+
+  public Label getRuleKey() {
+    return new DefaultLabel(getCTabItem(), 5);
+  }
+
+  public Browser getFirstBrowser() {
+    // Browser can take a while to render
+    new WaitUntil(new WidgetIsFound(org.eclipse.swt.browser.Browser.class, getCTabItem().getControl()),
+      TimePeriod.DEFAULT, false);
+    return new InternalBrowser(getCTabItem());
+  }
+
+  public TabFolder getSections() {
+    return new DefaultTabFolder(getCTabItem());
+  }
+
+  public String getFlatTextContent() {
+    new WaitUntil(new PageIsLoaded(getFirstBrowser()));
+
+    return getRuleName().getText() + "\n"
+      + getRuleType().getText() + " " + getRuleSeverity().getText() + " " + getRuleKey().getText() + "\n"
+      + getFirstBrowser().getText();
   }
 
 }

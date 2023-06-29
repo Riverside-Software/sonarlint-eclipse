@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,6 +20,7 @@
 package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.util.List;
+import java.util.Optional;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.internal.proto.Sonarlint.Issues.Issue;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
@@ -128,6 +129,11 @@ public class ProtobufIssueTrackable implements Trackable {
 
   @Override
   public List<QuickFix> getQuickFix() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Optional<String> getRuleDescriptionContextKey() {
     throw new UnsupportedOperationException();
   }
 }

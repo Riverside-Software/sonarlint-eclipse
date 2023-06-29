@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -21,6 +21,7 @@ package org.sonarlint.eclipse.cdt.internal;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 import org.eclipse.cdt.core.CCProjectNature;
 import org.eclipse.cdt.core.CProjectNature;
@@ -29,18 +30,21 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.jface.text.IDocumentPartitioner;
+import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarlint.eclipse.core.rule.ISyntaxHighlightingProvider;
 import org.sonarsource.sonarlint.core.commons.Language;
 
 /**
  * Responsible for checking at runtime if CDT plugin is installed.
  */
-public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider {
+public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider, ISyntaxHighlightingProvider {
 
   @Nullable
   private final CdtUtils cdtUtils;
@@ -106,4 +110,19 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
     return null;
   }
 
+  @Override
+  public Optional<SourceViewerConfiguration> sourceViewerConfiguration(String ruleLanguage) {
+    if (isCdtPresent() && (ruleLanguage.equals(Language.C.getLanguageKey()) || ruleLanguage.equals(Language.CPP.getLanguageKey()))) {
+      return Optional.of(CdtUiUtils.sourceViewerConfiguration());
+    }
+    return Optional.empty();
+  }
+
+  @Override
+  public Optional<IDocumentPartitioner> documentPartitioner(String ruleLanguage) {
+    if (isCdtPresent() && (ruleLanguage.equals(Language.C.getLanguageKey()) || ruleLanguage.equals(Language.CPP.getLanguageKey()))) {
+      return Optional.of(CdtUiUtils.documentPartitioner());
+    }
+    return Optional.empty();
+  }
 }

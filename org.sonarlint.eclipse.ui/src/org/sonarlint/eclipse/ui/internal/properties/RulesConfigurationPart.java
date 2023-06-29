@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -52,6 +52,7 @@ import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.custom.SashForm;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
@@ -63,7 +64,8 @@ import org.eclipse.ui.dialogs.FilteredTree;
 import org.eclipse.ui.dialogs.PatternFilter;
 import org.sonarlint.eclipse.core.internal.preferences.RuleConfig;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
-import org.sonarlint.eclipse.ui.internal.util.SonarLintRuleBrowser;
+import org.sonarlint.eclipse.ui.internal.job.DisplayGlobalConfigurationRuleDescriptionJob;
+import org.sonarlint.eclipse.ui.internal.rule.RuleDetailsPanel;
 import org.sonarsource.sonarlint.core.client.api.common.RuleDetails;
 import org.sonarsource.sonarlint.core.client.api.standalone.StandaloneRuleDetails;
 import org.sonarsource.sonarlint.core.commons.Language;
@@ -78,7 +80,7 @@ public class RulesConfigurationPart {
   private Map<Language, List<RuleDetailsWrapper>> ruleDetailsWrappersByLanguage = Map.of();
 
   private final RuleDetailsWrapperFilter filter;
-  private SonarLintRuleBrowser ruleBrowser;
+  private RuleDetailsPanel ruleDetailsPanel;
   private CheckBoxFilteredTree tree;
   private Composite paramPanelParent;
   private Composite paramPanel;
@@ -109,7 +111,11 @@ public class RulesConfigurationPart {
     createTreeViewer(filterAndTree);
 
     horizontalSplitter = new SashForm(verticalSplitter, SWT.VERTICAL);
-    ruleBrowser = new SonarLintRuleBrowser(horizontalSplitter, false);
+    // It seems composite inside SashForm are receiving a special CSS background, and so if we try to add directly our custom Composite
+    // RuleDetailsPanel inside the SashForm then the background is wrong. See https://www.eclipse.org/forums/index.php/t/1099071/
+    var compositeToFixDarkTheme = new Composite(horizontalSplitter, SWT.NONE);
+    compositeToFixDarkTheme.setLayout(new FillLayout());
+    ruleDetailsPanel = new RuleDetailsPanel(compositeToFixDarkTheme, false);
     paramPanelParent = new Composite(horizontalSplitter, SWT.NONE);
     paramPanelParent.setLayout(new GridLayout());
     paramPanel = emptyRuleParam();
@@ -192,8 +198,8 @@ public class RulesConfigurationPart {
         if (!(e1 instanceof RuleDetailsWrapper && e2 instanceof RuleDetailsWrapper)) {
           return super.compare(viewer, e1, e2);
         }
-        RuleDetailsWrapper w1 = (RuleDetailsWrapper) e1;
-        RuleDetailsWrapper w2 = (RuleDetailsWrapper) e2;
+        var w1 = (RuleDetailsWrapper) e1;
+        var w2 = (RuleDetailsWrapper) e2;
         return w1.ruleDetails.getName().compareTo(w2.ruleDetails.getName());
       }
     });
@@ -212,7 +218,9 @@ public class RulesConfigurationPart {
     paramPanel.dispose();
     if (selectedNode instanceof RuleDetailsWrapper) {
       var wrapper = (RuleDetailsWrapper) selectedNode;
-      ruleBrowser.updateRule(wrapper.ruleDetails);
+
+      // Update global configuration rule description asynchronous
+      new DisplayGlobalConfigurationRuleDescriptionJob(wrapper.ruleDetails.getKey(), ruleDetailsPanel).schedule();
       if (wrapper.ruleDetails.paramDetails().isEmpty()) {
         paramPanel = emptyRuleParam();
       } else {
@@ -220,7 +228,7 @@ public class RulesConfigurationPart {
         paramPanel.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
       }
     } else {
-      ruleBrowser.updateRule(null);
+      ruleDetailsPanel.clearRule();
       paramPanel = emptyRuleParam();
     }
     paramPanel.requestLayout();
@@ -426,7 +434,7 @@ public class RulesConfigurationPart {
       });
     if (tree != null) {
       tree.getViewer().refresh();
-      Object currentSelection = tree.getViewer().getStructuredSelection().getFirstElement();
+      var currentSelection = tree.getViewer().getStructuredSelection().getFirstElement();
       refreshUiForRuleSelection(currentSelection);
     }
   }

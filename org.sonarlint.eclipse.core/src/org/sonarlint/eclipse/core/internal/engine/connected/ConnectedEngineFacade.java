@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -120,21 +120,17 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
       var builder = isSonarCloud() ? ConnectedGlobalConfiguration.sonarCloudBuilder() : ConnectedGlobalConfiguration.sonarQubeBuilder();
       builder
         .setConnectionId(getId())
-        .setWorkDir(StoragePathManager.getServerWorkDir(getId()))
-        .setStorageRoot(StoragePathManager.getServerStorageRoot())
+        .setWorkDir(StoragePathManager.getConnectionSpecificWorkDir(getId()))
+        .setStorageRoot(StoragePathManager.getStorageDir())
         .setLogOutput(new SonarLintAnalyzerLogOutput())
         .addEnabledLanguages(SonarLintUtils.getEnabledLanguages().toArray(new Language[0]))
         .setNodeJs(nodeJsManager.getNodeJsPath(), nodeJsManager.getNodeJsVersion())
         .setClientPid(SonarLintUtils.getPlatformPid());
 
-      var secretsPluginUrl = PluginPathHelper.findEmbeddedSecretsPlugin();
-      if (secretsPluginUrl != null) {
-        builder.addExtraPlugin(Language.SECRETS.getPluginKey(), secretsPluginUrl);
-      }
-
       builder.useEmbeddedPlugin(Language.JS.getPluginKey(), PluginPathHelper.findEmbeddedJsPlugin());
       builder.useEmbeddedPlugin(Language.HTML.getPluginKey(), PluginPathHelper.findEmbeddedHtmlPlugin());
       builder.useEmbeddedPlugin(Language.XML.getPluginKey(), PluginPathHelper.findEmbeddedXmlPlugin());
+      builder.useEmbeddedPlugin(Language.SECRETS.getPluginKey(), PluginPathHelper.findEmbeddedSecretsPlugin());
 
       var globalConfig = builder.build();
       try {
@@ -225,7 +221,6 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
   }
 
   public static void unbind(ISonarLintProject project) {
-    SonarLintCorePlugin.getInstance().notificationsManager().unsubscribe(project);
     var config = SonarLintCorePlugin.loadConfig(project);
     config.setProjectBinding(null);
     SonarLintCorePlugin.saveConfig(project, config);
@@ -274,9 +269,7 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
 
   @Override
   public void updateProjectList(IProgressMonitor monitor) {
-    doWithEngine(engine -> {
-      reloadProjects(engine, monitor);
-    });
+    doWithEngine(engine -> reloadProjects(engine, monitor));
   }
 
   private static Stream<ISonarLintProject> getOpenedProjects() {
@@ -344,7 +337,7 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
         var idePathPrefix = projectBinding.idePathPrefix();
         var sqPathPrefix = projectBinding.serverPathPrefix();
         SonarLintLogger.get().debug("Detected prefixes for " + p.getName() + ":\n  IDE prefix: " + idePathPrefix + "\n  Server side prefix: " + sqPathPrefix);
-        SonarLintProjectConfiguration config = SonarLintCorePlugin.loadConfig(p);
+        var config = SonarLintCorePlugin.loadConfig(p);
         config.setProjectBinding(new EclipseProjectBinding(getId(), projectKey, sqPathPrefix, idePathPrefix));
         SonarLintCorePlugin.saveConfig(p, config);
       });
@@ -568,10 +561,9 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
         activeBranches.add(VcsService.getServerBranch(project));
       }
 
-      activeBranches.forEach(b -> {
-        engine.downloadAllServerIssues(createEndpointParams(), buildClientWithProxyAndCredentials(), projectKey, b,
-          new WrappedProgressMonitor(monitor, "Synchronize issues for connection '" + getId() + "'"));
-      });
+      activeBranches.forEach(b -> engine.downloadAllServerIssues(createEndpointParams(),
+        buildClientWithProxyAndCredentials(), projectKey, b,
+        new WrappedProgressMonitor(monitor, "Synchronize issues for connection '" + getId() + "'")));
 
     }
   }

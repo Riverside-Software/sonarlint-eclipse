@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -127,7 +127,7 @@ public class CdtUtils {
       return null;
     }
 
-    IContentType contentType = contentTypeResolver.apply(project, location.toOSString());
+    var contentType = contentTypeResolver.apply(project, location.toOSString());
 
     if (contentType == null) {
       return null;
@@ -155,4 +155,5 @@ public class CdtUtils {
   public String language(IFile iFile) {
     return getFileLanguage(iFile.getProject(), iFile);
   }
+
 }

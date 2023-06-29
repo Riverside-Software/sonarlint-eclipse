@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>64.0.211</version>
+    <version>68.0.0.247</version>
     <relativePath />
   </parent>
 
@@ -17,7 +17,7 @@
   <name>SonarLint for Eclipse Integration Tests</name>
 
   <properties>
-    <tycho.version>2.7.4</tycho.version>
+    <tycho.version>3.0.4</tycho.version>
     <license.title>SonarLint for Eclipse ITs</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -45,6 +45,8 @@
           <configuration>
             <source>${jdk.min.version}</source>
             <target>${jdk.min.version}</target>
+            <release>${jdk.min.version}</release>
+            <useJDK>BREE</useJDK>
           </configuration>
         </plugin>
         <plugin>
@@ -77,6 +79,11 @@
           <artifactId>tycho-p2-repository-plugin</artifactId>
           <version>${tycho.version}</version>
         </plugin>
+        <plugin>
+          <groupId>org.eclipse.tycho</groupId>
+          <artifactId>tycho-ds-plugin</artifactId>
+          <version>${tycho.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
 
@@ -85,13 +92,6 @@
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>tycho-maven-plugin</artifactId>
         <extensions>true</extensions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <compilerVersion>${jdk.min.version}</compilerVersion>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
@@ -119,6 +119,11 @@
               <os>linux</os>
               <ws>gtk</ws>
               <arch>x86_64</arch>
+            </environment>
+            <environment>
+              <os>macosx</os>
+              <ws>cocoa</ws>
+              <arch>aarch64</arch>
             </environment>
             <environment>
               <os>macosx</os>
@@ -153,6 +158,7 @@
             <org.eclipse.swt.browser.UseWebKitGTK>true</org.eclipse.swt.browser.UseWebKitGTK>
             <org.eclipse.swt.browser.DefaultType>webkit</org.eclipse.swt.browser.DefaultType>
           </systemProperties>
+          <useJDK>BREE</useJDK>
         </configuration>
       </plugin>
     </plugins>
@@ -206,6 +212,55 @@
         </plugins>
       </build>
     </profile>
+    
+    <!--
+    	Due to the earliest version of Eclipse for macOS on ARM64 (aarch64) being 4.22 our tests on
+    	the oldest supported version cannot be run in this environment! Therefore this profile
+    	ensures the tests will only run the oldest version with every environment but the macOS on
+    	ARM64 one.
+    	This profile can be removed in the future, when the oldest supported Eclipse version is
+    	either 4.22 or higher!
+   	-->
+    <profile>
+      <id>macOS-arm64-fix-oldest</id>
+      <activation>
+        <property>
+          <name>target.platform</name>
+          <value>oldest</value>
+        </property>
+      </activation>
+      <build>
+		<plugins>
+		  <plugin>
+	        <groupId>org.eclipse.tycho</groupId>
+	        <artifactId>target-platform-configuration</artifactId>
+	        <configuration>
+	          <target>
+	            <file>target-platforms/${target.platform}.target</file>
+	          </target>
+	          <environments>
+	            <environment>
+	              <os>win32</os>
+	              <ws>win32</ws>
+	              <arch>x86_64</arch>
+	            </environment>
+	            <environment>
+	              <os>linux</os>
+	              <ws>gtk</ws>
+	              <arch>x86_64</arch>
+	            </environment>
+	            <environment>
+	              <os>macosx</os>
+	              <ws>cocoa</ws>
+	              <arch>x86_64</arch>
+	            </environment>
+	          </environments>
+	        </configuration>
+	      </plugin>
+		</plugins>
+      </build>
+    </profile>
+    
     <profile>
       <id>full</id>
       <activation>

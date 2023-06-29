@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,23 +20,29 @@
 package org.sonarlint.eclipse.jdt.internal;
 
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.jface.text.IDocumentPartitioner;
+import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileTypeProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintFileAdapterParticipant;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarlint.eclipse.core.rule.ISyntaxHighlightingProvider;
 import org.sonarlint.eclipse.ui.quickfixes.IMarkerResolutionEnhancer;
 import org.sonarlint.eclipse.ui.quickfixes.ISonarLintMarkerResolver;
 import org.sonarsource.sonarlint.core.commons.Language;
 
-public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, ISonarLintFileAdapterParticipant, IFileTypeProvider, IMarkerResolutionEnhancer {
+public class JavaProjectConfiguratorExtension
+  implements IAnalysisConfigurator, ISonarLintFileAdapterParticipant, IFileTypeProvider, IMarkerResolutionEnhancer, ISyntaxHighlightingProvider {
 
   @Nullable
   private final JdtUtils javaProjectConfigurator;
@@ -69,7 +75,7 @@ public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, 
   @Override
   public Set<Language> whitelistedLanguages() {
     if (isJdtPresent()) {
-      return Collections.singleton(Language.JAVA);
+      return EnumSet.of(Language.JAVA, Language.JSP);
     }
     return Collections.emptySet();
   }
@@ -109,4 +115,19 @@ public class JavaProjectConfiguratorExtension implements IAnalysisConfigurator, 
     return resolution;
   }
 
+  @Override
+  public Optional<SourceViewerConfiguration> sourceViewerConfiguration(String ruleLanguage) {
+    if (jdtUiPresent && ruleLanguage.equals(Language.JAVA.getLanguageKey())) {
+      return Optional.of(JdtUiUtils.sourceViewerConfiguration());
+    }
+    return Optional.empty();
+  }
+
+  @Override
+  public Optional<IDocumentPartitioner> documentPartitioner(String ruleLanguage) {
+    if (jdtUiPresent && ruleLanguage.equals(Language.JAVA.getLanguageKey())) {
+      return Optional.of(JdtUiUtils.documentPartitioner());
+    }
+    return Optional.empty();
+  }
 }

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -96,8 +96,8 @@ public class NotificationsWizardPage extends WizardPage {
       final var isSc = model.getConnectionType() == ConnectionType.SONARCLOUD;
       final var sqOrSc = isSc ? "SonarCloud" : "SonarQube";
       notificationsEnabledCheckbox.setText("Receive notifications from " + sqOrSc);
-      final var docUrl = isSc ? "https://sonarcloud.io/documentation/user-guide/sonarlint-notifications/"
-        : "https://docs.sonarqube.org/latest/user-guide/sonarlint-notifications/";
+      final var docUrl = isSc ? "https://docs.sonarcloud.io/advanced-setup/sonarlint-smart-notifications/"
+        : "https://docs.sonarqube.org/latest/user-guide/sonarlint-connected-mode/#smart-notifications";
       notificationsLink.setText("You will receive <a href=\"" + docUrl + "\">notifications</a> from " + sqOrSc + " in situations like:");
       notificationsDetails.setText(
         "  - the Quality Gate status of a bound project changes\n" +

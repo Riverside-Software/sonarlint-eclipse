@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -32,7 +32,7 @@ import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
-import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
+import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
 
 /**
  * Dialog that prompts a user to delete server(s).
@@ -86,11 +86,8 @@ public class DeleteConnectionDialog extends MessageDialog {
           }
           var boundProjects = server.getBoundProjects();
           server.delete();
-          // All bound projects have been unbound, so refresh issues and unsubscribe from notifications
-          boundProjects.forEach(p -> {
-            JobUtils.scheduleAnalysisOfOpenFiles(p, TriggerType.BINDING_CHANGE);
-            SonarLintUiPlugin.unsubscribeToNotifications(p);
-          });
+          // All bound projects have been unbound, so refresh issues
+          boundProjects.forEach(p -> AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(p, TriggerType.BINDING_CHANGE));
         }
       } catch (Exception e) {
         return new Status(IStatus.ERROR, SonarLintUiPlugin.PLUGIN_ID, 0, e.getMessage(), e);
@@ -103,7 +100,7 @@ public class DeleteConnectionDialog extends MessageDialog {
   protected void buttonPressed(int buttonId) {
     if (buttonId == OK && !servers.isEmpty()) {
       var job = new DeleteServerJob();
-      servers.forEach(server -> JobUtils.scheduleAnalysisOfOpenFiles(job, server.getBoundProjects(), TriggerType.BINDING_CHANGE));
+      servers.forEach(server -> AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(job, server.getBoundProjects(), TriggerType.BINDING_CHANGE));
       job.setPriority(Job.BUILD);
       job.schedule();
     }

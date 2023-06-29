@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -167,7 +167,7 @@ public class SonarLintHttpClientOkHttpImpl implements HttpClient {
           var source = response.body().source();
           try (var buffer = new Buffer()) {
             while (!source.exhausted()) {
-              long count = source.read(buffer, 8192);
+              var count = source.read(buffer, 8192);
               messageConsumer.accept(buffer.readUtf8(count));
             }
           } catch (IOException e) {

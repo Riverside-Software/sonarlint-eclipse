@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -105,7 +105,7 @@ public class ConfigScopeSynchronizer implements IResourceChangeListener {
     return new ConfigurationScopeDto(getConfigScopeId(p), null, true, p.getName(), toBindingDto(p));
   }
 
-  static String getConfigScopeId(ISonarLintProject p) {
+  public static String getConfigScopeId(ISonarLintProject p) {
     return p.getResource().getLocationURI().toString();
   }
 

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -35,19 +35,28 @@ public class StoragePathManager {
   private static Path getSonarLintUserHome() {
     return ResourcesPlugin.getWorkspace().getRoot().getLocation().append(".sonarlint").toFile().toPath();
   }
+  
+  /** Get the working directory for no connection set */
+  public static Path getDefaultWorkDir() {
+    return getSonarLintUserHome().resolve("default");
+  }
 
-  public static Path getServerWorkDir(String serverId) {
+  /** Get the working directory for a specific connection */
+  public static Path getConnectionSpecificWorkDir(String serverId) {
     return getSonarLintUserHome().resolve("work").resolve(serverId);
   }
 
-  public static Path getServerStorageRoot() {
+  /** Get the storage root directory */
+  public static Path getStorageDir() {
     return getSonarLintUserHome().resolve("storage");
   }
 
+  /** Get the project issues directory */
   public static Path getIssuesDir(ISonarLintProject project) {
     return project.getWorkingDir().resolve("issues");
   }
 
+  /** Get the project notifications directory */
   public static Path getNotificationsDir(ISonarLintProject project) {
     return project.getWorkingDir().resolve("notifications");
   }

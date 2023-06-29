@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>7.6.2312</version>
+    <version>7.12.2400</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -26,34 +26,6 @@
         </includes>
       </resource>
     </resources>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>copy-libraries</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>copy</goal>
-            </goals>
-            <configuration>
-              <artifactItems>
-                <artifactItem>
-                  <groupId>org.apache.httpcomponents.core5</groupId>
-                  <artifactId>httpcore5</artifactId>
-                  <version>${apache.http.version}</version>
-                </artifactItem>
-              </artifactItems>
-              <outputDirectory>lib</outputDirectory>
-              <stripVersion>true</stripVersion>
-              <overWriteReleases>true</overWriteReleases>
-              <overWriteSnapshots>true</overWriteSnapshots>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
   </build>
 
 </project>

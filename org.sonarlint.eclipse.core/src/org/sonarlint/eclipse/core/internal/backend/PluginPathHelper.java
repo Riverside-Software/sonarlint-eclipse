@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -60,7 +60,7 @@ public class PluginPathHelper {
 
   @Nullable
   public static Path findEmbeddedSecretsPlugin() {
-    return findEmbeddedPlugin("sonar-secrets-plugin-*.jar", "Found Secrets detection plugin: ");
+    return findEmbeddedPlugin("sonar-text-plugin-*.jar", "Found Secrets detection plugin: ");
   }
 
   @Nullable

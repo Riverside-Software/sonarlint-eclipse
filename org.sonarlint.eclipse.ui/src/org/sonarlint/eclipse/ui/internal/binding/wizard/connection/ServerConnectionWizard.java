@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -51,11 +51,10 @@ import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 import org.sonarlint.eclipse.ui.internal.binding.BindingsView;
-import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
+import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionModel.AuthMethod;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionModel.ConnectionType;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.project.ProjectBindingWizard;
-import org.sonarlint.eclipse.ui.internal.job.SubscribeToNotificationsJob;
 import org.sonarlint.eclipse.ui.internal.util.wizard.SonarLintWizardDialog;
 import org.sonarsource.sonarlint.core.serverapi.exception.UnsupportedServerException;
 
@@ -262,15 +261,7 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
     var job = new ConnectionStorageUpdateJob(resultServer);
 
     var boundProjects = resultServer.getBoundProjects();
-    if (model.getNotificationsSupported() && !model.getNotificationsDisabled() && !boundProjects.isEmpty()) {
-      var subscribeToNotificationsJob = new SubscribeToNotificationsJob(boundProjects);
-      JobUtils.scheduleAfterSuccess(job, subscribeToNotificationsJob::schedule);
-      subscribeToNotificationsJob.schedule();
-    } else {
-      boundProjects.forEach(SonarLintUiPlugin::unsubscribeToNotifications);
-    }
-
-    JobUtils.scheduleAfterSuccess(job, () -> JobUtils.scheduleAnalysisOfOpenFilesInBoundProjects(resultServer, TriggerType.BINDING_CHANGE));
+    AnalysisJobsScheduler.scheduleAfterSuccess(job, () -> AnalysisJobsScheduler.scheduleAnalysisOfOpenFilesInBoundProjects(resultServer, TriggerType.BINDING_CHANGE));
     job.schedule();
     var selectedProjects = model.getSelectedProjects();
     if (!skipBindingWizard) {
@@ -293,7 +284,7 @@ public class ServerConnectionWizard extends Wizard implements INewWizard, IPageC
   @Override
   public void handlePageChanging(PageChangingEvent event) {
     var currentPage = (WizardPage) event.getCurrentPage();
-    boolean advance = getNextPage(currentPage) == event.getTargetPage();
+    var advance = getNextPage(currentPage) == event.getTargetPage();
     if (advance && !redirectedAfterNotificationCheck && (currentPage == credentialsPage || currentPage == tokenPage)) {
       if (!testConnection(null)) {
         event.doit = false;

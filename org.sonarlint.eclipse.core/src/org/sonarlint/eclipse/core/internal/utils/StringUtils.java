@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -184,5 +184,9 @@ public class StringUtils {
     } catch (UnsupportedEncodingException e) {
       throw new IllegalStateException("Should never happen", e);
     }
+  }
+
+  public static String xmlDecode(String toDecode) {
+    return toDecode.replace("&quot;", "\"").replace("&apos;", "\'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&");
   }
 }

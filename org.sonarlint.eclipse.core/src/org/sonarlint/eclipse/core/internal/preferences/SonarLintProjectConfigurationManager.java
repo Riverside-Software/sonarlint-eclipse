@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -52,11 +52,13 @@ public class SonarLintProjectConfigurationManager {
 
   public static void registerPreferenceChangeListenerForBindingProperties(ISonarLintProject project, Consumer<ISonarLintProject> listener) {
     ofNullable(project.getScopeContext().getNode(SonarLintCorePlugin.PLUGIN_ID))
-      .ifPresent(node -> node.addPreferenceChangeListener(event -> {
-        if (BINDING_RELATED_PROPERTIES.contains(event.getKey())) {
-          listener.accept(project);
-        }
-      }));
+      .ifPresent(node -> {
+        node.addPreferenceChangeListener(event -> {
+          if (BINDING_RELATED_PROPERTIES.contains(event.getKey())) {
+            listener.accept(project);
+          }
+        });
+      });
   }
 
   public SonarLintProjectConfiguration load(IScopeContext projectScope, String projectName) {

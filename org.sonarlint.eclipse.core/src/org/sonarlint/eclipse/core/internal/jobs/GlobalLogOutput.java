@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -17,13 +17,30 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.core.internal.notifications;
+package org.sonarlint.eclipse.core.internal.jobs;
 
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
-import org.sonarsource.sonarlint.core.serverconnection.smartnotifications.ServerNotificationListener;
+import org.sonarlint.eclipse.core.SonarLintLogger;
+import org.sonarsource.sonarlint.core.commons.log.ClientLogOutput;
 
-public interface ListenerFactory {
+public final class GlobalLogOutput implements ClientLogOutput {
 
-  ServerNotificationListener create(IConnectedEngineFacade connectedEngineFacade);
+  @Override
+  public void log(String msg, Level level) {
+    switch (level) {
+      case TRACE:
+      case DEBUG:
+        SonarLintLogger.get().debug(msg);
+        break;
+      case INFO:
+      case WARN:
+        SonarLintLogger.get().info(msg);
+        break;
+      case ERROR:
+        SonarLintLogger.get().error(msg);
+        break;
+      default:
+        SonarLintLogger.get().info(msg);
+    }
 
+  }
 }

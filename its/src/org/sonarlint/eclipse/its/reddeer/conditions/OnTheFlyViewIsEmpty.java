@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2022 SonarSource SA
+ * Copyright (C) 2009-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -22,7 +22,7 @@ package org.sonarlint.eclipse.its.reddeer.conditions;
 import java.util.List;
 import org.eclipse.reddeer.common.condition.WaitCondition;
 import org.sonarlint.eclipse.its.reddeer.views.OnTheFlyView;
-import org.sonarlint.eclipse.its.reddeer.views.SonarLintIssue;
+import org.sonarlint.eclipse.its.reddeer.views.SonarLintIssueMarker;
 
 public class OnTheFlyViewIsEmpty implements WaitCondition {
   private final OnTheFlyView issuesView;
@@ -38,7 +38,7 @@ public class OnTheFlyViewIsEmpty implements WaitCondition {
   }
 
   @Override
-  public List<SonarLintIssue> getResult() {
+  public List<SonarLintIssueMarker> getResult() {
     return issuesView.getIssues();
   }
 

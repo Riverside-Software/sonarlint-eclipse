@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -78,6 +78,7 @@ public class SonarLintProjectConfigurationManagerTest extends SonarTestCase {
     assertThat(projectScope.getLocation().append("org.sonarlint.eclipse.core.prefs").toFile()).doesNotExist();
     var configuration = SonarLintCorePlugin.getInstance().getProjectConfigManager().load(projectScope, "SimpleProject");
     configuration.setAutoEnabled(false);
+    configuration.setBindingSuggestionsDisabled(true);
     configuration.setProjectBinding(new EclipseProjectBinding("myServer", "myProjectKey", "aPrefix", "aSuffix"));
     assertThat(projectScope.getLocation().append("org.sonarlint.eclipse.core.prefs").toFile()).doesNotExist();
     SonarLintCorePlugin.getInstance().getProjectConfigManager().save(projectScope, configuration);

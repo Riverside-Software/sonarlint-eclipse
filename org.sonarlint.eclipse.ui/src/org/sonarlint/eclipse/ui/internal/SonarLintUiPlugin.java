@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2022 SonarSource SA
+ * Copyright (C) 2015-2023 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -46,22 +46,17 @@ import org.sonarlint.eclipse.core.internal.NotificationListener;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintMarkerUpdater;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
-import org.sonarlint.eclipse.core.internal.notifications.ListenerFactory;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
-import org.sonarlint.eclipse.core.internal.telemetry.SonarLintTelemetry;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.backend.SonarLintEclipseClient;
-import org.sonarlint.eclipse.ui.internal.binding.actions.JobUtils;
+import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
 import org.sonarlint.eclipse.ui.internal.console.SonarLintConsole;
 import org.sonarlint.eclipse.ui.internal.extension.SonarLintUiExtensionTracker;
 import org.sonarlint.eclipse.ui.internal.flowlocations.SonarLintFlowLocationsService;
-import org.sonarlint.eclipse.ui.internal.hotspots.SecurityHotspotsHandlerServer;
 import org.sonarlint.eclipse.ui.internal.job.PeriodicStoragesSynchronizerJob;
-import org.sonarlint.eclipse.ui.internal.popup.DeveloperNotificationPopup;
 import org.sonarlint.eclipse.ui.internal.popup.GenericNotificationPopup;
 import org.sonarlint.eclipse.ui.internal.popup.MissingNodePopup;
 import org.sonarlint.eclipse.ui.internal.popup.TaintVulnerabilityAvailablePopup;
@@ -81,13 +76,9 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   @Nullable
   private SonarLintConsole console;
 
-  private ListenerFactory listenerFactory;
-
-  private final SecurityHotspotsHandlerServer hotspotsHandlerServer = new SecurityHotspotsHandlerServer();
-
   private static final WindowOpenCloseListener WINDOW_OPEN_CLOSE_LISTENER = new WindowOpenCloseListener();
   private static final SonarLintPostBuildListener SONARLINT_POST_BUILD_LISTENER = new SonarLintPostBuildListener();
-  private static final SonarLintProjectEventListener SONARLINT_PROJECT_EVENT_LISTENER = new SonarLintProjectEventListener();
+  private static final SonarLintVcsCacheCleaner SONARLINT_VCS_CACHE_CLEANER = new SonarLintVcsCacheCleaner();
   private static final SonarLintFlowLocationsService SONARLINT_FLOW_LOCATION_SERVICE = new SonarLintFlowLocationsService();
 
   public SonarLintUiPlugin() {
@@ -167,7 +158,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     SonarLintLogger.get().addLogListener(logListener);
 
     addPostBuildListener();
-    ResourcesPlugin.getWorkspace().addResourceChangeListener(SONARLINT_PROJECT_EVENT_LISTENER);
+    ResourcesPlugin.getWorkspace().addResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_FLOW_LOCATION_SERVICE);
 
     notifListener = new PopupNotification();
@@ -203,9 +194,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
 
   @Override
   public void stop(final BundleContext context) throws Exception {
-    hotspotsHandlerServer.shutdown();
     removePostBuildListener();
-    ResourcesPlugin.getWorkspace().removeResourceChangeListener(SONARLINT_PROJECT_EVENT_LISTENER);
+    ResourcesPlugin.getWorkspace().removeResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_FLOW_LOCATION_SERVICE);
     SonarLintLogger.get().removeLogListener(logListener);
     logListener.shutdown();
@@ -255,19 +245,6 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     }
   }
 
-  public synchronized ListenerFactory listenerFactory() {
-    if (listenerFactory == null) {
-      // don't replace the anon class with lambda, because then the factory's "create" will always return the same listener instance
-      listenerFactory = (IConnectedEngineFacade s) -> (notification -> Display.getDefault().asyncExec(() -> {
-        var popup = new DeveloperNotificationPopup(s, notification, s.isSonarCloud());
-        popup.open();
-        SonarLintTelemetry telemetry = SonarLintCorePlugin.getTelemetry();
-        telemetry.devNotificationsReceived(notification.category());
-      }));
-    }
-    return listenerFactory;
-  }
-
   private class StartupJob extends Job {
 
     StartupJob() {
@@ -283,7 +260,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
       // Schedule auto-sync
       new PeriodicStoragesSynchronizerJob().schedule(Duration.ofSeconds(1).toMillis());
 
-      JobUtils.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STARTUP);
+      AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STARTUP);
 
       if (PlatformUI.isWorkbenchRunning()) {
         // Handle future opened/closed windows
@@ -294,10 +271,6 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
         }
       }
 
-      SonarLintCorePlugin.getInstance().notificationsManager().subscribeAllNeedingProjectsToNotifications(SonarLintUiPlugin.getDefault().listenerFactory());
-
-      hotspotsHandlerServer.init();
-
       return Status.OK_STATUS;
     }
 
@@ -306,10 +279,6 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   public void startupAsync() {
     // SLE-122 Delay a little bit to let the time to the workspace to initialize (and avoid NPE)
     new StartupJob().schedule(2000);
-  }
-
-  public static void unsubscribeToNotifications(ISonarLintProject project) {
-    SonarLintCorePlugin.getInstance().notificationsManager().unsubscribe(project);
   }
 
   public static SonarLintFlowLocationsService getSonarlintMarkerSelectionService() {
