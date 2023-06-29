@@ -16,6 +16,6 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.filesystem,
  com.openedge.pdt.project
 Export-Package: org.sonarlint.eclipse.pdt.internal;x-friends:="org.sonarlint.eclipse.core.tests"
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-RequiredExecutionEnvironment: JavaSE-11
 Bundle-ActivationPolicy: lazy
 Bundle-Localization: OSGI-INF/l10n/bundle
