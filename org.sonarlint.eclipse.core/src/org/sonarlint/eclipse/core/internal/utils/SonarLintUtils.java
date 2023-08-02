@@ -102,7 +102,7 @@ public class SonarLintUtils {
    *                  - Java/JSP only available with JDT (see JavaProjectConfiguratorExtension.whitelistedLanguages)
    */
   public static Set<Language> getEnabledLanguages() {
-    var enabledLanguages = EnumSet.of(Language.ABAP, Language.APEX, Language.CSS, Language.COBOL, Language.HTML,
+    var enabledLanguages = EnumSet.of(Language.ABAP, Language.CSS, Language.COBOL, Language.HTML,
       Language.JS, Language.KOTLIN, Language.PHP, Language.PLI, Language.PLSQL, Language.PYTHON, Language.RPG,
       Language.RUBY, Language.SCALA, Language.SECRETS, Language.TSQL, Language.TS, Language.XML);
     var configurators = SonarLintExtensionTracker.getInstance().getAnalysisConfigurators();
