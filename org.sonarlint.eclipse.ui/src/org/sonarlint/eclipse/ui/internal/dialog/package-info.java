@@ -17,26 +17,4 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.core.internal.http;
-
-import java.io.IOException;
-import okhttp3.Interceptor;
-import okhttp3.Response;
-
-public class PreemptiveAuthenticatorInterceptor implements Interceptor {
-
-  public final String credentials;
-
-  public PreemptiveAuthenticatorInterceptor(String credentials) {
-    this.credentials = credentials;
-  }
-
-  @Override
-  public Response intercept(Chain chain) throws IOException {
-    var request = chain.request()
-      .newBuilder()
-      .header("Authorization", credentials)
-      .build();
-    return chain.proceed(request);
-  }
-}
+package org.sonarlint.eclipse.ui.internal.dialog;

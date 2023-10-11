@@ -22,6 +22,7 @@ package org.sonarlint.eclipse.ui.internal;
 import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -46,7 +47,11 @@ import org.sonarlint.eclipse.core.internal.NotificationListener;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacadeLifecycleListener;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintMarkerUpdater;
+import org.sonarlint.eclipse.core.internal.jobs.TaintIssuesUpdateOnFileOpenedJob;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
@@ -60,6 +65,7 @@ import org.sonarlint.eclipse.ui.internal.job.PeriodicStoragesSynchronizerJob;
 import org.sonarlint.eclipse.ui.internal.popup.GenericNotificationPopup;
 import org.sonarlint.eclipse.ui.internal.popup.MissingNodePopup;
 import org.sonarlint.eclipse.ui.internal.popup.TaintVulnerabilityAvailablePopup;
+import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 
 public class SonarLintUiPlugin extends AbstractUIPlugin {
 
@@ -157,12 +163,41 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     logListener = new SonarLintConsoleLogger();
     SonarLintLogger.get().addLogListener(logListener);
 
+    notifListener = new PopupNotification();
+    SonarLintNotifications.get().addNotificationListener(notifListener);
+
+    SonarLintBackendService.get().init(new SonarLintEclipseClient());
+
+    var serverEventListener = new SonarLintServerEventListener();
+
+    var connectionListener = new IConnectedEngineFacadeLifecycleListener() {
+      @Override
+      public void connectionAdded(IConnectedEngineFacade server) {
+        server.addServerEventListener(serverEventListener);
+      }
+
+      @Override
+      public void connectionChanged(IConnectedEngineFacade server) {
+      }
+
+      @Override
+      public void connectionRemoved(IConnectedEngineFacade server) {
+        server.removeServerEventListener(serverEventListener);
+      }
+    };
+    SonarLintCorePlugin.getServersManager().addServerLifecycleListener(connectionListener);
+
+    // add event listeners to connections
+    for (var server : SonarLintCorePlugin.getServersManager().getServers()) {
+      server.addServerEventListener(serverEventListener);
+    }
+
+    // Schedule auto-sync
+    new PeriodicStoragesSynchronizerJob().schedule(Duration.ofSeconds(1).toMillis());
+
     addPostBuildListener();
     ResourcesPlugin.getWorkspace().addResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_FLOW_LOCATION_SERVICE);
-
-    notifListener = new PopupNotification();
-    SonarLintNotifications.get().addNotificationListener(notifListener);
 
     prefListener = event -> {
       if (event.getProperty().equals(SonarLintGlobalConfiguration.PREF_MARKER_SEVERITY)) {
@@ -255,12 +290,9 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     public IStatus run(IProgressMonitor monitor) {
       SonarLintLogger.get().info("Starting SonarLint for Eclipse " + SonarLintUtils.getPluginVersion());
 
-      SonarLintBackendService.get().init(new SonarLintEclipseClient());
-
-      // Schedule auto-sync
-      new PeriodicStoragesSynchronizerJob().schedule(Duration.ofSeconds(1).toMillis());
-
       AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STARTUP);
+
+      scheduleReloadOfTaintVulnerabilities();
 
       if (PlatformUI.isWorkbenchRunning()) {
         // Handle future opened/closed windows
@@ -272,6 +304,19 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
       }
 
       return Status.OK_STATUS;
+    }
+
+    private void scheduleReloadOfTaintVulnerabilities() {
+      var filesByProject = PlatformUtils.collectOpenedFiles((ISonarLintProject) null, f -> true);
+
+      for (var entry : filesByProject.entrySet()) {
+        var aProject = entry.getKey();
+        var bindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(aProject);
+        if (bindingOpt.isPresent()) {
+          new TaintIssuesUpdateOnFileOpenedJob((ConnectedEngineFacade) bindingOpt.get().getEngineFacade(),
+            aProject, entry.getValue().stream().map(f -> f.getFile()).collect(Collectors.toList()), bindingOpt.get().getProjectBinding()).schedule();
+        }
+      }
     }
 
   }

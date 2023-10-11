@@ -24,3 +24,7 @@ org.sonarlint.eclipse.core/plugins/
 org.sonarlint.eclipse.core/lib/
 org.sonarlint.eclipse.ui/lib/
 org.sonarlint.eclipse.pdt/lib/*
+
+# macOS files
+**/.DS_Store
+

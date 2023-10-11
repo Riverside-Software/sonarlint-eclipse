@@ -94,10 +94,10 @@
   <extension
         point="org.eclipse.core.expressions.propertyTesters">
       <propertyTester
-            class="org.sonarlint.eclipse.ui.internal.markers.QuickFixPropertyTester"
+            class="org.sonarlint.eclipse.ui.internal.markers.MarkerPropertyTester"
             id="org.sonarlint.eclipse.ui.internal.quickFix"
             namespace="org.sonarlint.eclipse.ui"
-            properties="quickFix"
+            properties="hasQuickFix,matchedOnServer"
             type="org.eclipse.ui.views.markers.MarkerItem">
       </propertyTester>
   </extension>
@@ -594,7 +594,15 @@
                  mnemonic="%command.correctionAssistProposals.mnemonic"
                  style="push">
                <visibleWhen
-                    checkEnabled="false">
+                    checkEnabled="true">
+              </visibleWhen>
+         </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand"
+                 mnemonic="M"
+                 style="push">
+               <visibleWhen
+                    checkEnabled="true">
               </visibleWhen>
          </command>
       </menuContribution>
@@ -604,6 +612,14 @@
                  commandId="org.sonarlint.eclipse.ui.internal.command.OpenInBrowserCommand"
                  style="push"
                  mnemonic="O">
+         </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand"
+                 mnemonic="M"
+                 style="push">
+               <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
          </command>
       </menuContribution>
       <menuContribution
@@ -642,14 +658,19 @@
                  style="push"
                  mnemonic="R">
          </command>
-      </menuContribution>
-      <menuContribution
-            locationURI="popup:org.sonarlint.eclipse.ui.views.issues.ChangeSetIssuesView">
-           <command
+         <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.DeactivateRuleCommand"
                  icon="icons/full/marker_resolution16/disablerule.png"
                  style="push"
                  mnemonic="u">
+         </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand"
+                 mnemonic="M"
+                 style="push">
+               <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
          </command>
       </menuContribution>
 	<menuContribution locationURI="popup:sonar.menu?after=group1">
@@ -847,6 +868,12 @@
           name="Unbind project"
           categoryId="org.sonarlint.eclipse.ui.command.category">
     </command>
+    <command
+          description="Change the issue status"
+          id="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand"
+          name="Mark Issue as..."
+          categoryId="org.sonarlint.eclipse.ui.command.category">
+    </command>
   </extension>
 
   <extension point="org.eclipse.ui.handlers">
@@ -942,7 +969,26 @@
                      operator="or">
                   <instanceof value="org.eclipse.ui.views.markers.MarkerItem"/>
                   <test
-                        property="org.sonarlint.eclipse.ui.quickFix">
+                        property="org.sonarlint.eclipse.ui.hasQuickFix">
+                  </test>
+               </iterate>
+               <count
+                     value="+">
+               </count>
+            </and>
+         </enabledWhen>
+      </handler>
+      <handler
+          class="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand"
+          commandId="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand">
+          <enabledWhen>
+            <and>
+               <iterate
+                     ifEmpty="false"
+                     operator="or">
+                  <instanceof value="org.eclipse.ui.views.markers.MarkerItem"/>
+                  <test
+                        property="org.sonarlint.eclipse.ui.matchedOnServer">
                   </test>
                </iterate>
                <count

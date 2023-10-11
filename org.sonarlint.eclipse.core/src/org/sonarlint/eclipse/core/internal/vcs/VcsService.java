@@ -19,10 +19,10 @@
  */
 package org.sonarlint.eclipse.core.internal.vcs;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -31,9 +31,11 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.jobs.StorageSynchronizerJob;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.utils.BundleUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarsource.sonarlint.core.client.api.connected.ProjectBranches;
+import org.sonarsource.sonarlint.core.serverconnection.storage.StorageException;
 
 import static java.util.stream.Collectors.joining;
 
@@ -61,16 +63,24 @@ public class VcsService {
     return new NoOpVcsFacade();
   }
 
+  @Nullable
   private static String electBestMatchingBranch(VcsFacade facade, ISonarLintProject project) {
     LOG.debug("Elect best matching branch for project " + project.getName() + "...");
     var bindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(project);
     if (bindingOpt.isEmpty()) {
       electedServerBranchCache.remove(project);
       previousCommitRefCache.remove(project);
-      throw new IllegalStateException("Project " + project.getName() + " is not bound");
+      LOG.debug("Project " + project.getName() + " is not bound");
+      return null;
     }
 
-    var serverBranches = bindingOpt.get().getEngineFacade().getServerBranches(bindingOpt.get().getProjectBinding().projectKey());
+    ProjectBranches serverBranches;
+    try {
+      serverBranches = bindingOpt.get().getEngineFacade().getServerBranches(bindingOpt.get().getProjectBinding().projectKey());
+    } catch (StorageException e) {
+      LOG.debug("No branches available in the storage", e);
+      return null;
+    }
     LOG.debug("Find best matching branch among: " + serverBranches.getBranchNames().stream().collect(joining(",")));
     var matched = facade.electBestMatchingBranch(project, serverBranches.getBranchNames(), serverBranches.getMainBranchName());
     LOG.debug("Best matching branch is " + matched);
@@ -96,16 +106,20 @@ public class VcsService {
     electedServerBranchCache.clear();
   }
 
-  public static String getServerBranch(ISonarLintProject project) {
-    return electedServerBranchCache.computeIfAbsent(project, p -> {
+  public static Optional<String> getServerBranch(ISonarLintProject project) {
+    return Optional.ofNullable(electedServerBranchCache.computeIfAbsent(project, p -> {
       var facade = getFacade();
       saveCurrentCommitRef(project, facade);
       return electBestMatchingBranch(facade, p);
-    });
+    }));
   }
 
   public static void installBranchChangeListener() {
     getFacade().addHeadRefsChangeListener(projects -> new BranchChangeJob(projects).schedule());
+  }
+
+  public static void removeBranchChangeListener() {
+    getFacade().removeHeadRefsChangeListener();
   }
 
   private static class BranchChangeJob extends Job {
@@ -121,7 +135,6 @@ public class VcsService {
 
     @Override
     protected IStatus run(IProgressMonitor monitor) {
-      List<ISonarLintProject> projectsToSync = new ArrayList<>();
       affectedProjects.forEach(project -> {
         var bindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(project);
         if (bindingOpt.isEmpty()) {
@@ -133,15 +146,12 @@ public class VcsService {
           saveCurrentCommitRef(project, facade);
           var previousElectedBranch = electedServerBranchCache.get(project);
           var newElectedBranch = electBestMatchingBranch(facade, project);
-          if (!newElectedBranch.equals(previousElectedBranch)) {
+          if (newElectedBranch != null && !newElectedBranch.equals(previousElectedBranch)) {
+            SonarLintBackendService.get().branchChanged(project, newElectedBranch);
             electedServerBranchCache.put(project, newElectedBranch);
-            projectsToSync.add(project);
           }
         }
       });
-      if (!projectsToSync.isEmpty()) {
-        new StorageSynchronizerJob(projectsToSync).schedule();
-      }
       return Status.OK_STATUS;
     }
 

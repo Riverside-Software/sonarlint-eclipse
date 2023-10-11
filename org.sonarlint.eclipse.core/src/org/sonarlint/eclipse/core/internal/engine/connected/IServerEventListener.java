@@ -17,5 +17,12 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-@org.eclipse.jdt.annotation.NonNullByDefault
-package org.sonarlint.eclipse.core.internal.http;
+package org.sonarlint.eclipse.core.internal.engine.connected;
+
+import org.sonarsource.sonarlint.core.serverapi.push.ServerEvent;
+
+public interface IServerEventListener {
+
+  void eventReceived(ConnectedEngineFacade connectedEngineFacade, ServerEvent e);
+
+}

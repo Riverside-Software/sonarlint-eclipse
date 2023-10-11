@@ -156,7 +156,7 @@ public class AnalyzeStandaloneProjectJobTest extends SonarTestCase {
 
   @Test
   public void analyze_report_should_only_triggers_two_events_for_all_marker_operations_when_clear_report() throws Exception {
-    DefaultSonarLintProjectAdapter slProject = new DefaultSonarLintProjectAdapter(project);
+    var slProject = new DefaultSonarLintProjectAdapter(project);
     var file1ToAnalyze = prepareFile1(project, slProject);
     var file2ToAnalyze = prepareFile2(project, slProject);
 

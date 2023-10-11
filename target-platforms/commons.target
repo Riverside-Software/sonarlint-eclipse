@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <?pde version="3.8"?>
-<target name="sonarlint-eclipse-build-commons" sequenceNumber="3">
+<target name="sonarlint-eclipse-build-commons" sequenceNumber="4">
   <locations>
     <location includeAllPlatforms="false" includeConfigurePhase="false" includeMode="planner" includeSource="true" type="InstallableUnit">
       <unit id="org.slf4j.api" version="0.0.0"/>
@@ -17,7 +17,7 @@
 			  <dependency>
 				  <groupId>org.sonarsource.sonarlint.core</groupId>
 				  <artifactId>sonarlint-core-osgi</artifactId>
-				  <version>8.16.99001</version>
+				  <version>8.19.99001</version>
 				  <type>jar</type>
 			  </dependency>
 		  </dependencies>
@@ -34,34 +34,6 @@
 				  <groupId>org.mockito</groupId>
 				  <artifactId>mockito-core</artifactId>
 				  <version>5.1.1</version>
-				  <type>jar</type>
-			  </dependency>
-		  </dependencies>
-	  </location>
-	  <location includeDependencyDepth="none" includeDependencyScopes="compile" includeSource="true" missingManifest="generate" type="Maven">
-		  <dependencies>
-			  <dependency>
-				  <groupId>com.squareup.okhttp3</groupId>
-				  <artifactId>okhttp</artifactId>
-				  <version>4.10.0</version>
-				  <type>jar</type>
-			  </dependency>
-		  </dependencies>
-		  <instructions><![CDATA[
-Bundle-Name:           OkHttp
-version:               ${version_cleanup;${mvnVersion}}
-Bundle-SymbolicName:   com.squareup.okhttp3
-Bundle-Version:        ${version}
-Export-Package:        okhttp3;version="${version}";-noimport:=true
-Import-Package:        okio;version="3.0.0",kotlin.*;version="1.6.20"
-]]></instructions>
-	  </location>
-	  <location includeDependencyDepth="none" includeDependencyScopes="compile" includeSource="true" missingManifest="error" type="Maven">
-		  <dependencies>
-			  <dependency>
-				  <groupId>com.squareup.okio</groupId>
-				  <artifactId>okio-jvm</artifactId>
-				  <version>3.0.0</version>
 				  <type>jar</type>
 			  </dependency>
 		  </dependencies>

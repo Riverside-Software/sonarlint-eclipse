@@ -19,7 +19,6 @@
  */
 package org.sonarlint.eclipse.ui.internal.job;
 
-import java.util.Set;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
@@ -29,7 +28,6 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
-import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
@@ -56,8 +54,8 @@ public class PeriodicStoragesSynchronizerJob extends Job {
         var serverMonitor = subMonitor.newChild(1);
 
         try {
-          Set<String> boundProjectKeys = connection.getBoundProjectKeys();
-          connection.autoSync(boundProjectKeys, serverMonitor);
+          var boundProjectKeys = connection.getBoundProjectKeys();
+          connection.scheduledSync(boundProjectKeys, serverMonitor);
           AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.BINDING_CHANGE, f -> isBoundToConnection(f, connection));
           // TODO Refresh taints
         } catch (Exception e) {
@@ -73,7 +71,7 @@ public class PeriodicStoragesSynchronizerJob extends Job {
   }
 
   private static boolean isBoundToConnection(ISonarLintFile f, IConnectedEngineFacade facade) {
-    SonarLintProjectConfiguration config = SonarLintCorePlugin.loadConfig(f.getProject());
+    var config = SonarLintCorePlugin.loadConfig(f.getProject());
     return config.isBound() && facade.getId().equals(config.getProjectBinding().get().connectionId());
   }
 
