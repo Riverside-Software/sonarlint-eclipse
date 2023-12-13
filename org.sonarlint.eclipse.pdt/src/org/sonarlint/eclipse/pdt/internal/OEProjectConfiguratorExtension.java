@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -42,6 +44,8 @@ import eu.rssw.pct.PLReader.InvalidLibraryException;
 import eu.rssw.pct.RCodeInfo;
 import eu.rssw.pct.RCodeInfo.InvalidRCodeException;
 
+import com.openedge.core.metadata.ICodeModel;
+import com.openedge.core.metadata.ITypeInfo;
 import com.openedge.core.runtime.IAVMClient;
 import com.openedge.core.runtime.IDatabaseAlias;
 import com.openedge.core.runtime.IDatabaseField;
@@ -171,6 +175,21 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     File slintPL = generatePLCache(plList, sonarLintDir);
     context.setAnalysisProperty("sonar.oe.lint.pl.cache", slintPL.getAbsolutePath());
+
+    Path slintRC = Path.of(sonarLintDir.toPath().toString(), "rcc.txt");
+    SonarLintLogger.get().debug("Generating rcode cache to  " + slintRC.toString());
+    if (!oeProject.getCodeModel().isModelBuilding()) {
+      String cache = getRCodeCache(oeProject.getCodeModel());
+      try (OutputStream out = Files.newOutputStream(slintRC)) {
+        out.write(cache.getBytes());
+        context.setAnalysisProperty("sonar.oe.lint.rcode.cache", slintRC.toAbsolutePath().toString());
+        SonarLintLogger.get().debug("Success !");
+      } catch (IOException caught) {
+        SonarLintLogger.get().error("Error ! " + caught.getMessage());
+      }
+    } else {
+      SonarLintLogger.get().info("PDSOE currently building code model, rcode information not yet available");
+    }
 
     boolean hasDB = false;
     try {
@@ -377,4 +396,19 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     return serFile;
   }
+
+  public String getRCodeCache(ICodeModel codeModel) {
+    long strtTime = System.nanoTime();
+    StringBuilder rcodeCache = new StringBuilder();
+    for (ITypeInfo info : codeModel.getAllTypes()) {
+      if ((info.getRfilePath() != null) && !info.getRfilePath().trim().isEmpty() && !info.isInsidePL()) {
+        rcodeCache.append(info.getFullName()).append(':').append(info.getRfilePath()).append(System.lineSeparator());
+      }
+    }
+    long elapsedTime = System.nanoTime() - strtTime;
+    SonarLintLogger.get().info("RCode Cache Generation: " + (elapsedTime / 1_000_000L) + " ms");
+
+    return rcodeCache.toString();
+  }
+
 }
