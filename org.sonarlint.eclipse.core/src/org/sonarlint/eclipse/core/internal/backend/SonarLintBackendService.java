@@ -21,6 +21,7 @@ package org.sonarlint.eclipse.core.internal.backend;
 
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +38,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.StoragePathManager;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.internal.vcs.VcsService;
@@ -44,16 +46,27 @@ import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarsource.sonarlint.core.SonarLintBackendImpl;
 import org.sonarsource.sonarlint.core.clientapi.SonarLintBackend;
 import org.sonarsource.sonarlint.core.clientapi.SonarLintClient;
+import org.sonarsource.sonarlint.core.clientapi.backend.connection.config.DidChangeCredentialsParams;
 import org.sonarsource.sonarlint.core.clientapi.backend.initialize.ClientInfoDto;
 import org.sonarsource.sonarlint.core.clientapi.backend.initialize.FeatureFlagsDto;
 import org.sonarsource.sonarlint.core.clientapi.backend.initialize.InitializeParams;
 import org.sonarsource.sonarlint.core.clientapi.backend.issue.AddIssueCommentParams;
 import org.sonarsource.sonarlint.core.clientapi.backend.issue.ChangeIssueStatusParams;
-import org.sonarsource.sonarlint.core.clientapi.backend.issue.IssueStatus;
+import org.sonarsource.sonarlint.core.clientapi.backend.issue.CheckAnticipatedStatusChangeSupportedParams;
+import org.sonarsource.sonarlint.core.clientapi.backend.issue.CheckAnticipatedStatusChangeSupportedResponse;
+import org.sonarsource.sonarlint.core.clientapi.backend.issue.ReopenIssueParams;
+import org.sonarsource.sonarlint.core.clientapi.backend.issue.ReopenIssueResponse;
+import org.sonarsource.sonarlint.core.clientapi.backend.issue.ResolutionStatus;
+import org.sonarsource.sonarlint.core.clientapi.backend.newcode.GetNewCodeDefinitionParams;
+import org.sonarsource.sonarlint.core.clientapi.backend.newcode.GetNewCodeDefinitionResponse;
 import org.sonarsource.sonarlint.core.clientapi.backend.rules.GetEffectiveRuleDetailsParams;
 import org.sonarsource.sonarlint.core.clientapi.backend.rules.GetEffectiveRuleDetailsResponse;
 import org.sonarsource.sonarlint.core.clientapi.backend.rules.GetStandaloneRuleDescriptionParams;
 import org.sonarsource.sonarlint.core.clientapi.backend.rules.GetStandaloneRuleDescriptionResponse;
+import org.sonarsource.sonarlint.core.clientapi.backend.rules.ListAllStandaloneRulesDefinitionsResponse;
+import org.sonarsource.sonarlint.core.clientapi.backend.tracking.ClientTrackedFindingDto;
+import org.sonarsource.sonarlint.core.clientapi.backend.tracking.TrackWithServerIssuesParams;
+import org.sonarsource.sonarlint.core.clientapi.backend.tracking.TrackWithServerIssuesResponse;
 import org.sonarsource.sonarlint.core.commons.Language;
 
 import static java.util.Objects.requireNonNull;
@@ -104,7 +117,7 @@ public class SonarLintBackendService {
         try {
           backend.initialize(new InitializeParams(
             new ClientInfoDto(getIdeName(), "eclipse", "SonarLint Eclipse " + SonarLintUtils.getPluginVersion()),
-            new FeatureFlagsDto(true, true, true, true, false),
+            new FeatureFlagsDto(true, true, true, true, false, true),
             StoragePathManager.getStorageDir(),
             StoragePathManager.getDefaultWorkDir(),
             Set.copyOf(embeddedPluginPaths),
@@ -114,7 +127,8 @@ public class SonarLintBackendService {
             sqConnections,
             scConnections,
             null,
-            SonarLintGlobalConfiguration.buildStandaloneRulesConfig())).get();
+            SonarLintGlobalConfiguration.buildStandaloneRulesConfig(),
+            true)).get();
         } catch (InterruptedException | ExecutionException e) {
           throw new IllegalStateException("Unable to initialize the SonarLint Backend", e);
         }
@@ -140,6 +154,10 @@ public class SonarLintBackendService {
     configScopeSynchronizer.branchChanged(project, newActiveBranchName);
   }
 
+  public void credentialsChanged(ConnectedEngineFacade connection) {
+    getBackend().getConnectionService().didChangeCredentials(new DidChangeCredentialsParams(connection.getId()));
+  }
+
   public SonarLintBackend getBackend() {
     try {
       requireNonNull(initJob, "SonarLintBackendService has not been initialized").join();
@@ -157,6 +175,11 @@ public class SonarLintBackendService {
       ideName = defaultString(product.getName(), "Eclipse");
     }
     return ideName;
+  }
+
+  /** Get all the rules available in standalone mode */
+  public CompletableFuture<ListAllStandaloneRulesDefinitionsResponse> getStandaloneRules() {
+    return getBackend().getRulesService().listAllStandaloneRulesDefinitions();
   }
 
   /** Get the rules details (global configuration) */
@@ -199,16 +222,53 @@ public class SonarLintBackendService {
     }
   }
 
-  public CompletableFuture<Void> changeIssueStatus(ISonarLintProject project, String serverIssueKey, IssueStatus newStatus, boolean isTaint) {
+  /**
+   *  INFO: For anticipated issues the `serverIssueKey` parameter has to be replaced with the string representation of
+   *        the `TrackedIssue.id` field. This is due to SLCORE using the same method for server and anticipated issues,
+   *        therefore the naming confusion!
+   */
+  public CompletableFuture<Void> changeIssueStatus(ISonarLintProject project, String serverIssueKey, ResolutionStatus newStatus, boolean isTaint) {
     return getBackend()
       .getIssueService()
       .changeStatus(new ChangeIssueStatusParams(ConfigScopeSynchronizer.getConfigScopeId(project), serverIssueKey, newStatus, isTaint));
   }
 
+  /**
+   *  INFO: For anticipated issues the `serverIssueKey` parameter has to be replaced with the string representation of
+   *        the `TrackedIssue.id` field. This is due to SLCORE using the same method for server and anticipated issues,
+   *        therefore the naming confusion!
+   */
   public CompletableFuture<Void> addIssueComment(ISonarLintProject project, String serverIssueKey, String text) {
     return getBackend()
       .getIssueService()
       .addComment(new AddIssueCommentParams(ConfigScopeSynchronizer.getConfigScopeId(project), serverIssueKey, text));
   }
 
+  public CompletableFuture<TrackWithServerIssuesResponse> trackWithServerIssues(ISonarLintProject project,
+    Map<String, List<ClientTrackedFindingDto>> clientTrackedIssuesByServerRelativePath,
+    boolean shouldFetchIssuesFromServer) {
+    return getBackend().getIssueTrackingService().trackWithServerIssues(
+      new TrackWithServerIssuesParams(ConfigScopeSynchronizer.getConfigScopeId(project), clientTrackedIssuesByServerRelativePath, shouldFetchIssuesFromServer));
+  }
+
+  public CompletableFuture<GetNewCodeDefinitionResponse> getNewCodeDefinition(ISonarLintProject project) {
+    return getBackend().getNewCodeService().getNewCodeDefinition(new GetNewCodeDefinitionParams(ConfigScopeSynchronizer.getConfigScopeId(project)));
+  }
+  
+  public CompletableFuture<ReopenIssueResponse> reopenIssue(ISonarLintProject project, String issueKey, Boolean isTaintVulnerability) {
+    return getBackend()
+      .getIssueService()
+      .reopenIssue(new ReopenIssueParams(ConfigScopeSynchronizer.getConfigScopeId(project), issueKey, isTaintVulnerability));
+  }
+
+  /** When the (workspace) preference for focusing on new code is changed, the telemetry has to be adjusted */
+  public void notifyTelemetryAfterNewCodePreferenceChanged() {
+    getBackend().getNewCodeService().didToggleFocus();
+  }
+  
+  public CompletableFuture<CheckAnticipatedStatusChangeSupportedResponse> checkAnticipatedStatusChangeSupported(ISonarLintProject project) {
+    return getBackend()
+      .getIssueService()
+      .checkAnticipatedStatusChangeSupported(new CheckAnticipatedStatusChangeSupportedParams(ConfigScopeSynchronizer.getConfigScopeId(project)));
+  }
 }

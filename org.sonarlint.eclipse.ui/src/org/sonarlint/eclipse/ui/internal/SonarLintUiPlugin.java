@@ -48,8 +48,6 @@ import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacadeLifecycleListener;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintMarkerUpdater;
 import org.sonarlint.eclipse.core.internal.jobs.TaintIssuesUpdateOnFileOpenedJob;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
@@ -63,7 +61,7 @@ import org.sonarlint.eclipse.ui.internal.extension.SonarLintUiExtensionTracker;
 import org.sonarlint.eclipse.ui.internal.flowlocations.SonarLintFlowLocationsService;
 import org.sonarlint.eclipse.ui.internal.job.PeriodicStoragesSynchronizerJob;
 import org.sonarlint.eclipse.ui.internal.popup.GenericNotificationPopup;
-import org.sonarlint.eclipse.ui.internal.popup.MissingNodePopup;
+import org.sonarlint.eclipse.ui.internal.popup.SurveyPopup;
 import org.sonarlint.eclipse.ui.internal.popup.TaintVulnerabilityAvailablePopup;
 import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 
@@ -110,22 +108,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     @Override
     public void error(String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
-        doAsyncInUiThread(() -> {
-          if (isNodeCommandException(msg)) {
-            getSonarConsole().info(msg, false);
-            var popup = new MissingNodePopup();
-            popup.setFadingEnabled(false);
-            popup.setDelayClose(0L);
-            popup.open();
-          } else {
-            getSonarConsole().error(msg, fromAnalyzer);
-          }
-        });
+        doAsyncInUiThread(() -> getSonarConsole().error(msg, fromAnalyzer));
       }
-    }
-
-    private boolean isNodeCommandException(String msg) {
-      return msg.contains("NodeCommandException");
     }
 
     @Override
@@ -167,30 +151,6 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     SonarLintNotifications.get().addNotificationListener(notifListener);
 
     SonarLintBackendService.get().init(new SonarLintEclipseClient());
-
-    var serverEventListener = new SonarLintServerEventListener();
-
-    var connectionListener = new IConnectedEngineFacadeLifecycleListener() {
-      @Override
-      public void connectionAdded(IConnectedEngineFacade server) {
-        server.addServerEventListener(serverEventListener);
-      }
-
-      @Override
-      public void connectionChanged(IConnectedEngineFacade server) {
-      }
-
-      @Override
-      public void connectionRemoved(IConnectedEngineFacade server) {
-        server.removeServerEventListener(serverEventListener);
-      }
-    };
-    SonarLintCorePlugin.getServersManager().addServerLifecycleListener(connectionListener);
-
-    // add event listeners to connections
-    for (var server : SonarLintCorePlugin.getServersManager().getServers()) {
-      server.addServerEventListener(serverEventListener);
-    }
 
     // Schedule auto-sync
     new PeriodicStoragesSynchronizerJob().schedule(Duration.ofSeconds(1).toMillis());
@@ -268,7 +228,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
       return console;
     }
     // no console found, so create a new one
-    console = new SonarLintConsole(SonarLintImages.SONARLINT_CONSOLE_IMG_DESC);
+    console = new SonarLintConsole(SonarLintImages.SONARLINT_16);
     return console;
   }
 
@@ -302,6 +262,9 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
           WindowOpenCloseListener.addListenerToAllPages(window);
         }
       }
+      
+      // Display user survey pop-up (comment out if not needed, comment in again if needed and replace link)
+      //Display.getDefault().syncExec(() -> SurveyPopup.displaySurveyPopupIfNotAlreadyAccessed(""));
 
       return Status.OK_STATUS;
     }

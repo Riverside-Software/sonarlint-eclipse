@@ -81,7 +81,6 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
   @Nullable
   private ConnectedSonarLintEngine wrappedEngine;
   private final List<IConnectedEngineFacadeListener> facadeListeners = new ArrayList<>();
-  private final List<IServerEventListener> serverEventListeners = new ArrayList<>();
   private boolean notificationsDisabled;
   // Cache the project list to avoid dead lock
   private final Map<String, ServerProject> allProjectsByKey = new ConcurrentHashMap<>();
@@ -114,7 +113,6 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
       try {
         this.wrappedEngine = new ConnectedSonarLintEngineImpl(globalConfig);
         SkippedPluginsNotifier.notifyForSkippedPlugins(wrappedEngine.getPluginDetails(), id);
-        subscribeForEventsForBoundProjects();
       } catch (Throwable e) {
         SonarLintLogger.get().error("Unable to start connected SonarLint engine", e);
         wrappedEngine = null;
@@ -358,16 +356,6 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
   }
 
   @Override
-  public void addServerEventListener(IServerEventListener listener) {
-    serverEventListeners.add(listener);
-  }
-
-  @Override
-  public void removeServerEventListener(IServerEventListener listener) {
-    serverEventListeners.remove(listener);
-  }
-
-  @Override
   public boolean equals(Object obj) {
     if (!(obj instanceof ConnectedEngineFacade)) {
       return false;
@@ -421,8 +409,10 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
     return withEngine(engine -> engine.getServerIssues(projectBinding, branchName, filePath)).orElse(emptyList());
   }
 
-  public List<ServerTaintIssue> getServerTaintIssues(EclipseProjectBinding projectBinding, String branchName, String filePath) {
-    return withEngine(engine -> engine.getServerTaintIssues(projectBinding, branchName, filePath)).orElse(emptyList());
+  public List<ServerTaintIssue> getServerTaintIssues(EclipseProjectBinding projectBinding, String branchName,
+    String filePath, Boolean includeResolved) {
+    return withEngine(engine -> engine.getServerTaintIssues(projectBinding, branchName, filePath, includeResolved))
+      .orElse(emptyList());
   }
 
   public ProjectBinding calculatePathPrefixes(String projectKey, List<String> ideFilePaths) {
@@ -474,15 +464,6 @@ public class ConnectedEngineFacade implements IConnectedEngineFacade {
         VcsService.getServerBranch(project).ifPresent(b -> SonarLintBackendService.get().branchChanged(project, b));
       }
 
-    }
-  }
-
-  @Override
-  public void subscribeForEventsForBoundProjects() {
-    if (wrappedEngine != null) {
-      wrappedEngine.subscribeForEvents(createEndpointParams(), SonarLintBackendService.get().getBackend().getHttpClient(getId()), getBoundProjectKeys(), e -> {
-        serverEventListeners.forEach(l -> l.eventReceived(this, e));
-      }, null);
     }
   }
 }

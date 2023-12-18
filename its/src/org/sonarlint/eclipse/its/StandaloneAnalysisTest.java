@@ -35,7 +35,6 @@ import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.reddeer.common.wait.TimePeriod;
 import org.eclipse.reddeer.common.wait.WaitUntil;
 import org.eclipse.reddeer.common.wait.WaitWhile;
-import org.eclipse.reddeer.eclipse.core.resources.Project;
 import org.eclipse.reddeer.eclipse.jdt.ui.packageview.PackageExplorerPart;
 import org.eclipse.reddeer.eclipse.ui.dialogs.PropertyDialog;
 import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
@@ -51,7 +50,6 @@ import org.eclipse.reddeer.workbench.impl.editor.TextEditor;
 import org.eclipse.reddeer.workbench.ui.dialogs.WorkbenchPreferenceDialog;
 import org.hamcrest.core.StringContains;
 import org.junit.Assume;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.sonarlint.eclipse.its.reddeer.conditions.OnTheFlyViewIsEmpty;
@@ -85,7 +83,7 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
     var defaultEditor = new DefaultEditor();
     assertThat(defaultEditor.getMarkers())
       .extracting(Marker::getText, Marker::getLineNumber)
-      .containsExactly(tuple("Replace this use of System.out or System.err by a logger.", 9));
+      .containsExactly(tuple("Replace this use of System.out by a logger.", 9));
     defaultEditor.close();
 
     // clear marker (probably a better way to do that)
@@ -121,7 +119,7 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
 
     assertThat(textEditor.getMarkers())
       .extracting(Marker::getText, Marker::getLineNumber)
-      .containsExactly(tuple("Replace this use of System.out or System.err by a logger.", 9));
+      .containsExactly(tuple("Replace this use of System.out by a logger.", 9));
 
     // Trigger manual analysis of all files
     rootProject.select();
@@ -134,8 +132,8 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
     assertThat(items)
       .extracting(item -> item.getCell(0), item -> item.getCell(2))
       .containsExactlyInAnyOrder(
-        tuple("Hello.java", "Replace this use of System.out or System.err by a logger."),
-        tuple("Hello2.java", "Replace this use of System.out or System.err by a logger."));
+        tuple("Hello.java", "Replace this use of System.out by a logger."),
+        tuple("Hello2.java", "Replace this use of System.out by a logger."));
   }
 
   @Test
@@ -157,7 +155,7 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
       .filteredOn(m -> ON_THE_FLY_ANNOTATION_TYPE.equals(m.getType()))
       .extracting(Marker::getText, Marker::getLineNumber)
       .containsOnly(
-        tuple("Replace this use of System.out or System.err by a logger.", 12),
+        tuple("Replace this use of System.out by a logger.", 12),
         tuple("Remove this unnecessary cast to \"int\".", 16)); // Test that sonar.java.libraries is set
 
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("src", "hello", "HelloTestUtil.java"));
@@ -196,6 +194,9 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
 
   @Test
   public void shouldAnalyseJsInYamlFile() {
+    // Don't run this test on macOS devices as Node.js might not be found!
+    ignoreMacOS();
+    
     new JavaPerspective().open();
     var rootProject = importExistingProjectIntoWorkspace("js/js-simple", "js-simple");
 
@@ -210,6 +211,9 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
 
   @Test
   public void shouldAnalyseCSS() {
+    // Don't run this test on macOS devices as Node.js might not be found!
+    ignoreMacOS();
+    
     new JavaPerspective().open();
     var rootProject = importExistingProjectIntoWorkspace("css/css-simple", "css-simple");
 
@@ -224,6 +228,9 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
 
   @Test
   public void shouldAnalyseTypeScript() {
+    // Don't run this test on macOS devices as Node.js might not be found!
+    ignoreMacOS();
+    
     new JavaPerspective().open();
     var rootProject = importExistingProjectIntoWorkspace("ts/ts-simple", "ts-simple");
 
@@ -260,8 +267,10 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
   // Need PyDev
   @Test
   @Category(RequiresExtraDependency.class)
-  @Ignore("PyDev preventing Java files to be opened using double click: https://bugs.eclipse.org/bugs/show_bug.cgi?id=579282")
   public void shouldAnalysePython() {
+    // The PydevPerspective is not working correctly in older PyDev versions, therefore only run in iBuilds
+    Assume.assumeTrue("ibuilds".equals(System.getProperty("target.platform", "ibuilds")));
+    
     new PydevPerspective().open();
     importExistingProjectIntoWorkspace("python");
 
@@ -323,7 +332,7 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
     var defaultEditor = new DefaultEditor("HelloLinked.java");
     assertThat(defaultEditor.getMarkers())
       .extracting(Marker::getText, Marker::getLineNumber)
-      .containsOnly(tuple("Replace this use of System.out or System.err by a logger.", 13));
+      .containsOnly(tuple("Replace this use of System.out by a logger.", 13));
   }
 
   // Need RSE
@@ -361,7 +370,7 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
     var defaultEditor = new DefaultEditor();
     assertThat(defaultEditor.getMarkers())
       .extracting(Marker::getText, Marker::getLineNumber)
-      .containsOnly(tuple("Replace this use of System.out or System.err by a logger.", 9));
+      .containsOnly(tuple("Replace this use of System.out by a logger.", 9));
   }
 
 }

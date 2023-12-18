@@ -6,18 +6,18 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>68.0.0.247</version>
+    <version>70.0.0.270</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>7.13.2502</version>
+  <version>9.1.2900</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
   <description></description>
-  <url>https://www.sonarlint.org/eclipse</url>
+  <url>https://docs.sonarsource.com/sonarlint/eclipse</url>
   <inceptionYear>2015</inceptionYear>
   <organization>
     <name>SonarSource</name>
@@ -46,8 +46,8 @@
     <module>org.sonarlint.eclipse.jdt</module>
 
     <module>org.sonarlint.eclipse.cdt</module>
-
     <module>org.sonarlint.eclipse.pdt</module>
+    <module>org.sonarlint.eclipse.pydev</module>
 
     <module>org.sonarlint.eclipse.site</module>
 
@@ -71,11 +71,12 @@
     <license.title>SonarLint for Eclipse</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <tycho.version>4.0.0</tycho.version>
+    <tycho.version>4.0.2</tycho.version>
     <jdk.min.version>11</jdk.min.version>
     <!-- Same protobuf version than the one in SonarLint Core-->
     <protobuf.version>3.21.9</protobuf.version>
     <jacoco.version>0.8.8</jacoco.version>
+    <jarsigner.version>3.0.0</jarsigner.version>
 
     <!-- ================== -->
     <!-- For SonarQube analysis -->
@@ -289,6 +290,15 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
+        <version>2.7.9</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>makeAggregateBom</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
@@ -327,9 +337,33 @@
       <id>sign</id>
       <properties>
         <jarsigner.skip>false</jarsigner.skip>
-        <sonarsource.keystore.path>${env.CODESIGNING_JKS_PATH}</sonarsource.keystore.path>
-        <sonarsource.keystore.password>${env.CODESIGNING_JKS_PASSWORD}</sonarsource.keystore.password>
       </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jarsigner-plugin</artifactId>
+            <version>${jarsigner.version}</version>
+            <executions>
+            <execution>
+            <id>sign</id>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+            </execution>
+            </executions>
+            <configuration>
+              <keystore>NONE</keystore>
+              <alias>key_525594307</alias>
+              <storepass>none</storepass>
+              <providerClass>sun.security.pkcs11.SunPKCS11</providerClass>
+              <storetype>PKCS11</storetype>
+              <providerArg>/usr/local/share/smtools/pkcs11properties.cfg</providerArg>
+              <tsa>http://timestamp.digicert.com</tsa>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

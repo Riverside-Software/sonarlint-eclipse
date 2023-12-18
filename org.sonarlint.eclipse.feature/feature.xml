@@ -2,15 +2,15 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="7.13.2502"
+      version="9.1.2900"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
-   <description url="https://www.sonarlint.org/">
+   <description url="https://docs.sonarsource.com/sonarlint/eclipse/">
       %description
    </description>
 
-   <copyright url="https://www.sonarlint.org/">
+   <copyright url="https://docs.sonarsource.com/sonarlint/eclipse/license/">
       %copyright
    </copyright>
 
@@ -39,7 +39,7 @@
       <import plugin="org.eclipse.ui.navigator"/>
       <import plugin="org.eclipse.ui.editors"/>
       <import plugin="org.eclipse.ui.forms"/>
-      <import plugin="org.sonarsource.sonarlint.core.sonarlint-core-osgi" version="7.1.0" match="greaterOrEqual"/>
+      <import plugin="org.sonarsource.sonarlint.core.sonarlint-core-osgi" version="8.19.0" match="greaterOrEqual"/>
    </requires>
 
    <plugin
@@ -79,6 +79,13 @@
 
    <plugin
          id="org.sonarlint.eclipse.m2e"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+   
+   <plugin
+         id="org.sonarlint.eclipse.pydev"
          download-size="0"
          install-size="0"
          version="0.0.0"

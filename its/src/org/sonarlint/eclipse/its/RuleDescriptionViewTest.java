@@ -52,7 +52,7 @@ public class RuleDescriptionViewTest extends AbstractSonarLintTest {
     var defaultEditor = new DefaultEditor();
     assertThat(defaultEditor.getMarkers())
       .extracting(Marker::getText, Marker::getLineNumber)
-      .containsExactly(tuple("Replace this use of System.out or System.err by a logger.", 9));
+      .containsExactly(tuple("Replace this use of System.out by a logger.", 9));
 
     onTheFlyView.selectItem(0);
     ruleDescriptionView.open();
@@ -94,4 +94,32 @@ public class RuleDescriptionViewTest extends AbstractSonarLintTest {
     assertThat(ruleDescriptionView.getSections().getTabItemLabels()).containsExactly("Why is this an issue?", "How can I fix it?", "More Info");
   }
 
+  /**
+   *  SLE-636: For testing the Syntax Highlighting in Python we have to open the Rule Description view to trigger the
+   *           extension point on the specific (sub-)plug-in!
+   */
+  @Test
+  public void openRuleRescription_with_PythonSyntaxHighlighting() {
+    new JavaPerspective().open();
+    var ruleDescriptionView = new RuleDescriptionView();
+    ruleDescriptionView.open();
+    var onTheFlyView = new OnTheFlyView();
+    onTheFlyView.open();
+
+    var project = importExistingProjectIntoWorkspace("python", "python");
+
+    openFileAndWaitForAnalysisCompletion(project.getResource("src", "root", "nested", "example.py"));
+
+    var defaultEditor = new DefaultEditor();
+    assertThat(defaultEditor.getMarkers())
+      .extracting(Marker::getText, Marker::getLineNumber)
+      .contains(tuple("Replace print statement by built-in function.", 10));
+
+    onTheFlyView.selectItem(2);
+    ruleDescriptionView.open();
+
+    new WaitUntil(new RuleDescriptionViewIsLoaded(ruleDescriptionView));
+    var flatTextContent = ruleDescriptionView.getFlatTextContent();
+    await().untilAsserted(() -> assertThat(flatTextContent).contains("python:PrintStatementUsage"));
+  }
 }

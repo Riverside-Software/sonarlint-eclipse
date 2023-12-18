@@ -59,7 +59,10 @@ import org.eclipse.reddeer.swt.impl.button.PushButton;
 import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
 import org.eclipse.reddeer.workbench.impl.shell.WorkbenchShell;
+import org.eclipse.reddeer.workbench.ui.dialogs.WorkbenchPreferenceDialog;
 import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -69,6 +72,9 @@ import org.osgi.framework.Version;
 import org.osgi.service.prefs.BackingStoreException;
 import org.sonarlint.eclipse.its.reddeer.preferences.FileAssociationsPreferences;
 import org.sonarlint.eclipse.its.reddeer.preferences.RuleConfigurationPreferences;
+import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences;
+import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences.IssueFilter;
+import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences.IssuePeriod;
 import org.sonarlint.eclipse.its.reddeer.views.SonarLintConsole;
 import org.sonarlint.eclipse.its.reddeer.views.SonarLintConsole.ShowConsoleOption;
 import org.sonarqube.ws.client.HttpConnector;
@@ -97,12 +103,35 @@ public abstract class AbstractSonarLintTest {
 
   @ClassRule
   public static final TemporaryFolder tempFolder = new TemporaryFolder();
+  
+  @AfterClass
+  public static final void cleanupAfterClass() {
+    // remove warning about soon unsupported version (there can be multiple)
+    if ("oldest".equals(System.getProperty("target.platform"))) {
+      while (true) {
+        try {
+          new DefaultShell("SonarQube - Soon unsupported version").close();
+        } catch (Exception ignored) {
+          break;
+        }
+      }
+    }
+    
+    // File associations must be set explicitly on macOS!
+    restoreDefaultFileAssociationConfiguration();
+  }
 
   @After
   public final void cleanup() {
     // first wait for previous analyzes to finish properly
     // this prevents trying to clear the console in the middle of a job
     waitSonarLintAnalysisJobs();
+    
+    // remove PyDev default preferences window if shown
+    try {
+      new DefaultShell("Default Eclipse preferences for PyDev").close();
+    } catch (Exception ignored) {
+    }
 
     var consoleView = new SonarLintConsole();
     System.out.println(consoleView.getConsoleView().getConsoleText());
@@ -110,12 +139,30 @@ public abstract class AbstractSonarLintTest {
 
     new WorkbenchShell().maximize();
     new CleanWorkspaceRequirement().fulfill();
-
-    // File associations must be set explicitly on macOS!
-    restoreDefaultFileAssociationConfiguration();
+    
     restoreDefaultRulesConfiguration();
 
+    setNewCodePreference(IssuePeriod.ALL_TIME);
+
     ConfigurationScope.INSTANCE.getNode(UI_PLUGIN_ID).remove(PREF_SECRETS_EVER_DETECTED);
+  }
+
+  protected static void setNewCodePreference(IssuePeriod period) {
+    var preferenceDialog = new WorkbenchPreferenceDialog();
+    preferenceDialog.open();
+    var preferences = new SonarLintPreferences(preferenceDialog);
+    preferenceDialog.select(preferences);
+    preferences.setNewCodePreference(period);
+    preferenceDialog.ok();
+  }
+  
+  protected static void setIssueFilterPreference(IssueFilter filter) {
+    var preferenceDialog = new WorkbenchPreferenceDialog();
+    preferenceDialog.open();
+    var preferences = new SonarLintPreferences(preferenceDialog);
+    preferenceDialog.select(preferences);
+    preferences.setIssueFilterPreference(filter);
+    preferenceDialog.ok();
   }
 
   private void waitSonarLintAnalysisJobs() {
@@ -137,7 +184,7 @@ public abstract class AbstractSonarLintTest {
   private static final List<String> sonarlintJobFamilies = List.of(
     "org.sonarlint.eclipse.projectJob",
     "org.sonarlint.eclipse.projectsJob");
-  
+
   @Before
   public final void before() {
     // File associations must be set explicitly on macOS!
@@ -148,6 +195,9 @@ public abstract class AbstractSonarLintTest {
   public static final void beforeClass() throws BackingStoreException {
     System.out.println("Eclipse: " + platformVersion());
     System.out.println("GTK: " + System.getProperty("org.eclipse.swt.internal.gtk.version"));
+    
+    // Integration tests should not open the external browser
+    System.setProperty("sonarlint.internal.externalBrowser.disabled", "true");
 
     ROOT.node("servers").removeNode();
     ROOT_SECURE.node("servers").removeNode();
@@ -196,6 +246,13 @@ public abstract class AbstractSonarLintTest {
       projectsFolder = tempFolder.newFolder();
     } catch (Exception e) {
       throw new IllegalStateException(e);
+    }
+    
+    // If we have any SonarLint for Eclipse user survey, just click it away as we don't test the behavior!
+    try {
+      new DefaultShell("SonarLint - New Eclipse user survey").close();
+    } catch (Exception ignored) {
+      System.out.println("SonarLint for Eclipse user survey found, ignoring it!");
     }
   }
 
@@ -284,14 +341,14 @@ public abstract class AbstractSonarLintTest {
       .credentials(Server.ADMIN_LOGIN, Server.ADMIN_PASSWORD)
       .build());
   }
-  
+
   static void setSpecificFileAssociationConfiguration() {
     var preferencePage = FileAssociationsPreferences.open();
     preferencePage.enforceFileAssociation();
     preferencePage.ok();
   }
 
-  void restoreDefaultFileAssociationConfiguration() {
+  static void restoreDefaultFileAssociationConfiguration() {
     var preferencePage = FileAssociationsPreferences.open();
     preferencePage.resetFileAssociation();
     preferencePage.ok();
@@ -302,5 +359,18 @@ public abstract class AbstractSonarLintTest {
     ruleConfigurationPreferences.restoreDefaults();
     ruleConfigurationPreferences.ok();
   }
-
+  
+  /** Some tests are not able to run on macOS due to issues with Node.js and Eclipse running in different contexts */
+  protected final void ignoreMacOS() {
+    var ignoreMacOS = false;
+    
+    try {
+      var os = System.getProperty("os.name");
+      ignoreMacOS = os == null || os.toLowerCase().contains("mac");
+    } catch (Exception ignored) {
+      ignoreMacOS = false;
+    }
+    
+    Assume.assumeFalse(ignoreMacOS);
+  }
 }

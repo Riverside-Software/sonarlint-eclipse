@@ -28,6 +28,8 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.sonarlint.eclipse.core.SonarLintLogger;
+import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.telemetry.LinkTelemetry;
 
 public final class BrowserUtils {
   private BrowserUtils() {
@@ -35,13 +37,26 @@ public final class BrowserUtils {
   }
 
   public static void openExternalBrowser(String url, Display display) {
-    display.asyncExec(() -> {
-      try {
-        PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(url));
-      } catch (PartInitException | MalformedURLException e) {
-        SonarLintLogger.get().error("Unable to open external browser", e);
-      }
-    });
+    // For unit tests we want to disable the actual browser opening
+    var externalBrowserDisabled = System.getProperty("sonarlint.internal.externalBrowser.disabled");
+    if (externalBrowserDisabled == null) {
+      display.asyncExec(() -> {
+        try {
+          PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(url));
+        } catch (PartInitException | MalformedURLException e) {
+          SonarLintLogger.get().error("Unable to open external browser", e);
+        }
+      });
+    }
+  }
+
+  /**
+   * In scope of MMF-3451, we want to log the number of clicks on links related to the topic of
+   * "connected mode setup UI helps users discover the value of Sonar solution and connected mode"
+   */
+  public static void openExternalBrowserWithTelemetry(LinkTelemetry link, Display display) {
+    SonarLintCorePlugin.getTelemetry().helpAndFeedbackLinkClicked(link.getLinkId());
+    openExternalBrowser(link.getUrl(), display);
   }
 
   public static void addLinkListener(Browser browser) {

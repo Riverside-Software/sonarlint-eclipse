@@ -51,7 +51,7 @@ import org.sonarlint.eclipse.core.internal.quickfixes.MarkerQuickFixes;
 import org.sonarlint.eclipse.core.internal.quickfixes.MarkerTextEdit;
 import org.sonarlint.eclipse.core.internal.resources.ProjectsProviderUtils;
 import org.sonarlint.eclipse.core.internal.tracking.DigestUtils;
-import org.sonarlint.eclipse.core.internal.tracking.Trackable;
+import org.sonarlint.eclipse.core.internal.tracking.TrackedIssue;
 import org.sonarlint.eclipse.core.listener.TaintVulnerabilitiesListener;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
@@ -72,7 +72,9 @@ public class SonarLintMarkerUpdater {
     taintVulnerabilitiesListener = listener;
   }
 
-  public static void createOrUpdateMarkers(ISonarLintFile file, Optional<IDocument> openedDocument, Collection<Trackable> issues, TriggerType triggerType) {
+  public static void createOrUpdateMarkers(ISonarLintFile file, Optional<IDocument> openedDocument,
+    Collection<? extends TrackedIssue> issues, TriggerType triggerType, final String issuePeriodPreference,
+    final String issueFilterPreference, final boolean viableForStatusChange) {
     try {
       Set<IMarker> previousMarkersToDelete;
       if (triggerType.isOnTheFly()) {
@@ -81,7 +83,8 @@ public class SonarLintMarkerUpdater {
         previousMarkersToDelete = Collections.emptySet();
       }
 
-      createOrUpdateMarkers(file, openedDocument, issues, triggerType, previousMarkersToDelete);
+      createOrUpdateMarkers(file, openedDocument, issues, triggerType, previousMarkersToDelete, issuePeriodPreference,
+        issueFilterPreference, viableForStatusChange);
 
       for (var marker : previousMarkersToDelete) {
         marker.delete();
@@ -91,13 +94,18 @@ public class SonarLintMarkerUpdater {
     }
   }
 
-  public static void refreshMarkersForTaint(ISonarLintFile currentFile, String branchName, ConnectedEngineFacade facade) {
+  public static void refreshMarkersForTaint(ISonarLintFile currentFile, String branchName,
+    ConnectedEngineFacade facade, final String issuePeriodPreference, final String issueFilterPreference) {
     deleteTaintMarkers(currentFile);
 
     var project = currentFile.getProject();
     var config = SonarLintCorePlugin.loadConfig(project);
     config.getProjectBinding().ifPresent(binding -> {
-      var taintVulnerabilities = facade.getServerTaintIssues(binding, branchName, currentFile.getProjectRelativePath())
+      var includeResolvedByPreference = Objects.equals(
+        SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_ALL, issueFilterPreference);
+      
+      var taintVulnerabilities = facade.getServerTaintIssues(binding, branchName,
+        currentFile.getProjectRelativePath(), includeResolvedByPreference)
         .stream()
         .collect(Collectors.toList());
 
@@ -105,11 +113,16 @@ public class SonarLintMarkerUpdater {
       var bindings = boundSiblingProjects.stream()
         .collect(Collectors.toMap(p -> p, p -> SonarLintCorePlugin.loadConfig(p).getProjectBinding().get()));
 
+      var actualTaintMarkersCreated = false;
       for (var taintIssue : taintVulnerabilities) {
-        findFileForLocationInBoundProjects(bindings, taintIssue.getFilePath())
-          .ifPresent(primaryLocationFile -> createTaintMarker(primaryLocationFile.getDocument(), primaryLocationFile, taintIssue, bindings));
+        if (!(shouldHideResolvedTaintMarker(taintIssue, issueFilterPreference)
+          || shouldHidePreNewCodeTaintMarker(taintIssue, issuePeriodPreference))) {
+          findFileForLocationInBoundProjects(bindings, taintIssue.getFilePath())
+            .ifPresent(primaryLocationFile -> createTaintMarker(primaryLocationFile.getDocument(), primaryLocationFile, taintIssue, bindings));
+          actualTaintMarkersCreated = true;
+        }
       }
-      if (!taintVulnerabilities.isEmpty() && taintVulnerabilitiesListener != null) {
+      if (actualTaintMarkersCreated && taintVulnerabilitiesListener != null) {
         taintVulnerabilitiesListener.markersCreated(facade.isSonarCloud());
       }
     });
@@ -161,62 +174,74 @@ public class SonarLintMarkerUpdater {
     }
   }
 
-  public static void updateMarkersWithServerSideData(ISonarLintIssuable issuable, IDocument document, Collection<Trackable> issues, TriggerType triggerType) {
+  public static void updateMarkersWithServerSideData(ISonarLintIssuable issuable, IDocument document,
+    Collection<TrackedIssue> issues, TriggerType triggerType, final String issuePeriodPreference,
+    final String issueFilterPreference, final boolean viableForStatusChange) {
     try {
       for (var issue : issues) {
-        updateMarkerWithServerSideData(issuable, document, issue, triggerType);
+        updateMarkerWithServerSideData(issuable, document, issue, triggerType, issuePeriodPreference,
+          issueFilterPreference, viableForStatusChange);
       }
     } catch (CoreException e) {
       SonarLintLogger.get().error(e.getMessage(), e);
     }
   }
 
-  private static void updateMarkerWithServerSideData(ISonarLintIssuable issuable, IDocument document, Trackable issue,
-    TriggerType triggerType)
-    throws CoreException {
+  private static void updateMarkerWithServerSideData(ISonarLintIssuable issuable, IDocument document,
+    TrackedIssue issue, TriggerType triggerType, final String issuePeriodPreference,
+    final String issueFilterPreference, final boolean viableForStatusChange) throws CoreException {
     var markerId = issue.getMarkerId();
     IMarker marker = null;
     if (markerId != null) {
       marker = issuable.getResource().findMarker(markerId);
     }
-    if (issue.isResolved()) {
+    if (shouldHideResolvedIssueMarker(issue, issueFilterPreference)
+      || shouldHidePreNewCodeIssueMarker(issue, issuePeriodPreference)) {
       if (marker != null) {
-        // Issue is associated to a marker, means it was not marked as resolved in previous analysis, but now it is, so clear marker
+        // For makers of issues in connected mode: Issue is associated to a marker, means it was not marked as resolved
+        // in previous analysis, but now it is, so clear marker!
         marker.delete();
       }
       issue.setMarkerId(null);
     } else {
       if (marker != null) {
-        updateServerMarkerAttributes(issue, marker);
+        updateServerMarkerAttributes(issue, marker, viableForStatusChange);
       } else {
         // Issue was previously resolved, and is now reopen, so we need to recreate a marker
-        createMarker(document, issuable, issue, triggerType);
+        createMarker(document, issuable, issue, triggerType, viableForStatusChange);
       }
     }
   }
 
-  private static void createOrUpdateMarkers(ISonarLintFile file, Optional<IDocument> openedDocument, Collection<Trackable> issues,
-    TriggerType triggerType, Set<IMarker> previousMarkersToDelete) throws CoreException {
+  private static void createOrUpdateMarkers(ISonarLintFile file, Optional<IDocument> openedDocument,
+    Collection<? extends TrackedIssue> issues, TriggerType triggerType, Set<IMarker> previousMarkersToDelete,
+    final String issuePeriodPreference, final String issueFilterPreference,
+    final boolean viableForStatusChange) throws CoreException {
     var lazyInitDocument = openedDocument.orElse(null);
+
     for (var issue : issues) {
-      if (!issue.isResolved()) {
+      if (shouldHideResolvedIssueMarker(issue, issueFilterPreference)
+        || shouldHidePreNewCodeIssueMarker(issue, issuePeriodPreference)) {
+        issue.setMarkerId(null);
+      } else {
         lazyInitDocument = lazyInitDocument != null ? lazyInitDocument : file.getDocument();
-        if (!triggerType.isOnTheFly() || issue.getMarkerId() == null || file.getResource().findMarker(issue.getMarkerId()) == null) {
-          createMarker(lazyInitDocument, file, issue, triggerType);
+        if (!triggerType.isOnTheFly()
+          || issue.getMarkerId() == null
+          || file.getResource().findMarker(issue.getMarkerId()) == null) {
+          createMarker(lazyInitDocument, file, issue, triggerType, viableForStatusChange);
         } else {
           var marker = file.getResource().findMarker(issue.getMarkerId());
-          updateMarkerAttributes(lazyInitDocument, issue, marker);
+          updateMarkerAttributes(lazyInitDocument, issue, marker, viableForStatusChange);
           createFlowMarkersForLocalIssues(lazyInitDocument, file, issue, marker, triggerType);
           createQuickFixMarkersForLocalIssues(lazyInitDocument, file, issue, marker, triggerType);
           previousMarkersToDelete.remove(marker);
         }
-      } else {
-        issue.setMarkerId(null);
       }
     }
   }
 
-  private static void createMarker(IDocument document, ISonarLintIssuable issuable, Trackable trackable, TriggerType triggerType) throws CoreException {
+  private static void createMarker(IDocument document, ISonarLintIssuable issuable, TrackedIssue trackable,
+    TriggerType triggerType, final boolean viableForStatusChange) throws CoreException {
     var marker = issuable.getResource()
       .createMarker(triggerType.isOnTheFly() ? SonarLintCorePlugin.MARKER_ON_THE_FLY_ID : SonarLintCorePlugin.MARKER_REPORT_ID);
     if (triggerType.isOnTheFly()) {
@@ -225,7 +250,7 @@ public class SonarLintMarkerUpdater {
 
     setMarkerViewUtilsAttributes(issuable, marker);
 
-    updateMarkerAttributes(document, trackable, marker);
+    updateMarkerAttributes(document, trackable, marker, viableForStatusChange);
     createFlowMarkersForLocalIssues(document, issuable, trackable, marker, triggerType);
     createQuickFixMarkersForLocalIssues(document, issuable, trackable, marker, triggerType);
 
@@ -261,6 +286,7 @@ public class SonarLintMarkerUpdater {
       marker.setAttribute(MarkerUtils.SONAR_MARKER_ISSUE_SEVERITY_ATTR, taintIssue.getSeverity().name());
       marker.setAttribute(MarkerUtils.SONAR_MARKER_ISSUE_TYPE_ATTR, taintIssue.getType().name());
       marker.setAttribute(MarkerUtils.SONAR_MARKER_SERVER_ISSUE_KEY_ATTR, taintIssue.getKey());
+      marker.setAttribute(MarkerUtils.SONAR_MARKER_RESOLVED_ATTR, taintIssue.isResolved());
 
       var creationDate = taintIssue.getCreationDate().toEpochMilli();
       marker.setAttribute(MarkerUtils.SONAR_MARKER_CREATION_DATE_ATTR, String.valueOf(creationDate));
@@ -277,31 +303,41 @@ public class SonarLintMarkerUpdater {
     marker.setAttribute("org.eclipse.ui.views.markers.path", issuable.getResourceContainerForMarker());
   }
 
-  private static void updateMarkerAttributes(IDocument document, Trackable trackable, IMarker marker) throws CoreException {
+  private static void updateMarkerAttributes(IDocument document, TrackedIssue trackedIssue, IMarker marker,
+    final boolean viableForStatusChange) throws CoreException {
     var existingAttributes = marker.getAttributes();
 
-    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_RULE_KEY_ATTR, trackable.getRuleKey());
-    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_RULE_DESC_CONTEXT_KEY_ATTR, trackable.getRuleDescriptionContextKey().orElse(null));
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_RULE_KEY_ATTR, trackedIssue.getRuleKey());
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_RULE_DESC_CONTEXT_KEY_ATTR,
+      trackedIssue.getIssueFromAnalysis().getRuleDescriptionContextKey().orElse(null));
     setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.SEVERITY, SonarLintGlobalConfiguration.getMarkerSeverity());
 
-    setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.MESSAGE, trackable.getMessage());
+    setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.MESSAGE, trackedIssue.getMessage());
 
     // File level issues (line == null) are displayed on line 1
-    setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.LINE_NUMBER, trackable.getLine() != null ? trackable.getLine() : 1);
+    setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.LINE_NUMBER, trackedIssue.getLine() != null ? trackedIssue.getLine() : 1);
 
-    var position = MarkerUtils.getPosition(document, trackable.getTextRange());
+    var position = MarkerUtils.getPosition(document, trackedIssue.getIssueFromAnalysis().getTextRange());
     setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.CHAR_START, position != null ? position.getOffset() : null);
     setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.CHAR_END, position != null ? (position.getOffset() + position.getLength()) : null);
 
-    updateServerMarkerAttributes(trackable, marker);
+    var issueFromAnalysis = trackedIssue.getIssueFromAnalysis();
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_ATTRIBUTE_ATTR,
+      issueFromAnalysis.getCleanCodeAttribute().orElse(null));
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_IMPACTS_ATTR,
+      MarkerUtils.encodeImpacts(issueFromAnalysis.getImpacts()));
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_HIGHEST_IMPACT_ATTR,
+      MarkerUtils.encodeHighestImpact(issueFromAnalysis.getImpacts()));
+
+    updateServerMarkerAttributes(trackedIssue, marker, viableForStatusChange);
   }
 
-  private static void createFlowMarkersForLocalIssues(IDocument document, ISonarLintIssuable issuable, Trackable trackable, IMarker marker, TriggerType triggerType)
+  private static void createFlowMarkersForLocalIssues(IDocument document, ISonarLintIssuable issuable, TrackedIssue trackedIssue, IMarker marker, TriggerType triggerType)
     throws CoreException {
     var flowMarkerId = markerIdForFlows(triggerType);
     var flows = new ArrayList<MarkerFlow>();
     var i = 1;
-    for (var engineFlow : trackable.getFlows()) {
+    for (var engineFlow : trackedIssue.getIssueFromAnalysis().flows()) {
       var flow = new MarkerFlow(i);
       flows.add(flow);
       var locations = new ArrayList<>(engineFlow.locations());
@@ -315,13 +351,13 @@ public class SonarLintMarkerUpdater {
     marker.setAttribute(MarkerUtils.SONAR_MARKER_EXTRA_LOCATIONS_ATTR, new MarkerFlows(flows));
   }
 
-  private static void createQuickFixMarkersForLocalIssues(IDocument document, ISonarLintIssuable issuable, Trackable trackable, IMarker marker, TriggerType triggerType)
+  private static void createQuickFixMarkersForLocalIssues(IDocument document, ISonarLintIssuable issuable, TrackedIssue trackedIssue, IMarker marker, TriggerType triggerType)
     throws CoreException {
     if (!triggerType.isOnTheFly()) {
       return;
     }
     var qfs = new ArrayList<MarkerQuickFix>();
-    for (var engineQuickFix : trackable.getQuickFix()) {
+    for (var engineQuickFix : trackedIssue.getIssueFromAnalysis().quickFixes()) {
       createQuickFix(document, issuable, qfs, engineQuickFix);
     }
     marker.setAttribute(MarkerUtils.SONAR_MARKER_QUICK_FIXES_ATTR, new MarkerQuickFixes(qfs));
@@ -439,16 +475,27 @@ public class SonarLintMarkerUpdater {
    *   - server issue key
    *   - creation date
    */
-  private static void updateServerMarkerAttributes(Trackable trackable, IMarker marker) throws CoreException {
+  private static void updateServerMarkerAttributes(TrackedIssue trackedIssue, IMarker marker,
+    final boolean viableForStatusChange) throws CoreException {
     var existingAttributes = marker.getAttributes();
 
-    setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.PRIORITY, getPriority(trackable.getSeverity()));
-    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_SEVERITY_ATTR, trackable.getSeverity());
-    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_TYPE_ATTR, trackable.getType());
-    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_SERVER_ISSUE_KEY_ATTR, trackable.getServerIssueKey());
+    setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.PRIORITY, getPriority(trackedIssue.getSeverity()));
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_TRACKED_ISSUE_ID_ATTR,
+      MarkerUtils.encodeUuid(trackedIssue.getId()));
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_SEVERITY_ATTR,
+      trackedIssue.getSeverity());
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_TYPE_ATTR,
+      trackedIssue.getType());
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_SERVER_ISSUE_KEY_ATTR,
+      trackedIssue.getServerIssueKey());
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ANTICIPATED_ISSUE_ATTR,
+      viableForStatusChange);
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_RESOLVED_ATTR,
+      trackedIssue.isResolved());
 
-    Long creationDate = trackable.getCreationDate();
-    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_CREATION_DATE_ATTR, creationDate != null ? String.valueOf(creationDate) : null);
+    Long creationDate = trackedIssue.getCreationDate();
+    setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_CREATION_DATE_ATTR,
+      creationDate != null ? String.valueOf(creationDate) : null);
   }
 
   private static void setMarkerAttributeIfDifferent(IMarker marker, @Nullable Map<String, Object> existingAttributes, String attributeName, @Nullable Object value)
@@ -465,8 +512,8 @@ public class SonarLintMarkerUpdater {
    * @see IMarker.PRIORITY_NORMAL
    * @see IMarker.PRIORITY_LOW
    */
-  private static int getPriority(final IssueSeverity severity) {
-    switch (severity) {
+  private static int getPriority(@Nullable final IssueSeverity severity) {
+    switch (severity != null ? severity : IssueSeverity.INFO) {
       case BLOCKER:
       case CRITICAL:
         return IMarker.PRIORITY_HIGH;
@@ -495,5 +542,33 @@ public class SonarLintMarkerUpdater {
         p.deleteAllMarkers(SonarLintCorePlugin.MARKER_TAINT_ID);
         p.deleteAllMarkers(SonarLintCorePlugin.MARKER_TAINT_FLOW_ID);
       });
+  }
+  
+  /** Markers should not be set / should be removed for issues already resolved when preference is set */
+  private static boolean shouldHideResolvedIssueMarker(TrackedIssue issue, final String issueFilterPreference) {
+    return Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED, issueFilterPreference)
+      && issue.isResolved();
+  }
+
+  /**
+   *  Markers should not be set / should be removed for issues not on new code when preference is set. Of course
+   *  markers should stay in standalone mode because the preference is only applied in connected mode!
+   */
+  private static boolean shouldHidePreNewCodeIssueMarker(TrackedIssue issue, final String issuePeriodPreference) {
+    return issue.getServerIssueKey() != null
+      && Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_PERIOD_NEWCODE, issuePeriodPreference)
+      && !issue.isNewCode();
+  }
+  
+  /** Taint marker should not be set / should be removed for issues already resolved when preference is set */
+  private static boolean shouldHideResolvedTaintMarker(ServerTaintIssue issue, final String issueFilterPreference) {
+    return Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED, issueFilterPreference)
+      && issue.isResolved();
+  }
+
+  /** Taint markers should not be set / should be removed for issues not on new code when preference is set! */
+  private static boolean shouldHidePreNewCodeTaintMarker(ServerTaintIssue issue, final String issuePeriodPreference) {
+    return Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_PERIOD_NEWCODE, issuePeriodPreference)
+      && !issue.isOnNewCode();
   }
 }

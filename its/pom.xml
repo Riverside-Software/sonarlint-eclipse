@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>68.0.0.247</version>
+    <version>70.0.0.270</version>
     <relativePath />
   </parent>
 
@@ -17,7 +17,7 @@
   <name>SonarLint for Eclipse Integration Tests</name>
 
   <properties>
-    <tycho.version>4.0.0</tycho.version>
+    <tycho.version>4.0.2</tycho.version>
     <license.title>SonarLint for Eclipse ITs</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -29,6 +29,15 @@
     <jdk.min.version>11</jdk.min.version>
     <version.jacoco.plugin>0.8.8</version.jacoco.plugin>
   </properties>
+  
+  <dependencies>
+   <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>3.21.9</version>
+      <type>jar</type>
+    </dependency>
+  </dependencies>
 
   <build>
     <pluginManagement>
@@ -149,16 +158,18 @@
           <includes>
             <include>**/*Test.java</include>
           </includes>
-          <!-- Kill test JVM if tests take more than 10 minutes (600 seconds) to finish -->
-          <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
           <trimStackTrace>false</trimStackTrace>
           <useUIHarness>true</useUIHarness>
           <useUIThread>false</useUIThread>
           <appArgLine>-eclipse.keyring target/keyring -eclipse.password secure-storage-password.txt -pluginCustomization
             ${project.basedir}/plugin_customization.ini</appArgLine>
-          <forkedProcessTimeoutInSeconds>1800</forkedProcessTimeoutInSeconds>
+          
+          <!-- Kill test JVM if tests take more than 45 minutes (2700 seconds) to finish -->
+          <forkedProcessTimeoutInSeconds>2700</forkedProcessTimeoutInSeconds>
+          
           <redirectTestOutputToFile>true</redirectTestOutputToFile>
           <systemProperties>
+            <target.platform>${target.platform}</target.platform>
             <sonar.runtimeVersion>${sonar.runtimeVersion}</sonar.runtimeVersion>
             <org.eclipse.swt.browser.UseWebKitGTK>true</org.eclipse.swt.browser.UseWebKitGTK>
             <org.eclipse.swt.browser.DefaultType>webkit</org.eclipse.swt.browser.DefaultType>

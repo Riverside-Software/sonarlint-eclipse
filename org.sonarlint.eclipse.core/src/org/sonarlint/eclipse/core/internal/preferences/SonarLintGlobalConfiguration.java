@@ -20,6 +20,7 @@
 package org.sonarlint.eclipse.core.internal.preferences;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -61,23 +62,41 @@ public class SonarLintGlobalConfiguration {
 
   public static final String PREF_MARKER_SEVERITY = "markerSeverity"; //$NON-NLS-1$
   public static final int PREF_MARKER_SEVERITY_DEFAULT = IMarker.SEVERITY_INFO;
+  public static final String PREF_ISSUE_DISPLAY_FILTER = "issueFilter"; //$NON-NLS-1$
+  public static final String PREF_ISSUE_DISPLAY_FILTER_ALL = "allIssues"; //$NON-NLS-1$
+  public static final String PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED = "nonResolved"; //$NON-NLS-1$
+  public static final String PREF_ISSUE_PERIOD = "issuePeriod"; //$NON-NLS-1$
+  public static final String PREF_ISSUE_PERIOD_ALLTIME = "allTime"; //$NON-NLS-1$
+  public static final String PREF_ISSUE_PERIOD_NEWCODE = "newCode"; //$NON-NLS-1$
   public static final String PREF_EXTRA_ARGS = "extraArgs"; //$NON-NLS-1$
   public static final String PREF_FILE_EXCLUSIONS = "fileExclusions"; //$NON-NLS-1$
   public static final String PREF_RULES_CONFIG = "rulesConfig"; //$NON-NLS-1$
   public static final String PREF_DEFAULT = ""; //$NON-NLS-1$
-  public static final String PREF_TEST_FILE_REGEXPS = "testFileRegexps"; //$NON-NLS-1$
-  public static final String PREF_TEST_FILE_REGEXPS_DEFAULT = ""; //$NON-NLS-1$
+  public static final String PREF_TEST_FILE_GLOB_PATTERNS = "testFileRegexps"; //$NON-NLS-1$
+  public static final String PREF_TEST_FILE_GLOB_PATTERNS_DEFAULT = ""; //$NON-NLS-1$
   public static final String PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES = "skipConfirmAnalyzeMultipleFiles"; //$NON-NLS-1$
   public static final String PREF_NODEJS_PATH = "nodeJsPath"; //$NON-NLS-1$
   private static final String PREF_TAINT_VULNERABILITY_DISPLAYED = "taintVulnerabilityDisplayed";
   private static final String PREF_SECRETS_EVER_DETECTED = "secretsEverDetected";
+  private static final String PREF_USER_SURVEY_LAST_LINK = "userSurveyLastLink"; //$NON-NLS-1$
+  private static final String PREF_SOON_UNSUPPORTED_CONNECTIONS = "soonUnsupportedSonarQubeConnections"; //$NON-NLS-1$
 
   private SonarLintGlobalConfiguration() {
     // Utility class
   }
 
-  public static String getTestFileRegexps() {
-    return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_TEST_FILE_REGEXPS, PREF_TEST_FILE_REGEXPS_DEFAULT, null);
+  public static String getTestFileGlobPatterns() {
+    return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_TEST_FILE_GLOB_PATTERNS, PREF_TEST_FILE_GLOB_PATTERNS_DEFAULT, null);
+  }
+  
+  // INFO: Not to be confused with Eclipse marker view filters
+  public static String getIssueFilter() {
+    return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_ISSUE_DISPLAY_FILTER,
+      PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED, null);
+  }
+  
+  public static String getIssuePeriod() {
+    return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_ISSUE_PERIOD, PREF_ISSUE_PERIOD_ALLTIME, null);
   }
 
   public static int getMarkerSeverity() {
@@ -300,4 +319,37 @@ public class SonarLintGlobalConfiguration {
     setPreferenceBoolean(PREF_SECRETS_EVER_DETECTED, true);
   }
 
+  /** See {@link org.sonarlint.eclipse.ui.internal.popup.SurveyPopup} for more information */
+  public static String getUserSurveyLastLink() {
+    return getPreferenceString(PREF_USER_SURVEY_LAST_LINK);
+  }
+  
+  /** See {@link org.sonarlint.eclipse.ui.internal.popup.SurveyPopup} for more information */
+  public static void setUserSurveyLastLink(String link) {
+    setPreferenceString(PREF_USER_SURVEY_LAST_LINK, link);
+  }
+  
+  /** See {@link org.sonarlint.eclipse.ui.internal.popup.SoonUnsupportedPopup} for more information */
+  public static boolean alreadySoonUnsupportedConnection(String connectionVersionCombination) {
+    var currentPreference = getPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS);
+    if (PREF_DEFAULT.equals(currentPreference)) {
+      return false;
+    }
+    
+    return Set.of(currentPreference.split(",")).contains(connectionVersionCombination);
+  }
+  
+  /** See {@link org.sonarlint.eclipse.ui.internal.popup.SoonUnsupportedPopup} for more information */
+  public static void addSoonUnsupportedConnection(String connectionVersionCombination) {
+    var currentPreference = getPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS);
+    if (PREF_DEFAULT.equals(currentPreference)) {
+      setPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS, connectionVersionCombination);
+      return;
+    }
+    
+    var currentConnections = new HashSet<String>(Arrays.asList(currentPreference.split(",")));
+    currentConnections.add(connectionVersionCombination);
+    
+    setPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS, String.join(",", currentConnections));
+  }
 }

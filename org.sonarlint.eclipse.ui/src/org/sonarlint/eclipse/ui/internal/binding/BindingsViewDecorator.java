@@ -19,13 +19,20 @@
  */
 package org.sonarlint.eclipse.ui.internal.binding;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.eclipse.jface.viewers.IDecoration;
 import org.eclipse.jface.viewers.ILightweightLabelDecorator;
 import org.eclipse.jface.viewers.LabelProvider;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.engine.connected.RemoteSonarProject;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
+import org.sonarlint.eclipse.core.internal.vcs.VcsService;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarsource.sonarlint.core.commons.log.SonarLintLogger;
 
 public class BindingsViewDecorator extends LabelProvider implements ILightweightLabelDecorator {
 
@@ -36,8 +43,36 @@ public class BindingsViewDecorator extends LabelProvider implements ILightweight
     if (element instanceof RemoteSonarProject) {
       addSuffix(decoration, ((RemoteSonarProject) element).getProjectKey());
     } else if (element instanceof ISonarLintProject) {
-      var projectConfig = SonarLintCorePlugin.loadConfig(((ISonarLintProject) element));
-      projectConfig.getProjectBinding().ifPresent(b -> decoration.addSuffix(" /" + b.serverPathPrefix()));
+      var project = (ISonarLintProject) element;
+      var projectConfig = SonarLintCorePlugin.loadConfig(project);
+      projectConfig.getProjectBinding().ifPresent(eclipseProjectBinding -> {
+        List<String> infos = new ArrayList<>();
+        VcsService.getServerBranch(project).ifPresent(b -> infos.add("Branch: '" + b + "'"));
+
+        appendNewCodePeriod(project, infos);
+
+        if (StringUtils.isNotBlank(eclipseProjectBinding.idePathPrefix())) {
+          infos.add("IDE directory: '/" + eclipseProjectBinding.idePathPrefix() + "'");
+        }
+        if (StringUtils.isNotBlank(eclipseProjectBinding.serverPathPrefix())) {
+          infos.add("Sonar directory: '/" + eclipseProjectBinding.serverPathPrefix() + "'");
+        }
+        addSuffix(decoration, infos.stream().collect(Collectors.joining(", ")));
+      });
+    }
+  }
+
+  private static void appendNewCodePeriod(ISonarLintProject project, List<String> infos) {
+    // Should probably be cached once moving to RPC
+    try {
+      var response = SonarLintBackendService.get().getNewCodeDefinition(project).get();
+      if (response.isSupported()) {
+        infos.add("New Code Period: '" + response.getDescription() + "'");
+      }
+    } catch (ExecutionException e) {
+      SonarLintLogger.get().debug("Unable to get new code definition", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 

@@ -36,19 +36,19 @@ import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDo
 import org.sonarlint.eclipse.core.internal.utils.JobUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.clientapi.backend.issue.IssueStatus;
+import org.sonarsource.sonarlint.core.clientapi.backend.issue.ResolutionStatus;
 
+/** Job to be run after successfully marking an issue as resolved (either server or anticipated one) */
 public class MarkAsResolvedJob extends Job {
-
   private final ISonarLintProject project;
   private final String serverIssueKey;
-  private final IssueStatus newStatus;
+  private final ResolutionStatus newStatus;
   private final boolean isTaint;
   private final @Nullable String comment;
   private final ConnectedEngineFacade facade;
   private final ISonarLintFile file;
 
-  public MarkAsResolvedJob(ISonarLintProject project, ConnectedEngineFacade facade, ISonarLintFile file, String serverIssueKey, IssueStatus newStatus, @Nullable String comment,
+  public MarkAsResolvedJob(ISonarLintProject project, ConnectedEngineFacade facade, ISonarLintFile file, String serverIssueKey, ResolutionStatus newStatus, @Nullable String comment,
     boolean isTaint) {
     super("Marking issue as resolved");
     this.project = project;
@@ -85,6 +85,5 @@ public class MarkAsResolvedJob extends Job {
       Thread.currentThread().interrupt();
       return new Status(IStatus.CANCEL, SonarLintCorePlugin.PLUGIN_ID, e.getMessage(), e);
     }
-
   }
 }

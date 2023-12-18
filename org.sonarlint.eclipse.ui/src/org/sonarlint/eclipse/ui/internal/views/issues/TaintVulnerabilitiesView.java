@@ -24,6 +24,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Link;
+import org.sonarlint.eclipse.core.documentation.SonarLintDocumentation;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
 
@@ -45,9 +46,9 @@ public class TaintVulnerabilitiesView extends MarkerViewWithBottomPanel {
 
     var label = new Link(bottom, SWT.NONE);
     label.setText("This view displays taint vulnerabilities detected by SonarQube or SonarCloud. SonarLint does not detect those issues locally. <a>Learn more</a>");
-    label.addListener(SWT.Selection, e -> {
-      BrowserUtils.openExternalBrowser("https://github.com/SonarSource/sonarlint-eclipse/wiki/Taint-Vulnerabilities", e.display);
-    });
+    label.addListener(SWT.Selection,
+      e -> BrowserUtils.openExternalBrowser(SonarLintDocumentation.TAINT_VULNERABILITIES_LINK, e.display)
+    );
   }
 
 }

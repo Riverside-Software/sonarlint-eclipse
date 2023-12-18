@@ -19,66 +19,84 @@
  */
 package org.sonarlint.eclipse.ui.internal.rule;
 
-import java.util.Locale;
-import org.eclipse.jdt.annotation.Nullable;
+import java.util.ArrayList;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
-import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
-import org.sonarsource.sonarlint.core.commons.IssueSeverity;
-import org.sonarsource.sonarlint.core.commons.RuleType;
+import org.sonarsource.sonarlint.core.clientapi.backend.rules.AbstractRuleDto;
+import org.sonarsource.sonarlint.core.commons.ImpactSeverity;
+import org.sonarsource.sonarlint.core.commons.SoftwareQuality;
 
-/** Rule header containing all information excluding the title and description */
-public class RuleHeaderPanel extends Composite {
-  private final Label ruleTypeIcon;
-  private final Label ruleTypeLabel;
-  private final Label ruleSeverityIcon;
-  private final Label ruleSeverityLabel;
+/** Rule header for the new CCT */
+public class RuleHeaderPanel extends AbstractRuleHeaderPanel {
+  private final Label ruleCleanCodeAttributeLabel;
+  private final SoftwareQualityImpactPanel firstSoftwareQualityImpact;
+  private final SoftwareQualityImpactPanel secondSoftwareQualityImpact;
+  private final SoftwareQualityImpactPanel thirdSoftwareQualityImpact;
   private final Label ruleKeyLabel;
 
   public RuleHeaderPanel(Composite parent) {
-    super(parent, SWT.NONE);
-    setLayout(new GridLayout(5, false));
-
-    ruleTypeIcon = new Label(this, SWT.NONE);
-
-    ruleTypeLabel = new Label(this, SWT.NONE);
-
-    ruleSeverityIcon = new Label(this, SWT.NONE);
-
-    ruleSeverityLabel = new Label(this, SWT.LEFT);
-
+    super(parent, 5);
+    
+    ruleCleanCodeAttributeLabel = new Label(this, SWT.NONE);
+    firstSoftwareQualityImpact= new SoftwareQualityImpactPanel(this, SWT.NONE);
+    secondSoftwareQualityImpact = new SoftwareQualityImpactPanel(this, SWT.NONE);
+    thirdSoftwareQualityImpact = new SoftwareQualityImpactPanel(this, SWT.LEFT);
     ruleKeyLabel = new Label(this, SWT.LEFT);
     ruleKeyLabel.setLayoutData(new GridData(SWT.END, SWT.FILL, true, true));
   }
-
-  public void clearRule() {
-    ruleTypeIcon.setImage(null);
-    ruleTypeLabel.setText("");
-    ruleKeyLabel.setText("");
-    ruleSeverityIcon.setImage(null);
-    ruleSeverityLabel.setText("");
-    layout();
-  }
-
-  /** Updating the panel requires each element to adjust to the grid again */
-  public void updateRule(String ruleKey, RuleType type, IssueSeverity severity) {
-    ruleTypeIcon.setImage(SonarLintImages.getTypeImage(type));
-    ruleTypeLabel.setText(clean(type.toString()));
-    ruleKeyLabel.setText(ruleKey);
-    ruleSeverityIcon.setImage(SonarLintImages.getSeverityImage(severity));
-    ruleSeverityLabel.setText(clean(severity.toString()));
-    layout();
-  }
-
-  private static String clean(@Nullable String txt) {
-    if (txt == null) {
-      return "";
+  
+  @Override
+  public void updateRule(AbstractRuleDto ruleInformation) {
+    /** INFO: We assume that the Optional#isPresent() check was already done */
+    var attribute = ruleInformation.getCleanCodeAttribute().get();
+    ruleCleanCodeAttributeLabel.setText(
+      clean(attribute.getAttributeCategory().getIssueLabel()) + " | " + clean(attribute.getIssueLabel()));
+    ruleCleanCodeAttributeLabel.setToolTipText(
+      "Clean Code attributes are characteristics code needs to have to be considered clean.");
+    
+    var impacts = ruleInformation.getDefaultImpacts();
+    var keys = new ArrayList<SoftwareQuality>(impacts.keySet());
+    
+    firstSoftwareQualityImpact.updateRule(keys.get(0), impacts.get(keys.get(0)));
+    if (keys.size() > 1) {
+      secondSoftwareQualityImpact.updateRule(keys.get(1), impacts.get(keys.get(1)));
+      if (keys.size() > 2) {
+        thirdSoftwareQualityImpact.updateRule(keys.get(2), impacts.get(keys.get(2)));
+      }
     }
-    return StringUtils.capitalize(txt.toLowerCase(Locale.ENGLISH).replace("_", " "));
+    
+    ruleKeyLabel.setText(ruleInformation.getKey());
+    layout();
   }
+  
+  private static class SoftwareQualityImpactPanel extends Composite {
+    private final Label softwareQualityLabel;
+    private final Label impactSeverityIcon;
 
+    SoftwareQualityImpactPanel(Composite parent, int style) {
+      super(parent, style);
+      setLayout(new GridLayout(2, false));
+      
+      softwareQualityLabel = new Label(this, SWT.NONE);
+      impactSeverityIcon = new Label(this, SWT.LEFT);
+    }
+    
+    public void updateRule(SoftwareQuality quality, ImpactSeverity impact) {
+      var tooltip = createImpactToolTip(quality, impact);
+      
+      softwareQualityLabel.setText(quality.getDisplayLabel());
+      softwareQualityLabel.setToolTipText(tooltip);
+      impactSeverityIcon.setImage(SonarLintImages.getImpactImage(impact));
+      impactSeverityIcon.setToolTipText(tooltip);
+    }
+    
+    private static String createImpactToolTip(SoftwareQuality quality, ImpactSeverity impact) {
+      return "Issues found for this rule will have a " + impact.getDisplayLabel() +
+        " impact on the " + quality.getDisplayLabel() + " of your software.";
+    }
+  }
 }

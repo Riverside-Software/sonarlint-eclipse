@@ -31,6 +31,7 @@ public class RuleDescriptionViewIsLoaded extends AbstractWaitCondition {
 
   @Override
   public boolean test() {
+    ruleDescriptionView.open();
     return !"Loading...".equals(ruleDescriptionView.getRuleName().getText()) && !ruleDescriptionView.getFirstBrowser().getText().isBlank();
   }
 

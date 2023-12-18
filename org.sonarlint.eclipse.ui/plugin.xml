@@ -97,7 +97,7 @@
             class="org.sonarlint.eclipse.ui.internal.markers.MarkerPropertyTester"
             id="org.sonarlint.eclipse.ui.internal.quickFix"
             namespace="org.sonarlint.eclipse.ui"
-            properties="hasQuickFix,matchedOnServer"
+            properties="hasQuickFix,canBeResolved,resolvedIssue"
             type="org.eclipse.ui.views.markers.MarkerItem">
       </propertyTester>
   </extension>
@@ -289,35 +289,87 @@
         </markerFieldConfiguration>
 
       <markerGrouping
+            id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+            label="Impact">
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
+               label="High"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="4">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+               label="Medium"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="3">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+               label="Low"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="2">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable"
+               label="Impacts not available with old SonarQube connection"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="1">
+         </markerGroupingEntry>
+         <markerAttributeGrouping
+               attribute="sonarhighestimpact"
+               markerType="org.sonarlint.eclipse.core.sonarlintOnTheFlyProblem"
+               defaultGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable">
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
+                  value="HIGH">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+                  value="MEDIUM">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+                  value="LOW">
+            </markerAttributeMapping>
+         </markerAttributeGrouping>
+      </markerGrouping>
+
+      <markerGrouping
             id="org.sonarlint.eclipse.ui.issues.severityGrouping"
-            label="Severity">
+            label="Severity (Legacy)">
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.blocker"
                label="Blocker"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="5">
+               priority="6">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.critical"
                label="Critical"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="4">
+               priority="5">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.major"
                label="Major"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="3">
+               priority="4">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.minor"
                label="Minor"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="2">
+               priority="3">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.info"
                label="Info"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="2">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.noSeverityAvailable"
+               label="Legacy severity not available anymore"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
                priority="1">
          </markerGroupingEntry>
@@ -347,6 +399,7 @@
          </markerAttributeGrouping>
       </markerGrouping>
     </markerContentGenerator>
+    
     <markerContentGenerator
          id="org.sonarlint.eclipse.ui.views.issues.reportIssueMarkerGenerator"
          name="SonarLint Report Issue Marker Generator">
@@ -380,7 +433,119 @@
               name="All Issues"
               scope="ON_ANY">
         </markerFieldConfiguration>
+      
+      <markerGrouping
+            id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+            label="Impact">
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
+               label="High"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="4">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+               label="Medium"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="3">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+               label="Low"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="2">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable"
+               label="Impacts not available with old SonarQube connection"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="1">
+         </markerGroupingEntry>
+         <markerAttributeGrouping
+               attribute="sonarhighestimpact"
+               markerType="org.sonarlint.eclipse.core.sonarlintReportProblem"
+               defaultGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable">
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
+                  value="HIGH">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+                  value="MEDIUM">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+                  value="LOW">
+            </markerAttributeMapping>
+         </markerAttributeGrouping>
+      </markerGrouping>
+
+      <markerGrouping
+            id="org.sonarlint.eclipse.ui.issues.severityGrouping"
+            label="Severity (Legacy)">
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.blocker"
+               label="Blocker"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="6">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.critical"
+               label="Critical"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="5">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.major"
+               label="Major"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="4">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.minor"
+               label="Minor"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="3">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.info"
+               label="Info"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="2">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.noSeverityAvailable"
+               label="Legacy severity not available anymore"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="1">
+         </markerGroupingEntry>
+         <markerAttributeGrouping
+               attribute="sonarseverity"
+               markerType="org.sonarlint.eclipse.core.sonarlintReportProblem">
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.severityGrouping.blocker"
+                  value="BLOCKER">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.severityGrouping.critical"
+                  value="CRITICAL">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.severityGrouping.major"
+                  value="MAJOR">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.severityGrouping.minor"
+                  value="MINOR">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.severityGrouping.info"
+                  value="INFO">
+            </markerAttributeMapping>
+         </markerAttributeGrouping>
+      </markerGrouping>
     </markerContentGenerator>
+    
     <markerContentGenerator
          id="org.sonarlint.eclipse.ui.views.issues.taintIssueMarkerGenerator"
          name="SonarLint Taint Vulnerabilities Marker Generator">
@@ -413,41 +578,93 @@
         </markerFieldConfiguration>
 
       <markerGrouping
+            id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+            label="Impact">
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
+               label="High"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="4">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+               label="Medium"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="3">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+               label="Low"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="2">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable"
+               label="Impacts not available with old SonarQube connection"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="1">
+         </markerGroupingEntry>
+         <markerAttributeGrouping
+               attribute="sonarhighestimpact"
+               markerType="org.sonarlint.eclipse.core.sonarlintTaintVulnerability"
+               defaultGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable">
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
+                  value="HIGH">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+                  value="MEDIUM">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+                  value="LOW">
+            </markerAttributeMapping>
+         </markerAttributeGrouping>
+      </markerGrouping>
+
+      <markerGrouping
             id="org.sonarlint.eclipse.ui.issues.severityGrouping"
-            label="Severity">
+            label="Severity (Legacy)">
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.blocker"
                label="Blocker"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="5">
+               priority="6">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.critical"
                label="Critical"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="4">
+               priority="5">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.major"
                label="Major"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="3">
+               priority="4">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.minor"
                label="Minor"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
-               priority="2">
+               priority="3">
          </markerGroupingEntry>
          <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.severityGrouping.info"
                label="Info"
                markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
+               priority="2">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.severityGrouping.noSeverityAvailable"
+               label="Legacy severity not available anymore"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.severityGrouping"
                priority="1">
          </markerGroupingEntry>
          <markerAttributeGrouping
                attribute="sonarseverity"
-               markerType="org.sonarlint.eclipse.core.sonarlintOnTheFlyProblem">
+               markerType="org.sonarlint.eclipse.core.sonarlintTaintVulnerability">
             <markerAttributeMapping
                   markerGroupingEntry="org.sonarlint.eclipse.ui.issues.severityGrouping.blocker"
                   value="BLOCKER">
@@ -471,6 +688,7 @@
          </markerAttributeGrouping>
       </markerGrouping>
     </markerContentGenerator>
+    
     <markerField
         class="org.sonarlint.eclipse.ui.internal.views.issues.IssueDescriptionField"
         filterClass="org.eclipse.ui.internal.views.markers.DescriptionFieldFilter"
@@ -573,25 +791,23 @@
                  icon="icons/full/marker_resolution16/showrule.png"
                  style="push"
                  mnemonic="R">
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
            </command>
            <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.DeactivateRuleCommand"
                  icon="icons/full/marker_resolution16/disablerule.png"
                  style="push"
                  mnemonic="u">
-          <visibleWhen>
-             <with variable="activeMenuSelection">
-                <iterate ifEmpty="false">
-                    <adapt type="org.eclipse.core.resources.IMarker">
-                        <test property="org.sonarlint.eclipse.core.standalone"/>
-                    </adapt>
-                </iterate>
-             </with>
-          </visibleWhen>
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
          </command>
          <command
                  commandId="org.eclipse.jdt.ui.edit.text.java.correction.assist.proposals"
                  mnemonic="%command.correctionAssistProposals.mnemonic"
+                 icon="icons/full/marker_resolution16/quickfix_change.png"
                  style="push">
                <visibleWhen
                     checkEnabled="true">
@@ -605,6 +821,22 @@
                     checkEnabled="true">
               </visibleWhen>
          </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.ReOpenResolvedCommand"
+                 mnemonic="M"
+                 style="push">
+               <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
+         </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.HelpOnIconsCommand"
+                 icon="icons/full/marker_resolution16/info.png"
+                 style="push">
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
+         </command>
       </menuContribution>
       <menuContribution
             locationURI="popup:org.sonarlint.eclipse.ui.views.issues.TaintVulnerabilitiesView">
@@ -612,9 +844,20 @@
                  commandId="org.sonarlint.eclipse.ui.internal.command.OpenInBrowserCommand"
                  style="push"
                  mnemonic="O">
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
          </command>
          <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand"
+                 mnemonic="M"
+                 style="push">
+               <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
+         </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.ReOpenResolvedCommand"
                  mnemonic="M"
                  style="push">
                <visibleWhen
@@ -657,18 +900,40 @@
                  icon="icons/full/marker_resolution16/showrule.png"
                  style="push"
                  mnemonic="R">
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
          </command>
          <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.DeactivateRuleCommand"
                  icon="icons/full/marker_resolution16/disablerule.png"
                  style="push"
                  mnemonic="u">
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
          </command>
          <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.MarkAsResolvedCommand"
                  mnemonic="M"
                  style="push">
                <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
+         </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.ReOpenResolvedCommand"
+                 mnemonic="M"
+                 style="push">
+               <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
+         </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.HelpOnIconsCommand"
+                 icon="icons/full/marker_resolution16/info.png"
+                 style="push">
+                 <visibleWhen
                     checkEnabled="true">
               </visibleWhen>
          </command>
@@ -804,7 +1069,25 @@
                  icon="icons/full/marker_resolution16/showrule.png"
                  style="push"
                  mnemonic="R">
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
          </command>
+         <command
+                 commandId="org.sonarlint.eclipse.ui.internal.command.HelpOnIconsCommand"
+                 icon="icons/full/marker_resolution16/info.png"
+                 style="push">
+                 <visibleWhen
+                    checkEnabled="true">
+              </visibleWhen>
+         </command>
+      </menuContribution>
+      <menuContribution locationURI="toolbar:org.eclipse.ui.trim.status">
+      	<toolbar id="org.sonarlint.eclipse.ui.internal.sonarlintTrimStatus">
+      		<control
+      			class="org.sonarlint.eclipse.ui.internal.trim.StatusWidget"
+              	id="org.sonarlint.eclipse.ui.internal.sonarlintStatusWidget"/>
+        </toolbar>
       </menuContribution>
   </extension>
 
@@ -824,6 +1107,12 @@
           description="Deactivate the rule of this issue"
           id="org.sonarlint.eclipse.ui.internal.command.DeactivateRuleCommand"
           name="Deactivate rule"
+          categoryId="org.sonarlint.eclipse.ui.command.category">
+    </command>
+    <command
+          description="SonarLint issue icons"
+          id="org.sonarlint.eclipse.ui.internal.command.HelpOnIconsCommand"
+          name="What do the icons mean?"
           categoryId="org.sonarlint.eclipse.ui.command.category">
     </command>
     <command
@@ -874,20 +1163,62 @@
           name="Mark Issue as..."
           categoryId="org.sonarlint.eclipse.ui.command.category">
     </command>
+    <command
+          description="Re-Open already resolved issue"
+          id="org.sonarlint.eclipse.ui.internal.command.ReOpenResolvedCommand"
+          name="Re-Open resolved Issue..."
+          categoryId="org.sonarlint.eclipse.ui.command.category">
+    </command>
   </extension>
 
   <extension point="org.eclipse.ui.handlers">
     <handler
           class="org.sonarlint.eclipse.ui.internal.command.ShowRuleDescriptionCommand"
           commandId="org.sonarlint.eclipse.ui.internal.command.ShowRuleDescriptionCommand">
+          <enabledWhen>
+            <and>
+                 <with variable="activeMenuSelection">
+                     <iterate ifEmpty="false">
+                         <adapt type="org.eclipse.core.resources.IMarker"/>
+                     </iterate>
+                </with>
+                <count value="1"/>
+            </and>
+         </enabledWhen>
+    </handler>
+    <handler
+          class="org.sonarlint.eclipse.ui.internal.command.HelpOnIconsCommand"
+          commandId="org.sonarlint.eclipse.ui.internal.command.HelpOnIconsCommand">
     </handler>
     <handler
           class="org.sonarlint.eclipse.ui.internal.command.DeactivateRuleCommand"
           commandId="org.sonarlint.eclipse.ui.internal.command.DeactivateRuleCommand">
+          <enabledWhen>
+            <and>
+                 <with variable="activeMenuSelection">
+                     <iterate ifEmpty="false">
+                       <adapt type="org.eclipse.core.resources.IMarker">
+                         <test property="org.sonarlint.eclipse.core.standalone"/>
+                       </adapt>
+                     </iterate>
+                </with>
+                <count value="1"/>
+            </and>
+         </enabledWhen>
     </handler>
     <handler
           class="org.sonarlint.eclipse.ui.internal.command.OpenInBrowserCommand"
           commandId="org.sonarlint.eclipse.ui.internal.command.OpenInBrowserCommand">
+          <enabledWhen>
+            <and>
+                 <with variable="activeMenuSelection">
+                     <iterate ifEmpty="false">
+                         <adapt type="org.eclipse.core.resources.IMarker"/>
+                     </iterate>
+                </with>
+                <count value="1"/>
+            </and>
+         </enabledWhen>
     </handler>
     <handler
           class="org.sonarlint.eclipse.ui.internal.command.AnalyzeCommand"
@@ -988,7 +1319,26 @@
                      operator="or">
                   <instanceof value="org.eclipse.ui.views.markers.MarkerItem"/>
                   <test
-                        property="org.sonarlint.eclipse.ui.matchedOnServer">
+                        property="org.sonarlint.eclipse.ui.canBeResolved">
+                  </test>
+               </iterate>
+               <count
+                     value="+">
+               </count>
+            </and>
+         </enabledWhen>
+      </handler>
+      <handler
+          class="org.sonarlint.eclipse.ui.internal.command.ReOpenResolvedCommand"
+          commandId="org.sonarlint.eclipse.ui.internal.command.ReOpenResolvedCommand">
+          <enabledWhen>
+            <and>
+               <iterate
+                     ifEmpty="false"
+                     operator="or">
+                  <instanceof value="org.eclipse.ui.views.markers.MarkerItem"/>
+                  <test
+                        property="org.sonarlint.eclipse.ui.resolvedIssue">
                   </test>
                </iterate>
                <count
@@ -1015,6 +1365,9 @@
     <image
       commandId="org.sonarlint.eclipse.ui.internal.command.UnbindProjectsCommand"
       icon="icons/full/menu16/disconnect_co.png" />
+    <image
+      commandId="org.sonarlint.eclipse.ui.internal.command.ExcludeCommand"
+      icon="icons/exclude.png" />
   </extension>
 
    <extension
@@ -1044,7 +1397,7 @@
               colorPreferenceValue="30,144,255"
               highlightPreferenceKey="org.sonarlint.eclipse.ui.issue.highlight"
               highlightPreferenceValue="false"
-              icon="icons/sonarlint-16x16.png"
+              icon="icons/logo/sonarlint-16px.png"
               isGoToNextNavigationTarget="true"
               isGoToNextNavigationTargetKey="org.sonarlint.eclipse.issue.next"
               isGoToPreviousNavigationTarget="true"
@@ -1069,7 +1422,7 @@
               colorPreferenceValue="242,222,222"
               highlightPreferenceKey="org.sonarlint.eclipse.ui.issueFlow.highlight"
               highlightPreferenceValue="false"
-              icon="icons/sonarlint-16x16.png"
+              icon="icons/logo/sonarlint-16px.png"
               isGoToNextNavigationTarget="true"
               isGoToNextNavigationTargetKey="org.sonarlint.eclipse.issueFlow.next"
               isGoToPreviousNavigationTarget="true"
@@ -1152,7 +1505,7 @@
         point="org.eclipse.ui.console.consoleFactories">
      <consoleFactory
            class="org.sonarlint.eclipse.ui.internal.console.SonarLintConsoleFactory"
-           icon="icons/sonarlint-16x16.png"
+           icon="icons/logo/sonarlint-16px.png"
            label="%consoleFactory.label">
      </consoleFactory>
   </extension>
@@ -1172,7 +1525,7 @@
      <menuContribution
            locationURI="popup:org.eclipse.ui.popup.any?after=additions">
         <menu
-              icon="icons/sonarlint-16x16.png"
+              icon="icons/logo/sonarlint-16px.png"
               id="sonar.menu"
               label="%sonar.menu.label">
            <separator

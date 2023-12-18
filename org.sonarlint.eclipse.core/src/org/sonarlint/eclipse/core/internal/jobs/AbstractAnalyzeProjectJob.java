@@ -55,10 +55,10 @@ import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDo
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.resources.SonarLintProperty;
-import org.sonarlint.eclipse.core.internal.tracking.IssueTracker;
+import org.sonarlint.eclipse.core.internal.tracking.ProjectIssueTracker;
 import org.sonarlint.eclipse.core.internal.tracking.RawIssueTrackable;
-import org.sonarlint.eclipse.core.internal.tracking.Trackable;
 import org.sonarlint.eclipse.core.internal.utils.FileExclusionsChecker;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
@@ -300,34 +300,50 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
     ResourcesPlugin.getWorkspace().run(m -> trackIssues(docPerFile, successfulFiles, triggerType, monitor), monitor);
   }
 
-  protected void trackIssues(Map<ISonarLintFile, IDocument> docPerFile, Map<ISonarLintIssuable, List<Issue>> rawIssuesPerResource, TriggerType triggerType,
+  protected void trackIssues(Map<ISonarLintFile, IDocument> docPerFile,
+    Map<ISonarLintIssuable, List<Issue>> rawIssuesPerResource, TriggerType triggerType,
     final IProgressMonitor monitor) {
+    if (rawIssuesPerResource.entrySet().isEmpty()) {
+      return;
+    }
+    
+    // To access the preference service only once and not per issue
+    var issueFilterPreference = SonarLintGlobalConfiguration.getIssueFilter();
+    
+    // To access the preference service only once and not per issue
+    var issuePeriodPreference = SonarLintGlobalConfiguration.getIssuePeriod();
+    
+    // If the project connection offers changing the status on anticipated issues (SonarQube 10.2+) we can enable the
+    // context menu option on the markers.
+    var viableForStatusChange = SonarLintUtils.checkProjectSupportsAnticipatedStatusChange(getProject());
 
+    var issueTracker = SonarLintCorePlugin.getOrCreateIssueTracker(getProject());
+    
     for (var entry : rawIssuesPerResource.entrySet()) {
       if (monitor.isCanceled()) {
         return;
       }
       var file = (ISonarLintFile) entry.getKey();
       var openedDocument = Optional.ofNullable(docPerFile.get(file));
-      var issueTracker = SonarLintCorePlugin.getOrCreateIssueTracker(getProject());
       var rawIssues = entry.getValue();
-      List<Trackable> trackables;
+      List<RawIssueTrackable> trackables;
       if (!rawIssues.isEmpty()) {
         var document = openedDocument.orElseGet(file::getDocument);
         trackables = rawIssues.stream().map(issue -> transform(issue, file, document)).collect(Collectors.toList());
       } else {
         trackables = Collections.emptyList();
       }
-      var tracked = trackFileIssues(file, trackables, issueTracker, triggerType, rawIssuesPerResource.size(), monitor);
-      SonarLintMarkerUpdater.createOrUpdateMarkers(file, openedDocument, tracked, triggerType);
-      // Now that markerId are set, store issues in cache
-      issueTracker.updateCache(file, tracked);
+      trackFileIssues(file, trackables, issueTracker, triggerType, rawIssuesPerResource.size(), monitor);
+      var tracked = issueTracker.getTracked(file);
+      SonarLintMarkerUpdater.createOrUpdateMarkers(file, openedDocument, tracked, triggerType, issuePeriodPreference,
+        issueFilterPreference, viableForStatusChange);
     }
   }
 
-  protected Collection<Trackable> trackFileIssues(ISonarLintFile file, List<Trackable> trackables, IssueTracker issueTracker, TriggerType triggerType, int totalTrackedFiles,
+  protected void trackFileIssues(ISonarLintFile file, List<RawIssueTrackable> trackables, ProjectIssueTracker issueTracker, TriggerType triggerType,
+    int totalTrackedFiles,
     IProgressMonitor monitor) {
-    return issueTracker.matchAndTrackAsNew(file, trackables);
+    issueTracker.processRawIssues(file, trackables);
   }
 
   private static RawIssueTrackable transform(Issue issue, ISonarLintFile resource, IDocument document) {
@@ -335,10 +351,9 @@ public abstract class AbstractAnalyzeProjectJob<CONFIG extends AbstractAnalysisC
     if (startLine == null) {
       return new RawIssueTrackable(issue);
     }
-    var textRange = issue.getTextRange();
-    var textRangeContent = readTextRangeContent(resource, document, textRange);
+    var textRangeContent = readTextRangeContent(resource, document, issue.getTextRange());
     var lineContent = readLineContent(resource, document, startLine);
-    return new RawIssueTrackable(issue, textRange, textRangeContent, lineContent);
+    return new RawIssueTrackable(issue, textRangeContent, lineContent);
   }
 
   @Nullable

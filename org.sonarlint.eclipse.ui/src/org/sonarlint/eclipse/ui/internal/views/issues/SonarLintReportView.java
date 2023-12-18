@@ -26,16 +26,17 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Link;
+import org.sonarlint.eclipse.core.documentation.SonarLintDocumentation;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
+import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
 
 public class SonarLintReportView extends MarkerViewWithBottomPanel {
-
   public static final String ID = SonarLintUiPlugin.PLUGIN_ID + ".views.issues.ChangeSetIssuesView";
   private static LocalDateTime reportDate;
   private static String reportTitle;
   private static SonarLintReportView instance;
-  private Label label;
+  private Link label;
   private Composite bottom;
 
   public SonarLintReportView() {
@@ -58,15 +59,17 @@ public class SonarLintReportView extends MarkerViewWithBottomPanel {
     var bottomLayoutData = new GridData(SWT.FILL, SWT.FILL, true, false);
     bottom.setLayoutData(bottomLayoutData);
 
-    label = new Label(bottom, SWT.NONE);
+    label = new Link(bottom, SWT.NONE);
+    label.addListener(SWT.Selection,
+      e -> BrowserUtils.openExternalBrowser(SonarLintDocumentation.REPORT_VIEW_LINK, e.display));
     refreshText();
   }
 
   private void refreshText() {
     if (reportTitle != null) {
-      label.setText(reportTitle + " (at " + DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(reportDate) + ")");
+      label.setText(reportTitle + " (at " + DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(reportDate) + "). <a>Learn more</a>");
     } else {
-      label.setText("Run the analysis from the SonarLint context menu to find issues in the SCM change set or in all your project files");
+      label.setText("Run the analysis from the SonarLint context menu to find issues in the SCM change set or in all your project files. <a>Learn more</a>");
     }
   }
 
@@ -78,5 +81,4 @@ public class SonarLintReportView extends MarkerViewWithBottomPanel {
       instance.bottom.requestLayout();
     }
   }
-
 }
