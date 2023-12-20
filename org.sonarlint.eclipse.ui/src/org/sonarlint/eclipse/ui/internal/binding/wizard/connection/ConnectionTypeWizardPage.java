@@ -68,7 +68,8 @@ public class ConnectionTypeWizardPage extends WizardPage {
 
     var sonarCloudLabel = new Label(radioButtonGroupContainer, SWT.WRAP);
     sonarCloudLabel.setText("A Software-as-a-Service (SaaS) tool that easily integrates into the cloud DevOps platforms "
-      + "and extends the CI/CD workflow to systematically help developers and organizations deliver Clean Code.");
+      + "and extends the CI/CD workflow to systematically help developers and organizations deliver Clean Code.\n"
+      + "The ABL Plugin is not compatible with SonarCloud");
     sonarCloudLabel.setLayoutData(gd);
 
     var sonarQubeLabel = new Label(radioButtonGroupContainer, SWT.WRAP);
@@ -77,7 +78,7 @@ public class ConnectionTypeWizardPage extends WizardPage {
     sonarQubeLabel.setLayoutData(gd);
 
     var sonarCloudFreeLabel = new Link(radioButtonGroupContainer, SWT.WRAP);
-    sonarCloudFreeLabel.setText("<a>SonarCloud</a> is entirely free for open source projects. Not compatible with ABL plugin.");
+    sonarCloudFreeLabel.setText("<a>SonarCloud</a> is entirely free for open source projects.");
     sonarCloudFreeLabel.setLayoutData(gd);
     sonarCloudFreeLabel.addListener(SWT.Selection, e -> BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.SONARCLOUD_PRODUCT_PAGE, e.display));
 
