@@ -27,7 +27,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -313,7 +313,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
     boolean overwrite = plList.stream().anyMatch(it -> new File(it).lastModified() > timeStamp);
     if (overwrite) {
       try (OutputStream out = new FileOutputStream(slintPL);
-           OutputStreamWriter osw = new OutputStreamWriter(out, Charset.forName("utf-8"));
+           OutputStreamWriter osw = new OutputStreamWriter(out, StandardCharsets.UTF_8);
            BufferedWriter writer = new BufferedWriter(osw)) {
         for (String entry : plList) {
           try {
@@ -364,7 +364,7 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
 
     SonarLintLogger.get().debug("Generating schema file for: " + ref.getDatabaseName());
     serFile.getParentFile().mkdirs();
-    try (OutputStream out = new FileOutputStream(serFile); OutputStreamWriter osw = new OutputStreamWriter(out, Charset.forName("utf-8")); BufferedWriter writer = new BufferedWriter(osw)) {
+    try (OutputStream out = new FileOutputStream(serFile); OutputStreamWriter osw = new OutputStreamWriter(out, StandardCharsets.UTF_8); BufferedWriter writer = new BufferedWriter(osw)) {
       writer.write("## " + ref.getDatabaseTimeStamp());
       writer.newLine();
       // Sort by table name name
