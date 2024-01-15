@@ -188,7 +188,9 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
         SonarLintLogger.get().error("Error ! " + caught.getMessage());
       }
     } else {
-      SonarLintLogger.get().info("PDSOE currently building code model, rcode information not yet available");
+      SonarLintLogger.get().debug("PDSOE currently building code model, rcode information not refreshed");
+      if (Files.isReadable(slintRC))
+        context.setAnalysisProperty("sonar.oe.lint.rcode.cache", slintRC.toAbsolutePath().toString());
     }
 
     boolean hasDB = false;
