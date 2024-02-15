@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -33,13 +33,15 @@ import org.eclipse.reddeer.common.wait.WaitUntil;
 import org.eclipse.reddeer.common.wait.WaitWhile;
 import org.eclipse.reddeer.core.condition.WidgetIsFound;
 import org.eclipse.reddeer.core.matcher.WithTextMatcher;
+import org.eclipse.reddeer.eclipse.core.resources.Project;
+import org.eclipse.reddeer.swt.impl.menu.ContextMenu;
 import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
 import org.eclipse.swt.widgets.Label;
 import org.junit.Before;
 import org.osgi.framework.FrameworkUtil;
+import org.sonarlint.eclipse.its.reddeer.dialogs.ProjectSelectionDialog;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView;
 import org.sonarlint.eclipse.its.reddeer.wizards.ProjectBindingWizard;
-import org.sonarlint.eclipse.its.reddeer.wizards.ProjectSelectionDialog;
 import org.sonarlint.eclipse.its.reddeer.wizards.ServerConnectionWizard;
 import org.sonarqube.ws.client.WsClient;
 import org.sonarqube.ws.client.project.CreateRequest;
@@ -74,7 +76,7 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
   }
   
   /** Create a project on SonarQube via Web API with corresponding quality profile assigned */
-  public void createProjectOnSonarQube(OrchestratorRule orchestrator, String projectKey, String qualityProfile) {
+  public static void createProjectOnSonarQube(OrchestratorRule orchestrator, String projectKey, String qualityProfile) {
     adminWsClient.projects()
       .create(CreateRequest.builder()
         .setName(projectKey)
@@ -84,7 +86,7 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
   }
   
   /** Run Maven build on specific project in folder with optional additional analysis properties */
-  public void runMavenBuild(OrchestratorRule orchestrator, String projectKey, String folder, String path,
+  public static void runMavenBuild(OrchestratorRule orchestrator, String projectKey, String folder, String path,
     Map<String, String> analysisProperties) {
     var build = MavenBuild.create(new File(folder, path))
       .setCleanPackageSonarGoals()
@@ -144,7 +146,7 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
     projectsToBindPage.clickAdd();
 
     var projectSelectionDialog = new ProjectSelectionDialog();
-    projectSelectionDialog.setProjectName(projectKey);
+    projectSelectionDialog.filterProjectName(projectKey);
     projectSelectionDialog.ok();
 
     projectBindingWizard.next();
@@ -153,6 +155,23 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
     serverProjectSelectionPage.setProjectKey(projectKey);
     projectBindingWizard.finish();
 
+    var bindingsView = new BindingsView();
+    bindingsView.open();
+    bindingsView.updateAllProjectBindings();
+    new WaitWhile(new JobIsRunning(), TimePeriod.LONG);
+  }
+  
+  protected static void bindProjectFromContextMenu(Project project, String projectKey) {
+    new ContextMenu(project.getTreeItem()).getItem("SonarLint", "Bind to SonarQube or SonarCloud...").select();
+    
+    var projectBindingWizard = new ProjectBindingWizard();
+    projectBindingWizard.next();
+    
+    var serverProjectSelectionPage = new ProjectBindingWizard.ServerProjectSelectionPage(projectBindingWizard);
+    serverProjectSelectionPage.waitForProjectsToBeFetched();
+    serverProjectSelectionPage.setProjectKey(projectKey);
+    projectBindingWizard.finish();
+    
     var bindingsView = new BindingsView();
     bindingsView.open();
     bindingsView.updateAllProjectBindings();

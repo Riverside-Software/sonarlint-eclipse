@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -17,40 +17,27 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.its.reddeer.wizards;
+package org.sonarlint.eclipse.its.reddeer.dialogs;
 
-import org.eclipse.reddeer.core.reference.ReferencedComposite;
-import org.eclipse.reddeer.swt.impl.button.PredefinedButton;
-import org.eclipse.reddeer.swt.impl.button.RadioButton;
+import org.eclipse.reddeer.swt.impl.button.OkButton;
+import org.eclipse.reddeer.swt.impl.label.DefaultLabel;
 import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.swt.impl.text.DefaultText;
-import org.eclipse.swt.SWT;
 
-public class MarkIssueAsDialog extends DefaultShell {
-  public MarkIssueAsDialog() {
-    super("Mark Issue as Resolved on SonarQube");
-  }
-  
-  public void selectWontFix() {
-    new RadioButton(this).click();
+public class ProjectSelectionDialog extends DefaultShell {
+  public ProjectSelectionDialog() {
+    super("SonarLint - Project Selection");
   }
 
-  public void selectFalsePositive() {
-    new RadioButton(this, 1).click();
-  }
-  
-  public void setComment(String comment) {
-    new DefaultText(this).setText(comment);
+  public void filterProjectName(String projectName) {
+    new DefaultText(this).setText(projectName);
   }
 
   public void ok() {
-    new MarkAsResolvedButton(this).click();
-    
+    new OkButton(this).click();
   }
-  
-  private static class MarkAsResolvedButton extends PredefinedButton {
-    public MarkAsResolvedButton(ReferencedComposite referencedComposite) {
-      super(referencedComposite, 0, "Mark as resolved", SWT.PUSH);
-    }
+
+  public String getMessage() {
+    return new DefaultLabel().getText();
   }
 }

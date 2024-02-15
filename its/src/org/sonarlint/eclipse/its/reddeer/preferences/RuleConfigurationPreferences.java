@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -66,6 +66,10 @@ public class RuleConfigurationPreferences extends PropertyPage {
 
   public Spinner getRuleParamSpinner() {
     return new DefaultSpinner();
+  }
+  
+  public void cancel() {
+    ((WorkbenchPreferenceDialog) referencedComposite).cancel();
   }
 
   public void ok() {

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -56,7 +56,7 @@ public class PeriodicStoragesSynchronizerJob extends Job {
           var boundProjectKeys = connection.getBoundProjectKeys();
           connection.scheduledSync(boundProjectKeys, serverMonitor);
           AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.BINDING_CHANGE,
-            f -> SonarLintUtils.isBoundToConnection(f, connection));
+            f -> SonarLintUtils.isBoundToConnection(f, connection), true);
           // TODO Refresh taints
         } catch (Exception e) {
           SonarLintLogger.get().error("Unable to synchronize local storage for connection '" + connection.getId() + "'", e);

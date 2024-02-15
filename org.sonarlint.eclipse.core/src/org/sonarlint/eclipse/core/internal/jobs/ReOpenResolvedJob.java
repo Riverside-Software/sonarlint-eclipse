@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -57,7 +57,7 @@ public class ReOpenResolvedJob extends Job {
       new TaintIssuesUpdateAfterSyncJob(facade, project, List.of(file)).schedule();
     } else {
       var request = new AnalyzeProjectRequest(project, List.of(new FileWithDocument(file, null)),
-        TriggerType.AFTER_RESOLVE);
+        TriggerType.AFTER_RESOLVE, false, false);
       AbstractAnalyzeProjectJob.create(request).schedule();
     }
     return Status.OK_STATUS;

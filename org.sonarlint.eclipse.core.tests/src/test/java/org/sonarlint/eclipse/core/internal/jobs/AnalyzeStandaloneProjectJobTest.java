@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -109,7 +109,8 @@ public class AnalyzeStandaloneProjectJobTest extends SonarTestCase {
     ruleConfig.getParams().put("format", "^[0-9]+$");
     SonarLintGlobalConfiguration.saveRulesConfig(List.of(ruleConfig));
 
-    var underTest = new AnalyzeStandaloneProjectJob(new AnalyzeProjectRequest(slProject, List.of(fileToAnalyze), TriggerType.EDITOR_CHANGE));
+    var underTest = new AnalyzeStandaloneProjectJob(new AnalyzeProjectRequest(slProject, List.of(fileToAnalyze),
+      TriggerType.EDITOR_CHANGE, false, true));
     underTest.schedule();
     assertThat(underTest.join(100_000, new NullProgressMonitor())).isTrue();
     var status = underTest.getResult();
@@ -131,7 +132,7 @@ public class AnalyzeStandaloneProjectJobTest extends SonarTestCase {
 
     try {
       var underTest = new AnalyzeStandaloneProjectJob(
-        new AnalyzeProjectRequest(slProject, List.of(file1ToAnalyze, file2ToAnalyze), TriggerType.EDITOR_CHANGE));
+        new AnalyzeProjectRequest(slProject, List.of(file1ToAnalyze, file2ToAnalyze), TriggerType.EDITOR_CHANGE, false, false));
       underTest.schedule();
       assertThat(underTest.join(100_000, new NullProgressMonitor())).isTrue();
       assertThat(underTest.getResult().isOK()).isTrue();
@@ -168,7 +169,7 @@ public class AnalyzeStandaloneProjectJobTest extends SonarTestCase {
 
     try {
       var underTest = new AnalyzeStandaloneProjectJob(
-        new AnalyzeProjectRequest(slProject, List.of(file1ToAnalyze, file2ToAnalyze), TriggerType.MANUAL, true));
+        new AnalyzeProjectRequest(slProject, List.of(file1ToAnalyze, file2ToAnalyze), TriggerType.MANUAL, true, false));
       underTest.schedule();
       assertThat(underTest.join(100_000, new NullProgressMonitor())).isTrue();
       assertThat(underTest.getResult().isOK()).isTrue();
@@ -202,7 +203,8 @@ public class AnalyzeStandaloneProjectJobTest extends SonarTestCase {
     var slProject = new DefaultSonarLintProjectAdapter(project);
     var fileToAnalyze = new FileWithDocument(new DefaultSonarLintFileAdapter(slProject, file), null);
 
-    var underTest = new AnalyzeStandaloneProjectJob(new AnalyzeProjectRequest(slProject, List.of(fileToAnalyze), TriggerType.EDITOR_CHANGE));
+    var underTest = new AnalyzeStandaloneProjectJob(
+      new AnalyzeProjectRequest(slProject, List.of(fileToAnalyze), TriggerType.EDITOR_CHANGE, false, false));
     underTest.schedule();
     assertThat(underTest.join(20_000, new NullProgressMonitor())).isTrue();
     var status = underTest.getResult();

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -104,8 +104,19 @@ public abstract class AbstractSonarLintTest {
   @ClassRule
   public static final TemporaryFolder tempFolder = new TemporaryFolder();
   
+  @BeforeClass
+  public static final void setUpBeforeClass() {
+    System.setProperty("sonarlint.internal.ignoreEnhancedFeature", "true");
+    System.setProperty("sonarlint.internal.ignoreMissingFeature", "true");
+    System.setProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning", "true");
+  }
+  
   @AfterClass
   public static final void cleanupAfterClass() {
+    System.clearProperty("sonarlint.internal.ignoreEnhancedFeature");
+    System.clearProperty("sonarlint.internal.ignoreMissingFeature");
+    System.clearProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning");
+    
     // remove warning about soon unsupported version (there can be multiple)
     if ("oldest".equals(System.getProperty("target.platform"))) {
       while (true) {

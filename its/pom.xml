@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>70.0.0.270</version>
+    <version>71.0.0.1292</version>
     <relativePath />
   </parent>
 
@@ -34,7 +34,7 @@
    <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>3.21.9</version>
+      <version>3.25.1</version>
       <type>jar</type>
     </dependency>
   </dependencies>
@@ -164,8 +164,8 @@
           <appArgLine>-eclipse.keyring target/keyring -eclipse.password secure-storage-password.txt -pluginCustomization
             ${project.basedir}/plugin_customization.ini</appArgLine>
           
-          <!-- Kill test JVM if tests take more than 45 minutes (2700 seconds) to finish -->
-          <forkedProcessTimeoutInSeconds>2700</forkedProcessTimeoutInSeconds>
+          <!-- Kill test JVM if tests take more than 60 minutes (3600 seconds) to finish -->
+          <forkedProcessTimeoutInSeconds>3600</forkedProcessTimeoutInSeconds>
           
           <redirectTestOutputToFile>true</redirectTestOutputToFile>
           <systemProperties>

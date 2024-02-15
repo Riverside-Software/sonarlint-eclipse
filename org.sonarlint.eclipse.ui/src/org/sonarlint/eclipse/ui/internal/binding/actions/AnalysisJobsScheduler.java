@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -42,21 +42,7 @@ public class AnalysisJobsScheduler {
   private AnalysisJobsScheduler() {
     // utility class, forbidden constructor
   }
-
-  /**
-   * Schedule analysis of open files of a project.
-   * Use null for project parameter to analyze open files in all projects.
-   */
-  public static void scheduleAnalysisOfOpenFiles(@Nullable ISonarLintProject project, TriggerType triggerType, Predicate<ISonarLintFile> filter) {
-    var filesByProject = PlatformUtils.collectOpenedFiles(project, filter);
-
-    for (var entry : filesByProject.entrySet()) {
-      var aProject = entry.getKey();
-      var request = new AnalyzeProjectRequest(aProject, entry.getValue(), triggerType);
-      scheduleAutoAnalysisIfEnabled(request);
-    }
-  }
-
+  
   public static void scheduleAutoAnalysisIfEnabled(AnalyzeProjectRequest request) {
     var project = request.getProject();
     if (!project.isOpen()) {
@@ -68,24 +54,42 @@ public class AnalysisJobsScheduler {
     }
   }
 
-  public static void scheduleAnalysisOfOpenFiles(@Nullable ISonarLintProject project, TriggerType triggerType) {
-    scheduleAnalysisOfOpenFiles(project, triggerType, f -> true);
+  /**
+   * Schedule analysis of open files of a project.
+   * Use null for project parameter to analyze open files in all projects.
+   */
+  public static void scheduleAnalysisOfOpenFiles(@Nullable ISonarLintProject project, TriggerType triggerType,
+    Predicate<ISonarLintFile> filter, boolean unavailableLanguagesCheck) {
+    var filesByProject = PlatformUtils.collectOpenedFiles(project, filter);
+
+    for (var entry : filesByProject.entrySet()) {
+      var aProject = entry.getKey();
+      var request = new AnalyzeProjectRequest(aProject, entry.getValue(), triggerType, false, unavailableLanguagesCheck);
+      scheduleAutoAnalysisIfEnabled(request);
+    }
   }
 
-  public static void scheduleAnalysisOfOpenFiles(List<ISonarLintProject> projects, TriggerType triggerType) {
-    projects.forEach(p -> scheduleAnalysisOfOpenFiles(p, triggerType));
+  public static void scheduleAnalysisOfOpenFiles(@Nullable ISonarLintProject project, TriggerType triggerType) {
+    scheduleAnalysisOfOpenFiles(project, triggerType, f -> true, true);
+  }
+
+  public static void scheduleAnalysisOfOpenFiles(List<ISonarLintProject> projects, TriggerType triggerType,
+    boolean unavailableLanguagesCheck) {
+    projects.forEach(p -> scheduleAnalysisOfOpenFiles(p, triggerType, f -> true, unavailableLanguagesCheck));
+  }
+
+  public static void scheduleAnalysisOfOpenFiles(Job job, List<ISonarLintProject> projects, TriggerType triggerType,
+    boolean unsupportedLanguageCheck) {
+    JobUtils.scheduleAfterSuccess(job, () -> scheduleAnalysisOfOpenFiles(projects, triggerType, unsupportedLanguageCheck));
   }
 
   public static void scheduleAnalysisOfOpenFilesInBoundProjects(IConnectedEngineFacade server, TriggerType triggerType) {
-    scheduleAnalysisOfOpenFiles(server.getBoundProjects(), triggerType);
+    scheduleAnalysisOfOpenFiles(server.getBoundProjects(), triggerType, false);
   }
 
-  public static void scheduleAnalysisOfOpenFiles(Job job, List<ISonarLintProject> projects, TriggerType triggerType) {
-    JobUtils.scheduleAfterSuccess(job, () -> scheduleAnalysisOfOpenFiles(projects, triggerType));
-  }
-
-  public static void scheduleAnalysisOfOpenFilesInBoundProjects(Job job, IConnectedEngineFacade server, TriggerType triggerType) {
-    scheduleAnalysisOfOpenFiles(job, server.getBoundProjects(), triggerType);
+  public static void scheduleAnalysisOfOpenFilesInBoundProjects(Job job, IConnectedEngineFacade server,
+    TriggerType triggerType) {
+    scheduleAnalysisOfOpenFiles(job, server.getBoundProjects(), triggerType, false);
   }
 
   public static void notifyServerViewAfterBindingChange(ISonarLintProject project, @Nullable String oldServerId) {

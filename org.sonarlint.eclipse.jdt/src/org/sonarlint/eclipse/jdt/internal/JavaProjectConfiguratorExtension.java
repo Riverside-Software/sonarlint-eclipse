@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,6 @@
 package org.sonarlint.eclipse.jdt.internal;
 
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import org.eclipse.core.resources.IFile;
@@ -33,6 +32,7 @@ import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileTypeProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintFileAdapterParticipant;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
@@ -74,10 +74,7 @@ public class JavaProjectConfiguratorExtension
 
   @Override
   public Set<Language> whitelistedLanguages() {
-    if (isJdtPresent()) {
-      return EnumSet.of(Language.JAVA, Language.JSP);
-    }
-    return Collections.emptySet();
+    return isJdtPresent() ? SonarLintUtils.STANDALONE_MODE_LANGUAGES_JDT : Collections.emptySet();
   }
 
   @Override

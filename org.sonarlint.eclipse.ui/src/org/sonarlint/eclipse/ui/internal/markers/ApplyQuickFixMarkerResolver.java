@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -88,7 +88,11 @@ public class ApplyQuickFixMarkerResolver extends SortableMarkerResolver {
 
   private static void scheduleAnalysis(FileWithDocument fileWithDoc) {
     var file = fileWithDoc.getFile();
-    var request = new AnalyzeProjectRequest(file.getProject(), List.of(fileWithDoc), TriggerType.QUICK_FIX);
+    
+    // When the user just applied a quick fix, we don't have to check for unsupported languages as nothing really has
+    // changed on the current state of the IDE / projects. It would just be unnecessary noise ^^
+    var request = new AnalyzeProjectRequest(file.getProject(), List.of(fileWithDoc), TriggerType.QUICK_FIX, false, false);
+    
     AnalysisJobsScheduler.scheduleAutoAnalysisIfEnabled(request);
   }
 

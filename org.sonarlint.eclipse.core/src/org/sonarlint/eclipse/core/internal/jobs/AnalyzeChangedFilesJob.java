@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -33,6 +33,7 @@ import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDocument;
 import org.sonarlint.eclipse.core.internal.resources.DefaultSonarLintProjectAdapter;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
@@ -80,7 +81,11 @@ public class AnalyzeChangedFilesJob extends WorkspaceJob {
         var filesToAnalyze = entry.getValue().stream()
           .map(f -> new FileWithDocument(f, null))
           .collect(Collectors.toList());
-        var req = new AnalyzeProjectRequest(project, filesToAnalyze, TriggerType.MANUAL_CHANGESET);
+        
+        // If the project is bound, we don't have to check for unsupported languages.
+        var req = new AnalyzeProjectRequest(project, filesToAnalyze, TriggerType.MANUAL_CHANGESET, false,
+          !SonarLintUtils.isBoundToConnection(project));
+        
         var job = AbstractAnalyzeProjectJob.create(req);
         var subMonitor = analysisMonitor.newChild(1);
         job.run(subMonitor);

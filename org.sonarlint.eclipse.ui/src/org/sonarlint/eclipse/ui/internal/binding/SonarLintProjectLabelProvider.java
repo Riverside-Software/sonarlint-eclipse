@@ -1,6 +1,6 @@
 /*
- * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * SonarLint for Eclipse
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -17,23 +17,23 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.its.reddeer.wizards;
+package org.sonarlint.eclipse.ui.internal.binding;
 
-import org.eclipse.reddeer.jface.dialogs.TitleAreaDialog;
-import org.eclipse.reddeer.swt.impl.button.OkButton;
-import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
-import org.eclipse.reddeer.swt.impl.text.DefaultText;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.ide.IDE.SharedImages;
+import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
-public class ProjectSelectionDialog extends TitleAreaDialog {
-  public ProjectSelectionDialog() {
-    super(new DefaultShell());
+public class SonarLintProjectLabelProvider extends LabelProvider {
+  @Override
+  public String getText(Object element) {
+    var current = (ISonarLintProject) element;
+    return current.getName();
   }
 
-  public void setProjectName(String projectName) {
-    new DefaultText(this).setText(projectName);
-  }
-
-  public void ok() {
-    new OkButton(this).click();
+  @Override
+  public Image getImage(Object element) {
+    return PlatformUI.getWorkbench().getSharedImages().getImage(SharedImages.IMG_OBJ_PROJECT);
   }
 }

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -316,6 +316,11 @@ public class ConnectedEngineFacadeManager {
    */
   public List<IConnectedEngineFacade> getServers() {
     return List.copyOf(facadesByConnectionId.values());
+  }
+  
+  /** Checks if there is at least one connection to a SonarCloud project */
+  public boolean checkForSonarCloud() {
+    return facadesByConnectionId.values().stream().anyMatch(facade -> facade.isSonarCloud());
   }
 
   /**

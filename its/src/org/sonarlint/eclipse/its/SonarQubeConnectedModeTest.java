@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -55,6 +55,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.sonarlint.eclipse.its.reddeer.conditions.DialogMessageIsExpected;
 import org.sonarlint.eclipse.its.reddeer.conditions.RuleDescriptionViewIsLoaded;
+import org.sonarlint.eclipse.its.reddeer.dialogs.MarkIssueAsDialog;
 import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences.IssuePeriod;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView.Binding;
@@ -62,7 +63,6 @@ import org.sonarlint.eclipse.its.reddeer.views.OnTheFlyView;
 import org.sonarlint.eclipse.its.reddeer.views.RuleDescriptionView;
 import org.sonarlint.eclipse.its.reddeer.views.SonarLintIssueMarker;
 import org.sonarlint.eclipse.its.reddeer.views.SonarLintTaintVulnerabilitiesView;
-import org.sonarlint.eclipse.its.reddeer.wizards.MarkIssueAsDialog;
 import org.sonarlint.eclipse.its.reddeer.wizards.ProjectBindingWizard;
 import org.sonarlint.eclipse.its.reddeer.wizards.ServerConnectionWizard;
 import org.sonarlint.eclipse.its.reddeer.wizards.ServerConnectionWizard.AuthenticationPage;
@@ -220,6 +220,11 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
 
   @Test
   public void shouldFindSecretsInConnectedMode() {
+    // INFO: Currently disabled on 10.4 DEV as the sonar-text / sonar-text-enterprise artifacts supporting SonarLint
+    //       are not yet on master! After this was done, the test can be enabled again on this axis!
+    //       -> blocked by SONAR-21522
+    Assume.assumeTrue(!orchestrator.getServer().version().isGreaterThanOrEquals(10, 4));
+    
     adminWsClient.projects()
       .create(CreateRequest.builder()
         .setName(SECRET_JAVA_PROJECT_NAME)

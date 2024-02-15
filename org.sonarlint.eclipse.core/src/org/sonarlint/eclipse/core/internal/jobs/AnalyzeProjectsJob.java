@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -31,12 +31,13 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDocument;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class AnalyzeProjectsJob extends WorkspaceJob {
   private static final String UNABLE_TO_ANALYZE_FILES = "Unable to analyze files";
   private final Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject;
-
+  
   public AnalyzeProjectsJob(Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject) {
     super("Analyze all files");
     this.filesPerProject = filesPerProject;
@@ -60,7 +61,11 @@ public class AnalyzeProjectsJob extends WorkspaceJob {
           continue;
         }
         global.setTaskName("Analyzing project " + project.getName());
-        var req = new AnalyzeProjectRequest(project, entry.getValue(), TriggerType.MANUAL);
+        
+        // If the project is bound, we don't have to check for unsupported languages.
+        var req = new AnalyzeProjectRequest(project, entry.getValue(), TriggerType.MANUAL, false,
+          !SonarLintUtils.isBoundToConnection(project));
+        
         var job = AbstractAnalyzeProjectJob.create(req);
         var subMonitor = analysisMonitor.newChild(1);
         job.run(subMonitor);

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,9 @@
 package org.sonarlint.eclipse.core.internal.resources;
 
 import java.util.Collection;
+import java.util.Set;
 import java.util.stream.Collectors;
+import org.sonarlint.eclipse.core.internal.backend.ConfigScopeSynchronizer;
 import org.sonarlint.eclipse.core.internal.extension.SonarLintExtensionTracker;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.core.resource.ISonarLintProjectsProvider;
@@ -38,4 +40,8 @@ public class ProjectsProviderUtils {
       .collect(Collectors.toSet());
   }
 
+  public static Set<String> allConfigurationScopeIds() {
+    return allProjects().stream().map(ConfigScopeSynchronizer::getConfigScopeId)
+    .collect(Collectors.toSet());
+  }
 }

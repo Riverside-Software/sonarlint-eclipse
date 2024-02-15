@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 package org.sonarlint.eclipse.its.reddeer.conditions;
 
 import org.eclipse.reddeer.common.condition.WaitCondition;
-import org.sonarlint.eclipse.its.reddeer.wizards.OpenInIdeDialog;
+import org.sonarlint.eclipse.its.reddeer.dialogs.OpenInIdeDialog;
 
 /** Await the "Open in IDE" dialog is opened (no matter what the content is) */
 public class OpenInIdeDialogOpened implements WaitCondition {

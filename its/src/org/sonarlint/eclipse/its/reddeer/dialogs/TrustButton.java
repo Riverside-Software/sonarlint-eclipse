@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -17,28 +17,21 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.its.reddeer.wizards;
+package org.sonarlint.eclipse.its.reddeer.dialogs;
 
-import org.eclipse.reddeer.swt.impl.button.NoButton;
-import org.eclipse.reddeer.swt.impl.button.OkButton;
-import org.eclipse.reddeer.swt.impl.button.YesButton;
-import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
+import org.eclipse.reddeer.core.reference.ReferencedComposite;
+import org.eclipse.reddeer.swt.impl.button.PredefinedButton;
+import org.eclipse.swt.SWT;
 
-/** We use {@link org.eclipse.jface.dialogs.MessageDialog} to display messages on that feature */
-public class OpenInIdeDialog extends DefaultShell {
-  public OpenInIdeDialog() {
-    super("Open in IDE");
+public class TrustButton extends PredefinedButton {
+
+  public TrustButton(ReferencedComposite referencedComposite) {
+    this(referencedComposite, 0);
+
   }
-  
-  public void ok() {
-    new OkButton(this).click();
+
+  public TrustButton(ReferencedComposite referencedComposite, int index) {
+    super(referencedComposite, index, "Connect to this SonarQube server", SWT.PUSH);
   }
-  
-  public void no() {
-    new NoButton(this).click();
-  }
-  
-  public void yes() {
-    new YesButton(this).click();
-  }
+
 }

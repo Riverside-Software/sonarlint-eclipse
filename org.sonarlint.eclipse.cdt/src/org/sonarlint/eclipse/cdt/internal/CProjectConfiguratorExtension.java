@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -20,7 +20,6 @@
 package org.sonarlint.eclipse.cdt.internal;
 
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import org.eclipse.cdt.core.CCProjectNature;
@@ -36,6 +35,7 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.core.rule.ISyntaxHighlightingProvider;
@@ -72,11 +72,8 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
 
   @Override
   public Set<Language> whitelistedLanguages() {
-    if (isCdtPresent()) {
-      // Objective-C is not supported by CDT
-      return EnumSet.of(Language.CPP, Language.C);
-    }
-    return Collections.emptySet();
+    // Objective-C is not supported by CDT!
+    return isCdtPresent() ? SonarLintUtils.CONNECTED_MODE_LANGUAGES_CDT : Collections.emptySet();
   }
 
   @Override

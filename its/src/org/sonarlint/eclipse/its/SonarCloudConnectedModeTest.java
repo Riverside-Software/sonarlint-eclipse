@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -29,10 +29,10 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.sonarlint.eclipse.its.reddeer.conditions.DialogMessageIsExpected;
+import org.sonarlint.eclipse.its.reddeer.dialogs.ProjectSelectionDialog;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView.Binding;
 import org.sonarlint.eclipse.its.reddeer.wizards.ProjectBindingWizard;
-import org.sonarlint.eclipse.its.reddeer.wizards.ProjectSelectionDialog;
 import org.sonarlint.eclipse.its.reddeer.wizards.ServerConnectionWizard;
 import org.sonarqube.ws.client.HttpConnector;
 import org.sonarqube.ws.client.WsClient;
@@ -141,7 +141,7 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     projectsToBindPage.clickAdd();
 
     var projectSelectionDialog = new ProjectSelectionDialog();
-    projectSelectionDialog.setProjectName(IMPORTED_PROJECT_NAME);
+    projectSelectionDialog.filterProjectName(IMPORTED_PROJECT_NAME);
     projectSelectionDialog.ok();
 
     projectBindingWizard.next();

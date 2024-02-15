@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2023 SonarSource SA
+ * Copyright (C) 2009-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -41,6 +41,7 @@ import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
 import org.eclipse.reddeer.swt.condition.ShellIsAvailable;
 import org.eclipse.reddeer.swt.impl.button.OkButton;
 import org.eclipse.reddeer.swt.impl.button.PushButton;
+import org.eclipse.reddeer.swt.impl.link.DefaultLink;
 import org.eclipse.reddeer.swt.impl.menu.ContextMenu;
 import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
@@ -49,12 +50,17 @@ import org.eclipse.reddeer.workbench.impl.editor.Marker;
 import org.eclipse.reddeer.workbench.impl.editor.TextEditor;
 import org.eclipse.reddeer.workbench.ui.dialogs.WorkbenchPreferenceDialog;
 import org.hamcrest.core.StringContains;
+import org.junit.After;
 import org.junit.Assume;
+import org.junit.Ignore;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.sonarlint.eclipse.its.reddeer.conditions.OnTheFlyViewIsEmpty;
+import org.sonarlint.eclipse.its.reddeer.dialogs.EnhancedWithConnectedModeInformationDialog;
 import org.sonarlint.eclipse.its.reddeer.perspectives.PhpPerspective;
 import org.sonarlint.eclipse.its.reddeer.perspectives.PydevPerspective;
+import org.sonarlint.eclipse.its.reddeer.preferences.GeneralWorkspaceBuildPreferences;
 import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences;
 import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintProperties;
 import org.sonarlint.eclipse.its.reddeer.views.OnTheFlyView;
@@ -66,6 +72,97 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 public class StandaloneAnalysisTest extends AbstractSonarLintTest {
+  @Before
+  public void removeEnhancedConnectedModeInformationPerTest() {
+    System.setProperty("sonarlint.internal.ignoreEnhancedFeature", "true");
+    System.setProperty("sonarlint.internal.ignoreMissingFeature", "true");
+    System.setProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning", "true");
+  }
+  
+  @After
+  public void enableAutomaticWorkspaceBuild() {
+    if ("oldest".equals(System.getProperty("target.platform"))) {
+      var preferences = GeneralWorkspaceBuildPreferences.open();
+      preferences.enableAutomaticBuild();
+      preferences.ok();
+    }
+  }
+  
+  @Test
+  public void analyze_automatic_workspace_build_disabled() {
+    // INFO: We only want to run it on one axis and the "oldest" ITs take the shortest!
+    Assume.assumeTrue("oldest".equals(System.getProperty("target.platform")));
+    
+    System.clearProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning");
+    
+    // 1) Configure preferences
+    var preferences = GeneralWorkspaceBuildPreferences.open();
+    preferences.disableAutomaticBuild();
+    preferences.ok();
+    
+    // 2) Import project
+    new JavaPerspective().open();
+    var rootProject = importExistingProjectIntoWorkspace("java/java-simple", "java-simple");
+
+    // 3) Open file and click pop-up but don't enable automatic build
+    var helloJavaFile = rootProject.getResource("src", "hello", "Hello.java");
+    openFileAndWaitForAnalysisCompletion(helloJavaFile);
+    new DefaultEditor().close();
+    
+    var popUp = new DefaultShell("Automatic build of workspace disabled");
+    new DefaultLink(popUp, "Enable automatic build of workspace").click();
+    preferences = GeneralWorkspaceBuildPreferences.open();
+    preferences.ok();
+    
+    // 4) Open file and click pop-up but don't show again
+    helloJavaFile = rootProject.getResource("src", "hello", "Hello.java");
+    openFileAndWaitForAnalysisCompletion(helloJavaFile);
+    new DefaultEditor().close();
+    
+    popUp = new DefaultShell("Automatic build of workspace disabled");
+    new DefaultLink(popUp, "Don't show again").click();
+    
+    // 5) Reset preferences
+    preferences = GeneralWorkspaceBuildPreferences.open();
+    preferences.enableAutomaticBuild();
+    preferences.ok();
+  }
+  
+  @Test
+  public void analyzeProjectWithMissingLanguageAnalyzers() {
+    // INFO: This test case should display everything!
+    System.clearProperty("sonarlint.internal.ignoreEnhancedFeature");
+    System.clearProperty("sonarlint.internal.ignoreMissingFeature");
+    
+    new JavaPerspective().open();
+    var rootProject = importExistingProjectIntoWorkspace("connected", "connected");
+
+    var abapFile = rootProject.getResource("Test.abap");
+    openFileAndWaitForAnalysisCompletion(abapFile);
+    
+    var notAnalyzed = new DefaultShell("SonarLint - Language could not be analyzed");
+    new DefaultLink(notAnalyzed, "Learn more").click();
+    new DefaultLink(notAnalyzed, "Try SonarCloud for free").click();
+    notAnalyzed.close();
+    
+    new ContextMenu(rootProject.getTreeItem()).getItem("SonarLint", "Analyze").select();
+    var dialog = new EnhancedWithConnectedModeInformationDialog("Are you working with a CI/CD pipeline?");
+    doAndWaitForSonarLintAnalysisJob(dialog::learnMore);
+    
+    notAnalyzed = new DefaultShell("SonarLint - Languages could not be analyzed");
+    new DefaultLink(notAnalyzed, "Don't show again").click();
+    
+    new ContextMenu(rootProject.getTreeItem()).getItem("SonarLint", "Analyze").select();
+    var dialog2 = new EnhancedWithConnectedModeInformationDialog("Are you working with a CI/CD pipeline?");
+    doAndWaitForSonarLintAnalysisJob(dialog2::trySonarCloudForFree);
+    
+    new ContextMenu(rootProject.getTreeItem()).getItem("SonarLint", "Analyze").select();
+    var dialog3 = new EnhancedWithConnectedModeInformationDialog("Are you working with a CI/CD pipeline?");
+    doAndWaitForSonarLintAnalysisJob(dialog3::dontAskAgain);
+    
+    doAndWaitForSonarLintAnalysisJob(
+      () -> new ContextMenu(rootProject.getTreeItem()).getItem("SonarLint", "Analyze").select());
+  }
 
   @Test
   public void shouldAnalyseJava() {
@@ -133,7 +230,16 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
       .extracting(item -> item.getCell(0), item -> item.getCell(2))
       .containsExactlyInAnyOrder(
         tuple("Hello.java", "Replace this use of System.out by a logger."),
-        tuple("Hello2.java", "Replace this use of System.out by a logger."));
+        tuple("Hello2.java", "Replace this use of System.out by a logger."),
+        tuple("Hello3.java", "Replace this use of System.out by a logger."),
+        tuple("Hello4.java", "Replace this use of System.out by a logger."),
+        tuple("Hello5.java", "Replace this use of System.out by a logger."),
+        tuple("Hello6.java", "Replace this use of System.out by a logger."),
+        tuple("Hello7.java", "Replace this use of System.out by a logger."),
+        tuple("Hello8.java", "Replace this use of System.out by a logger."),
+        tuple("Hello9.java", "Replace this use of System.out by a logger."),
+        tuple("Hello10.java", "Replace this use of System.out by a logger."),
+        tuple("Hello11.java", "Replace this use of System.out by a logger."));
   }
 
   @Test
@@ -266,10 +372,11 @@ public class StandaloneAnalysisTest extends AbstractSonarLintTest {
 
   // Need PyDev
   @Test
+  @Ignore("12/2023: Removal of iBuilds axis, PyDev has to be updated in latest.target to work")
   @Category(RequiresExtraDependency.class)
   public void shouldAnalysePython() {
-    // The PydevPerspective is not working correctly in older PyDev versions, therefore only run in iBuilds
-    Assume.assumeTrue("ibuilds".equals(System.getProperty("target.platform", "ibuilds")));
+    // The PydevPerspective is not working correctly in older PyDev versions, therefore only run in latest
+    Assume.assumeTrue("latest".equals(System.getProperty("target.platform", "latest")));
     
     new PydevPerspective().open();
     importExistingProjectIntoWorkspace("python");

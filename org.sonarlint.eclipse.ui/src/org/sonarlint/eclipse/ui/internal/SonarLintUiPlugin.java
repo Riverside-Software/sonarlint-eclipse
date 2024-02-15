@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -84,6 +84,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   private static final SonarLintPostBuildListener SONARLINT_POST_BUILD_LISTENER = new SonarLintPostBuildListener();
   private static final SonarLintVcsCacheCleaner SONARLINT_VCS_CACHE_CLEANER = new SonarLintVcsCacheCleaner();
   private static final SonarLintFlowLocationsService SONARLINT_FLOW_LOCATION_SERVICE = new SonarLintFlowLocationsService();
+  private static final SonarLintLanguageFromConnectedModeService SONARLINT_LANUGAGE_CONNECTED_MODE_SERVICE = new SonarLintLanguageFromConnectedModeService();
+  private static final SonarLintNoAutomaticBuildWarningService SONARLINT_AUTOMATIC_BUILD_SERVICE = new SonarLintNoAutomaticBuildWarningService();
 
   public SonarLintUiPlugin() {
     plugin = this;
@@ -158,6 +160,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     addPostBuildListener();
     ResourcesPlugin.getWorkspace().addResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_FLOW_LOCATION_SERVICE);
+    SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_LANUGAGE_CONNECTED_MODE_SERVICE);
+    SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_AUTOMATIC_BUILD_SERVICE);
 
     prefListener = event -> {
       if (event.getProperty().equals(SonarLintGlobalConfiguration.PREF_MARKER_SEVERITY)) {
@@ -192,6 +196,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     removePostBuildListener();
     ResourcesPlugin.getWorkspace().removeResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_FLOW_LOCATION_SERVICE);
+    SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_LANUGAGE_CONNECTED_MODE_SERVICE);
+    SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_AUTOMATIC_BUILD_SERVICE);
     SonarLintLogger.get().removeLogListener(logListener);
     logListener.shutdown();
     SonarLintNotifications.get().removeNotificationListener(notifListener);

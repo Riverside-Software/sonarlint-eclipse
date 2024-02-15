@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -46,6 +46,7 @@ import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectsJob;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
+import org.sonarlint.eclipse.ui.internal.util.MessageDialogUtils;
 import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 import org.sonarlint.eclipse.ui.internal.util.SelectionUtils;
 
@@ -75,12 +76,20 @@ public class AnalyzeCommand extends AbstractHandler {
 
   private static void runAnalysisJob(Shell shell, Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject) {
     var totalFileCount = filesPerProject.values().stream().mapToInt(Collection::size).sum();
-    if (totalFileCount > 1 && !askConfirmation(shell)) {
+    
+    if (!SonarLintGlobalConfiguration.ignoreEnhancedFeatureNotifications()) {
+      MessageDialogUtils.enhancedWithConnectedModeInformation(shell, "Are you working with a CI/CD pipeline?",
+        "Running an analysis with SonarQube / SonarCloud in your pipeline might be better suited for analyzing "
+        + "multiple files or a whole project!");
+    } else if (totalFileCount > 10 && !askConfirmation(shell)) {
+      // Asking for a few files (e.g. analyzing a package) is annoying, increasing the threshold in order to not spam
+      // pop-ups to the user!
       return;
     }
+    
     if (filesPerProject.size() == 1) {
       var entry = filesPerProject.entrySet().iterator().next();
-      var req = new AnalyzeProjectRequest(entry.getKey(), entry.getValue(), TriggerType.MANUAL, true);
+      var req = new AnalyzeProjectRequest(entry.getKey(), entry.getValue(), TriggerType.MANUAL, true, true);
       var fileCount = req.getFiles().size();
       String reportTitle;
       if (fileCount == 1) {
@@ -88,6 +97,7 @@ public class AnalyzeCommand extends AbstractHandler {
       } else {
         reportTitle = fileCount + " files of project " + entry.getKey().getName();
       }
+      
       var job = AbstractAnalyzeProjectJob.create(req);
       AnalyzeChangeSetCommand.registerJobListener(job, reportTitle);
       job.schedule();

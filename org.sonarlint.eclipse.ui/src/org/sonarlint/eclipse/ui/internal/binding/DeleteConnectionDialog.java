@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2023 SonarSource SA
+ * Copyright (C) 2015-2024 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -100,7 +100,7 @@ public class DeleteConnectionDialog extends MessageDialog {
   protected void buttonPressed(int buttonId) {
     if (buttonId == OK && !servers.isEmpty()) {
       var job = new DeleteServerJob();
-      servers.forEach(server -> AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(job, server.getBoundProjects(), TriggerType.BINDING_CHANGE));
+      servers.forEach(server -> AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(job, server.getBoundProjects(), TriggerType.BINDING_CHANGE, true));
       job.setPriority(Job.BUILD);
       job.schedule();
     }
