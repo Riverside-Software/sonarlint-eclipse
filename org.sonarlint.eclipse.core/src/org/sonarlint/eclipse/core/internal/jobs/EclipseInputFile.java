@@ -103,7 +103,7 @@ class EclipseInputFile implements ClientInputFile {
 
   @Override
   public Charset getCharset() {
-    return StandardCharsets.UTF_8;
+    return file.getCharset();
   }
 
   @Override
