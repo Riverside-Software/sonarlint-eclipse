@@ -1,5 +1,5 @@
 pipeline {
-  agent { label 'Linux-Office' }
+  agent { label 'Linux-Office03' }
   options {
     buildDiscarder(logRotator(daysToKeepStr:'10'))
     timeout(time: 15, unit: 'MINUTES')
