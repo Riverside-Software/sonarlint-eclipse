@@ -51,8 +51,8 @@ import org.sonarsource.sonarlint.core.telemetry.TelemetryManager;
 import org.sonarsource.sonarlint.core.telemetry.TelemetryPathManager;
 
 public class SonarLintTelemetry {
-  private static final String TELEMETRY_PRODUCT_KEY = "eclipse";
-  private static final String PRODUCT = "SonarLint Eclipse";
+  private static final String TELEMETRY_PRODUCT_KEY = "eclipse-cabl";
+  private static final String PRODUCT = "CABL - SonarLint Eclipse";
   private static final String OLD_STORAGE_FILENAME = "sonarlint_usage";
   public static final String DISABLE_PROPERTY_KEY = "sonarlint.telemetry.disabled";
 
