@@ -179,8 +179,8 @@ public class SonarLintBackendService {
           var telemetryEnabled = !Boolean.parseBoolean(System.getProperty("sonarlint.telemetry.disabled", "false"));
 
           backend.initialize(new InitializeParams(
-            new ClientConstantInfoDto(getIdeName(), "SonarLint Eclipse " + SonarLintUtils.getPluginVersion(), SonarLintUtils.getPlatformPid()),
-            new TelemetryClientConstantAttributesDto("eclipse", "SonarLint Eclipse", SonarLintUtils.getPluginVersion(), SonarLintTelemetry.ideVersionForTelemetry(),
+            new ClientConstantInfoDto(getIdeName(), "CABL - SonarLint Eclipse " + SonarLintUtils.getPluginVersion(), SonarLintUtils.getPlatformPid()),
+            new TelemetryClientConstantAttributesDto("eclipse-cabl", "CABL - SonarLint Eclipse", SonarLintUtils.getPluginVersion(), SonarLintTelemetry.ideVersionForTelemetry(),
               Map.of()),
             getHttpConfiguration(),
             getSonarCloudAlternativeEnvironment(),
