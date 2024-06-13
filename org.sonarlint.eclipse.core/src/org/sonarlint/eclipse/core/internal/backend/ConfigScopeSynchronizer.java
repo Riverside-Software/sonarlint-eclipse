@@ -24,29 +24,28 @@ import java.util.List;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IResourceDelta;
-import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration.EclipseProjectBinding;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfigurationManager;
 import org.sonarlint.eclipse.core.internal.resources.ProjectsProviderUtils;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.clientapi.SonarLintBackend;
-import org.sonarsource.sonarlint.core.clientapi.backend.branch.DidChangeActiveSonarProjectBranchParams;
-import org.sonarsource.sonarlint.core.clientapi.backend.config.binding.BindingConfigurationDto;
-import org.sonarsource.sonarlint.core.clientapi.backend.config.binding.DidUpdateBindingParams;
-import org.sonarsource.sonarlint.core.clientapi.backend.config.scope.ConfigurationScopeDto;
-import org.sonarsource.sonarlint.core.clientapi.backend.config.scope.DidAddConfigurationScopesParams;
-import org.sonarsource.sonarlint.core.clientapi.backend.config.scope.DidRemoveConfigurationScopeParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.SonarLintRpcServer;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.config.binding.BindingConfigurationDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.config.binding.DidUpdateBindingParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.config.scope.ConfigurationScopeDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.config.scope.DidAddConfigurationScopesParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.config.scope.DidRemoveConfigurationScopeParams;
 
 import static java.util.stream.Collectors.toList;
 
 public class ConfigScopeSynchronizer implements IResourceChangeListener {
 
-  private final SonarLintBackend backend;
+  private final SonarLintRpcServer backend;
 
-  ConfigScopeSynchronizer(SonarLintBackend backend) {
+  ConfigScopeSynchronizer(SonarLintRpcServer backend) {
     this.backend = backend;
   }
 
@@ -65,14 +64,18 @@ public class ConfigScopeSynchronizer implements IResourceChangeListener {
       backend.getConfigurationService().didAddConfigurationScopes(new DidAddConfigurationScopesParams(addedScopes));
       projectsToAdd.forEach(p -> SonarLintProjectConfigurationManager.registerPreferenceChangeListenerForBindingProperties(p, this::projectPreferencesChanged));
     } else if (event.getType() == IResourceChangeEvent.PRE_CLOSE) {
-      var project = Adapters.adapt(event.getResource(), ISonarLintProject.class);
+      var project = SonarLintUtils.adapt(event.getResource(), ISonarLintProject.class,
+        "[ConfigScopeSynchronizer#resourceChanged] Try get SonarLint project from event '" + event.getResource()
+          + "' (pre close)");
       if (project != null) {
         SonarLintLogger.get().debug("Project about to be closed: " + project.getName());
         backend.getConfigurationService()
           .didRemoveConfigurationScope(new DidRemoveConfigurationScopeParams(getConfigScopeId(project)));
       }
     } else if (event.getType() == IResourceChangeEvent.PRE_DELETE) {
-      var project = Adapters.adapt(event.getResource(), ISonarLintProject.class);
+      var project = SonarLintUtils.adapt(event.getResource(), ISonarLintProject.class,
+        "[ConfigScopeSynchronizer#resourceChanged] Try get SonarLint project from event '" + event.getResource()
+          + "' (pre delete)");
       if (project != null) {
         SonarLintLogger.get().debug("Project about to be deleted: " + project.getName());
         backend.getConfigurationService()
@@ -83,7 +86,9 @@ public class ConfigScopeSynchronizer implements IResourceChangeListener {
 
   private static boolean visitDeltaPostChange(IResourceDelta delta, List<ISonarLintProject> projectsToAdd) {
     if ((delta.getFlags() & IResourceDelta.OPEN) != 0) {
-      var project = Adapters.adapt(delta.getResource(), ISonarLintProject.class);
+      var project = SonarLintUtils.adapt(delta.getResource(), ISonarLintProject.class,
+        "[ConfigScopeSynchronizer#resourceChanged] Try get SonarLint project from event '"
+          + delta.getResource() + "' (post change / opened)");
       if (project != null && project.isOpen()) {
         SonarLintLogger.get().debug("Project opened: " + project.getName());
         projectsToAdd.add(project);
@@ -105,13 +110,6 @@ public class ConfigScopeSynchronizer implements IResourceChangeListener {
     });
   }
 
-  void branchChanged(ISonarLintProject project, String newActiveBranchName) {
-    backend
-      .getSonarProjectBranchService()
-      .didChangeActiveSonarProjectBranch(
-        new DidChangeActiveSonarProjectBranchParams(ConfigScopeSynchronizer.getConfigScopeId(project), newActiveBranchName));
-  }
-
   private void projectPreferencesChanged(ISonarLintProject project) {
     SonarLintLogger.get().debug("Project binding preferences changed: " + project.getName());
     backend.getConfigurationService()
@@ -127,9 +125,36 @@ public class ConfigScopeSynchronizer implements IResourceChangeListener {
   }
 
   private static BindingConfigurationDto toBindingDto(ISonarLintProject p) {
+    return toBindingDto(p, false);
+  }
+
+  private static BindingConfigurationDto toBindingDto(ISonarLintProject p, boolean disableBindingSuggestions) {
     var config = SonarLintCorePlugin.loadConfig(p);
     var projectBinding = config.getProjectBinding();
-    return new BindingConfigurationDto(projectBinding.map(EclipseProjectBinding::connectionId).orElse(null), projectBinding.map(EclipseProjectBinding::projectKey).orElse(null),
-      config.isBindingSuggestionsDisabled());
+    return new BindingConfigurationDto(projectBinding.map(EclipseProjectBinding::getConnectionId).orElse(null),
+      projectBinding.map(EclipseProjectBinding::getProjectKey).orElse(null),
+      disableBindingSuggestions || config.isBindingSuggestionsDisabled());
+  }
+
+  /**
+   *  It might be useful to disable the binding suggestions for a specific project (e.g. Connection creation with
+   *  directly followed binding) no matter what the configuration of the specific project is on that matter.
+   */
+  public static void disableAllBindingSuggestions(ISonarLintProject p) {
+    SonarLintBackendService.get()
+      .getBackend()
+      .getConfigurationService()
+      .didUpdateBinding(new DidUpdateBindingParams(getConfigScopeId(p), toBindingDto(p, true)));
+  }
+
+  /**
+   *  After the binding suggestions for a specific project were disabled, we want to disable them again based on the
+   *  project configuration (to not enable suggestions for project that disabled them manually).
+   */
+  public static void enableAllBindingSuggestions(ISonarLintProject p) {
+    SonarLintBackendService.get()
+      .getBackend()
+      .getConfigurationService()
+      .didUpdateBinding(new DidUpdateBindingParams(getConfigScopeId(p), toBindingDto(p, false)));
   }
 }

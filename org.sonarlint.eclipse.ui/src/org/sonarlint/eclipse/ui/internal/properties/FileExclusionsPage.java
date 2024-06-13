@@ -21,7 +21,6 @@ package org.sonarlint.eclipse.ui.internal.properties;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.eclipse.core.runtime.Adapters;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.layout.TableColumnLayout;
 import org.eclipse.jface.viewers.CellLabelProvider;
@@ -57,6 +56,7 @@ import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.resources.ExclusionItem;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
@@ -101,7 +101,7 @@ public class FileExclusionsPage extends AbstractListPropertyPage implements IWor
       if (bindingOpt.isEmpty()) {
         createLinkToGlobal(parent, pageComponent);
       } else {
-        createLinkToDocumentation(pageComponent, bindingOpt.get().getEngineFacade().isSonarCloud());
+        createLinkToDocumentation(pageComponent, bindingOpt.get().getConnectionFacade().isSonarCloud());
       }
     }
 
@@ -258,7 +258,7 @@ public class FileExclusionsPage extends AbstractListPropertyPage implements IWor
     fLink.addListener(SWT.Selection,
       e -> PreferencesUtil.createPreferenceDialogOn(ancestor.getShell(), PREFERENCE_ID, null, null).open());
   }
-  
+
   private static void createLinkToDocumentation(Composite parent, boolean isSonarCloud) {
     var fLink = new Link(parent, SWT.NONE);
     fLink.setText("As this project is bound to " + (isSonarCloud ? "SonarCloud" : "SonarQube")
@@ -304,7 +304,8 @@ public class FileExclusionsPage extends AbstractListPropertyPage implements IWor
 
   @Nullable
   private ISonarLintProject getProject() {
-    return Adapters.adapt(getElement(), ISonarLintProject.class);
+    return SonarLintUtils.adapt(getElement(), ISonarLintProject.class,
+      "[FileExclusionsPage#getProject] Try get project of preference page '" + getElement().toString() + "'");
   }
 
   @Override

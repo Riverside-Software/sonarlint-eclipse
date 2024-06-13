@@ -29,7 +29,7 @@ import org.eclipse.jface.viewers.LabelProvider;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
-import org.sonarlint.eclipse.core.internal.engine.connected.RemoteSonarProject;
+import org.sonarlint.eclipse.core.internal.engine.connected.SonarProject;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.internal.vcs.VcsService;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
@@ -40,23 +40,17 @@ public class BindingsViewDecorator extends LabelProvider implements ILightweight
 
   @Override
   public void decorate(Object element, IDecoration decoration) {
-    if (element instanceof RemoteSonarProject) {
-      addSuffix(decoration, ((RemoteSonarProject) element).getProjectKey());
+    if (element instanceof SonarProject) {
+      addSuffix(decoration, ((SonarProject) element).getProjectKey());
     } else if (element instanceof ISonarLintProject) {
       var project = (ISonarLintProject) element;
       var projectConfig = SonarLintCorePlugin.loadConfig(project);
       projectConfig.getProjectBinding().ifPresent(eclipseProjectBinding -> {
         List<String> infos = new ArrayList<>();
-        VcsService.getServerBranch(project).ifPresent(b -> infos.add("Branch: '" + b + "'"));
+        VcsService.getCachedSonarProjectBranch(project).ifPresent(b -> infos.add("Branch: '" + b + "'"));
 
         appendNewCodePeriod(project, infos);
 
-        if (StringUtils.isNotBlank(eclipseProjectBinding.idePathPrefix())) {
-          infos.add("IDE directory: '/" + eclipseProjectBinding.idePathPrefix() + "'");
-        }
-        if (StringUtils.isNotBlank(eclipseProjectBinding.serverPathPrefix())) {
-          infos.add("Sonar directory: '/" + eclipseProjectBinding.serverPathPrefix() + "'");
-        }
         addSuffix(decoration, infos.stream().collect(Collectors.joining(", ")));
       });
     }

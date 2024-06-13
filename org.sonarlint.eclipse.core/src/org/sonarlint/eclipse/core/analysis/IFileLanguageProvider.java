@@ -30,9 +30,9 @@ import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 public interface IFileLanguageProvider {
 
   /**
-   * @return the language of the file, or null to keep default bahavior
+   * @return the language of the file, or null to keep default behavior
    */
   @Nullable
-  String language(ISonarLintFile file);
+  SonarLintLanguage language(ISonarLintFile file);
 
 }

@@ -21,15 +21,14 @@ package org.sonarlint.eclipse.ui.internal.job;
 
 import java.util.stream.Collectors;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
-import org.sonarlint.eclipse.core.internal.jobs.TaintIssuesUpdateAfterSyncJob;
+import org.sonarlint.eclipse.core.internal.jobs.TaintIssuesMarkerUpdateJob;
 import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 
 public class TaintIssuesJobsScheduler {
   private TaintIssuesJobsScheduler() {
     // utility class
   }
-  
+
   /**
    *  After the preference regarding the new code period or displaying only non-resolved / all issues is changed, we
    *  have to update the SonarLint Taint Vulnerabilities view as it is not done like the other issues via a new
@@ -38,14 +37,14 @@ public class TaintIssuesJobsScheduler {
   public static void scheduleUpdateAfterPreferenceChange() {
     var openedFiles = PlatformUtils.collectOpenedFiles(null, f -> true);
     openedFiles.keySet().forEach(project -> {
-      var bindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(project);
+      var bindingOpt = SonarLintCorePlugin.getConnectionManager().resolveBinding(project);
       if (bindingOpt.isPresent()) {
-        var facade = (ConnectedEngineFacade)bindingOpt.get().getEngineFacade();
+        var facade = bindingOpt.get().getConnectionFacade();
         var files = openedFiles.get(project).stream()
           .map(file -> file.getFile())
           .collect(Collectors.toList());
-        
-        new TaintIssuesUpdateAfterSyncJob(facade, project, files).schedule();
+
+        new TaintIssuesMarkerUpdateJob(facade, project, files).schedule();
       }
     });
   }

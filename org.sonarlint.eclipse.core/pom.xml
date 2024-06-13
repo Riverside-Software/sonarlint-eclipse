@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>9.3.3008</version>
+    <version>10.2.3100</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -75,31 +75,31 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>7.30.1.34514</version>
+                  <version>7.34.0.35958</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>10.11.1.25225</version>
+                  <version>10.14.0.26080</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>3.34.0.11311</version>
+                  <version>3.35.0.11659</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.python</groupId>
                   <artifactId>sonar-python-plugin</artifactId>
-                  <version>4.14.0.14263</version>
+                  <version>4.18.0.15334</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.html</groupId>
                   <artifactId>sonar-html-plugin</artifactId>
-                  <version>3.13.0.4821</version>
+                  <version>3.16.0.5274</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -123,7 +123,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.text</groupId>
                   <artifactId>sonar-text-plugin</artifactId>
-                  <version>2.8.0.1635</version>
+                  <version>2.10.0.2188</version>
                   <type>jar</type>
                 </artifactItem>
               </artifactItems>

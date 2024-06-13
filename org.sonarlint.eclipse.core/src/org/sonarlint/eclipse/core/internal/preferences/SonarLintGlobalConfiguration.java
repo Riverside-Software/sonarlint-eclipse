@@ -19,6 +19,9 @@
  */
 package org.sonarlint.eclipse.core.internal.preferences;
 
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -37,19 +40,22 @@ import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.preferences.ConfigurationScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
+import org.eclipse.core.runtime.preferences.IEclipsePreferences.IPreferenceChangeListener;
+import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.jdt.annotation.Nullable;
 import org.osgi.service.prefs.BackingStoreException;
 import org.osgi.service.prefs.Preferences;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
+import org.sonarlint.eclipse.core.internal.engine.AnalysisRequirementNotifications;
 import org.sonarlint.eclipse.core.internal.resources.ExclusionItem;
 import org.sonarlint.eclipse.core.internal.resources.SonarLintProperty;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.clientapi.backend.rules.StandaloneRuleConfigDto;
-import org.sonarsource.sonarlint.core.clientapi.backend.rules.UpdateStandaloneRulesConfigurationParams;
-import org.sonarsource.sonarlint.core.commons.RuleKey;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.analysis.DidChangeClientNodeJsPathParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.StandaloneRuleConfigDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.UpdateStandaloneRulesConfigurationParams;
 import org.sonarsource.sonarlint.shaded.com.google.gson.Gson;
 import org.sonarsource.sonarlint.shaded.com.google.gson.JsonParseException;
 import org.sonarsource.sonarlint.shaded.com.google.gson.annotations.SerializedName;
@@ -76,12 +82,14 @@ public class SonarLintGlobalConfiguration {
   public static final String PREF_TEST_FILE_GLOB_PATTERNS_DEFAULT = ""; //$NON-NLS-1$
   public static final String PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES = "skipConfirmAnalyzeMultipleFiles"; //$NON-NLS-1$
   public static final String PREF_NODEJS_PATH = "nodeJsPath"; //$NON-NLS-1$
+  public static final String PREF_JAVA17_PATH = "java17Path"; //$NON-NLS-1$
   private static final String PREF_TAINT_VULNERABILITY_DISPLAYED = "taintVulnerabilityDisplayed";
   private static final String PREF_SECRETS_EVER_DETECTED = "secretsEverDetected";
   private static final String PREF_USER_SURVEY_LAST_LINK = "userSurveyLastLink"; //$NON-NLS-1$
   private static final String PREF_SOON_UNSUPPORTED_CONNECTIONS = "soonUnsupportedSonarQubeConnections"; //$NON-NLS-1$
   private static final String PREF_NO_AUTOMATIC_BUILD_WARNING = "noAutomaticBuildWarning"; //$NON-NLS-1$
-  
+  private static final String PREF_NO_CONNECTION_SUGGESTIONS = "NoConnectionSuggestions"; //$NON-NLS-1$
+
   // notifications on missing features from standalone mode / enhanced features from connected mode
   public static final String PREF_IGNORE_MISSING_FEATURES = "ignoreNotificationsAboutMissingFeatures"; //$NON-NLS-1$
   public static final String PREF_IGNORE_ENHANCED_FEATURES = "ignoreNotificationsAboutEnhancedFeatures"; //$NON-NLS-1$
@@ -90,16 +98,49 @@ public class SonarLintGlobalConfiguration {
     // Utility class
   }
 
+  // For which preference is persisted where, see: https://xtranet-sonarsource.atlassian.net/l/cp/wDNK6e74
+  private static final IPreferenceChangeListener applicationRootNodeChangeListener = event -> {
+    if (PREF_RULES_CONFIG.equals(event.getKey())) {
+      SonarLintBackendService.get().getBackend().getRulesService()
+        .updateStandaloneRulesConfiguration(new UpdateStandaloneRulesConfigurationParams(buildStandaloneRulesConfigDto()));
+    }
+  };
+  private static final IPreferenceChangeListener workspaceRootNodeChangeListener = event -> {
+    if (PREF_ISSUE_PERIOD.equals(event.getKey())) {
+      SonarLintBackendService.get().getBackend().getNewCodeService().didToggleFocus();
+    } else if (PREF_NODEJS_PATH.equals(event.getKey())) {
+      AnalysisRequirementNotifications.resetCachedMessages();
+
+      // Call Sloop via RPC
+      SonarLintBackendService.get().getBackend().getAnalysisService()
+        .didChangeClientNodeJsPath(new DidChangeClientNodeJsPathParams(getNodejsPath()));
+    }
+  };
+
+  public static void init() {
+    var rootNode = getApplicationLevelPreferenceNode();
+    rootNode.addPreferenceChangeListener(applicationRootNodeChangeListener);
+    rootNode = getWorkspaceLevelPreferenceNode();
+    rootNode.addPreferenceChangeListener(workspaceRootNodeChangeListener);
+  }
+
+  public static void stop() {
+    var rootNode = getApplicationLevelPreferenceNode();
+    rootNode.removePreferenceChangeListener(applicationRootNodeChangeListener);
+    rootNode = getWorkspaceLevelPreferenceNode();
+    rootNode.removePreferenceChangeListener(workspaceRootNodeChangeListener);
+  }
+
   public static String getTestFileGlobPatterns() {
     return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_TEST_FILE_GLOB_PATTERNS, PREF_TEST_FILE_GLOB_PATTERNS_DEFAULT, null);
   }
-  
+
   // INFO: Not to be confused with Eclipse marker view filters
   public static String getIssueFilter() {
     return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_ISSUE_DISPLAY_FILTER,
       PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED, null);
   }
-  
+
   public static String getIssuePeriod() {
     return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_ISSUE_PERIOD, PREF_ISSUE_PERIOD_ALLTIME, null);
   }
@@ -116,9 +157,7 @@ public class SonarLintGlobalConfiguration {
 
     // Then add project properties
     var sonarProject = SonarLintCorePlugin.loadConfig(project);
-    if (sonarProject.getExtraProperties() != null) {
-      props.addAll(sonarProject.getExtraProperties());
-    }
+    props.addAll(sonarProject.getExtraProperties());
 
     return props;
   }
@@ -156,8 +195,7 @@ public class SonarLintGlobalConfiguration {
     return deserializeFileExclusions(props);
   }
 
-  private static void savePreferences(Consumer<Preferences> updater, String key, Object value) {
-    var preferences = getInstancePreferenceNode();
+  private static void savePreferences(IEclipsePreferences preferences, Consumer<Preferences> updater, String key, Object value) {
     updater.accept(preferences);
     try {
       preferences.flush();
@@ -166,59 +204,57 @@ public class SonarLintGlobalConfiguration {
     }
   }
 
-  private static IEclipsePreferences getInstancePreferenceNode() {
+  /** For preferences to be stored at the application level (shared among workspaces and projects) */
+  private static IEclipsePreferences getApplicationLevelPreferenceNode() {
     return ConfigurationScope.INSTANCE.getNode(SonarLintCorePlugin.UI_PLUGIN_ID);
+  }
+
+  private static IEclipsePreferences getWorkspaceLevelPreferenceNode() {
+    return InstanceScope.INSTANCE.getNode(SonarLintCorePlugin.UI_PLUGIN_ID);
   }
 
   private static String getPreferenceString(String key) {
     return Platform.getPreferencesService().getString(SonarLintCorePlugin.UI_PLUGIN_ID, key, PREF_DEFAULT, null);
   }
 
-  private static void setPreferenceString(String key, String value) {
-    savePreferences(p -> p.put(key, value), key, value);
+  private static void setPreferenceString(IEclipsePreferences preferences, String key, String value) {
+    savePreferences(preferences, p -> p.put(key, value), key, value);
   }
 
   private static boolean getPreferenceBoolean(String key) {
     return Platform.getPreferencesService().getBoolean(SonarLintCorePlugin.UI_PLUGIN_ID, key, false, null);
   }
 
-  private static void setPreferenceBoolean(String key, boolean value) {
-    savePreferences(p -> p.putBoolean(key, value), key, value);
+  private static void setPreferenceBoolean(IEclipsePreferences preferences, String key, boolean value) {
+    savePreferences(preferences, p -> p.putBoolean(key, value), key, value);
   }
 
-  private static String serializeRuleKeyList(Collection<RuleKey> exclusions) {
-    return exclusions.stream()
-      .map(RuleKey::toString)
-      .sorted()
-      .collect(Collectors.joining(";"));
-  }
-
-  public static void disableRule(RuleKey ruleKey) {
+  public static void disableRule(String ruleKey) {
     var rules = new ArrayList<>(readRulesConfig());
-    var ruleToDisable = rules.stream().filter(r -> r.getKey().equals(ruleKey.toString())).findFirst();
+    var ruleToDisable = rules.stream().filter(r -> r.getKey().equals(ruleKey)).findFirst();
     if (ruleToDisable.isPresent()) {
       ruleToDisable.get().setActive(false);
     } else {
-      rules.add(new RuleConfig(ruleKey.toString(), false));
+      rules.add(new RuleConfig(ruleKey, false));
     }
     saveRulesConfig(rules);
   }
 
-  public static Collection<RuleKey> getExcludedRules() {
+  public static Collection<String> getExcludedRules() {
     return readRulesConfig().stream()
       .filter(r -> !r.isActive())
-      .map(r -> RuleKey.parse(r.getKey()))
+      .map(RuleConfig::getKey)
       .collect(toList());
   }
 
-  public static Collection<RuleKey> getIncludedRules() {
+  public static Collection<String> getIncludedRules() {
     return readRulesConfig().stream()
       .filter(RuleConfig::isActive)
-      .map(r -> RuleKey.parse(r.getKey()))
+      .map(RuleConfig::getKey)
       .collect(toList());
   }
 
-  public static Map<String, StandaloneRuleConfigDto> buildStandaloneRulesConfig() {
+  public static Map<String, StandaloneRuleConfigDto> buildStandaloneRulesConfigDto() {
     return readRulesConfig().stream()
       .collect(Collectors.toMap(r -> r.getKey(), r -> new StandaloneRuleConfigDto(r.isActive(), Map.copyOf(r.getParams()))));
   }
@@ -266,8 +302,7 @@ public class SonarLintGlobalConfiguration {
 
   public static void saveRulesConfig(Collection<RuleConfig> rules) {
     var json = serializeRulesJson(rules);
-    setPreferenceString(PREF_RULES_CONFIG, json);
-    SonarLintBackendService.get().getBackend().getRulesService().updateStandaloneRulesConfiguration(new UpdateStandaloneRulesConfigurationParams(buildStandaloneRulesConfig()));
+    setPreferenceString(getApplicationLevelPreferenceNode(), PREF_RULES_CONFIG, json);
   }
 
   private static String serializeRulesJson(Collection<RuleConfig> rules) {
@@ -293,19 +328,32 @@ public class SonarLintGlobalConfiguration {
   }
 
   public static void setSkipConfirmAnalyzeMultipleFiles() {
-    setPreferenceBoolean(PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES, true);
+    setPreferenceBoolean(getApplicationLevelPreferenceNode(), PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES, true);
   }
 
   public static boolean skipConfirmAnalyzeMultipleFiles() {
     return getPreferenceBoolean(PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES);
   }
 
-  public static void setNodeJsPath(String path) {
-    setPreferenceString(PREF_NODEJS_PATH, path);
+  @Nullable
+  public static Path getNodejsPath() {
+    return getPathFromPreference(PREF_NODEJS_PATH, "Invalid Node.js path");
   }
 
-  public static String getNodejsPath() {
-    return getPreferenceString(PREF_NODEJS_PATH);
+  @Nullable
+  public static Path getJava17Path() {
+    return getPathFromPreference(PREF_JAVA17_PATH, "Invalid Java 17+ path");
+  }
+
+  @Nullable
+  private static Path getPathFromPreference(String preference, String errorMessage) {
+    var pathSetting = StringUtils.trimToNull(getPreferenceString(preference));
+    try {
+      return pathSetting != null ? Paths.get(pathSetting) : null;
+    } catch (InvalidPathException e) {
+      SonarLintLogger.get().error(errorMessage, e);
+      return null;
+    }
   }
 
   public static boolean taintVulnerabilityNeverBeenDisplayed() {
@@ -313,7 +361,7 @@ public class SonarLintGlobalConfiguration {
   }
 
   public static void setTaintVulnerabilityDisplayed() {
-    setPreferenceBoolean(PREF_TAINT_VULNERABILITY_DISPLAYED, true);
+    setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_TAINT_VULNERABILITY_DISPLAYED, true);
   }
 
   public static boolean secretsNeverDetected() {
@@ -321,43 +369,43 @@ public class SonarLintGlobalConfiguration {
   }
 
   public static void setSecretsWereDetected() {
-    setPreferenceBoolean(PREF_SECRETS_EVER_DETECTED, true);
+    setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_SECRETS_EVER_DETECTED, true);
   }
 
   /** See {@link org.sonarlint.eclipse.ui.internal.popup.SurveyPopup} for more information */
   public static String getUserSurveyLastLink() {
     return getPreferenceString(PREF_USER_SURVEY_LAST_LINK);
   }
-  
+
   /** See {@link org.sonarlint.eclipse.ui.internal.popup.SurveyPopup} for more information */
   public static void setUserSurveyLastLink(String link) {
-    setPreferenceString(PREF_USER_SURVEY_LAST_LINK, link);
+    setPreferenceString(getApplicationLevelPreferenceNode(), PREF_USER_SURVEY_LAST_LINK, link);
   }
-  
+
   /** See {@link org.sonarlint.eclipse.ui.internal.popup.SoonUnsupportedPopup} for more information */
   public static boolean alreadySoonUnsupportedConnection(String connectionVersionCombination) {
     var currentPreference = getPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS);
     if (PREF_DEFAULT.equals(currentPreference)) {
       return false;
     }
-    
+
     return Set.of(currentPreference.split(",")).contains(connectionVersionCombination);
   }
-  
+
   /** See {@link org.sonarlint.eclipse.ui.internal.popup.SoonUnsupportedPopup} for more information */
   public static void addSoonUnsupportedConnection(String connectionVersionCombination) {
     var currentPreference = getPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS);
     if (PREF_DEFAULT.equals(currentPreference)) {
-      setPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS, connectionVersionCombination);
+      setPreferenceString(getWorkspaceLevelPreferenceNode(), PREF_SOON_UNSUPPORTED_CONNECTIONS, connectionVersionCombination);
       return;
     }
-    
-    var currentConnections = new HashSet<String>(Arrays.asList(currentPreference.split(",")));
+
+    var currentConnections = new HashSet<>(Arrays.asList(currentPreference.split(",")));
     currentConnections.add(connectionVersionCombination);
-    
-    setPreferenceString(PREF_SOON_UNSUPPORTED_CONNECTIONS, String.join(",", currentConnections));
+
+    setPreferenceString(getWorkspaceLevelPreferenceNode(), PREF_SOON_UNSUPPORTED_CONNECTIONS, String.join(",", currentConnections));
   }
-  
+
   public static boolean ignoreMissingFeatureNotifications() {
     // For integration tests we need to disable the notifications
     var property = System.getProperty("sonarlint.internal.ignoreMissingFeature");
@@ -365,11 +413,11 @@ public class SonarLintGlobalConfiguration {
       ? getPreferenceBoolean(PREF_IGNORE_MISSING_FEATURES)
       : Boolean.parseBoolean(property);
   }
-  
+
   public static void setIgnoreMissingFeatureNotifications() {
-    setPreferenceBoolean(PREF_IGNORE_MISSING_FEATURES, true);
+    setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_IGNORE_MISSING_FEATURES, true);
   }
-  
+
   public static boolean ignoreEnhancedFeatureNotifications() {
     // For integration tests we need to disable the notifications
     var property = System.getProperty("sonarlint.internal.ignoreEnhancedFeature");
@@ -377,11 +425,11 @@ public class SonarLintGlobalConfiguration {
       ? getPreferenceBoolean(PREF_IGNORE_ENHANCED_FEATURES)
       : Boolean.parseBoolean(property);
   }
-  
+
   public static void setIgnoreEnhancedFeatureNotifications() {
-    setPreferenceBoolean(PREF_IGNORE_ENHANCED_FEATURES, true);
+    setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_IGNORE_ENHANCED_FEATURES, true);
   }
-  
+
   public static boolean noAutomaticBuildWarning() {
     // For integration tests we need to disable the notifications
     var property = System.getProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning");
@@ -389,8 +437,16 @@ public class SonarLintGlobalConfiguration {
       ? getPreferenceBoolean(PREF_NO_AUTOMATIC_BUILD_WARNING)
       : Boolean.parseBoolean(property);
   }
-  
+
   public static void setNoAutomaticBuildWarning() {
-    setPreferenceBoolean(PREF_NO_AUTOMATIC_BUILD_WARNING, true);
+    setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_NO_AUTOMATIC_BUILD_WARNING, true);
+  }
+
+  public static boolean noConnectionSuggestions() {
+    return getPreferenceBoolean(PREF_NO_CONNECTION_SUGGESTIONS);
+  }
+
+  public static void setNoConnectionSuggestions() {
+    setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_NO_CONNECTION_SUGGESTIONS, true);
   }
 }

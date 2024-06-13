@@ -32,14 +32,14 @@ import org.eclipse.ui.navigator.CommonActionProvider;
 import org.eclipse.ui.navigator.CommonViewer;
 import org.eclipse.ui.navigator.ICommonActionExtensionSite;
 import org.eclipse.ui.navigator.ICommonViewerWorkbenchSite;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.binding.actions.ConnectionBindProjectsAction;
 import org.sonarlint.eclipse.ui.internal.binding.actions.ConnectionDeleteAction;
 import org.sonarlint.eclipse.ui.internal.binding.actions.ConnectionEditAction;
-import org.sonarlint.eclipse.ui.internal.binding.actions.ConnectionUpdateAction;
 import org.sonarlint.eclipse.ui.internal.binding.actions.NewConnectionWizardAction;
 import org.sonarlint.eclipse.ui.internal.binding.actions.ProjectChangeBindingAction;
+import org.sonarlint.eclipse.ui.internal.binding.actions.ProjectShareBindingAction;
 import org.sonarlint.eclipse.ui.internal.binding.actions.ProjectUnbindAction;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.project.ProjectBindingWizard;
 
@@ -47,9 +47,9 @@ public class BindingsViewActionProvider extends CommonActionProvider {
   public static final String NEW_MENU_ID = "org.sonarlint.eclipse.ui.server.newMenuId";
 
   private ICommonActionExtensionSite actionSite;
-  protected Action deleteServerAction;
+  protected Action deleteConnectionAction;
   protected Action editAction;
-  protected Action updateAction;
+  protected Action shareBindingAction;
   protected Action updateBindingAction;
   protected Action bindProjectsAction;
   protected Action unbindProjectsAction;
@@ -69,7 +69,7 @@ public class BindingsViewActionProvider extends CommonActionProvider {
         var commonViewer = (CommonViewer) viewer;
         var wsSite = (ICommonViewerWorkbenchSite) site;
         addListeners(commonViewer);
-        makeServerActions(commonViewer, wsSite.getSelectionProvider());
+        makeConnectionActions(commonViewer, wsSite.getSelectionProvider());
       }
     }
   }
@@ -78,8 +78,8 @@ public class BindingsViewActionProvider extends CommonActionProvider {
     tableViewer.addOpenListener(event -> {
       var sel = (IStructuredSelection) event.getSelection();
       var data = sel.getFirstElement();
-      if (data instanceof IConnectedEngineFacade) {
-        var server = (IConnectedEngineFacade) data;
+      if (data instanceof ConnectionFacade) {
+        var server = (ConnectionFacade) data;
         ConnectionEditAction.openEditWizard(tableViewer.getTree().getShell(), server);
       } else if (data instanceof ISonarLintProject) {
         final var dialog = ProjectBindingWizard.createDialog(tableViewer.getTree().getShell(), List.of((ISonarLintProject) data));
@@ -88,11 +88,11 @@ public class BindingsViewActionProvider extends CommonActionProvider {
     });
   }
 
-  private void makeServerActions(CommonViewer tableViewer, ISelectionProvider provider) {
+  private void makeConnectionActions(CommonViewer tableViewer, ISelectionProvider provider) {
     var shell = tableViewer.getTree().getShell();
-    deleteServerAction = new ConnectionDeleteAction(shell, provider);
+    deleteConnectionAction = new ConnectionDeleteAction(shell, provider);
     editAction = new ConnectionEditAction(shell, provider);
-    updateAction = new ConnectionUpdateAction(provider);
+    shareBindingAction = new ProjectShareBindingAction(shell, provider);
     updateBindingAction = new ProjectChangeBindingAction(shell, provider);
     bindProjectsAction = new ConnectionBindProjectsAction(shell, provider);
     unbindProjectsAction = new ProjectUnbindAction(shell, provider);
@@ -101,9 +101,8 @@ public class BindingsViewActionProvider extends CommonActionProvider {
   @Override
   public void fillActionBars(IActionBars actionBars) {
     actionBars.updateActionBars();
-    actionBars.setGlobalActionHandler(ActionFactory.DELETE.getId(), deleteServerAction);
+    actionBars.setGlobalActionHandler(ActionFactory.DELETE.getId(), deleteConnectionAction);
     actionBars.setGlobalActionHandler(ActionFactory.RENAME.getId(), editAction);
-    actionBars.setGlobalActionHandler(ActionFactory.REFRESH.getId(), updateAction);
   }
 
   @Override
@@ -118,12 +117,11 @@ public class BindingsViewActionProvider extends CommonActionProvider {
       selection = (IStructuredSelection) wsSite.getSelectionProvider().getSelection();
     }
 
-    var servers = new ArrayList<IConnectedEngineFacade>();
+    var servers = new ArrayList<ConnectionFacade>();
     var projects = new ArrayList<ISonarLintProject>();
     populateServersAndProjects(selection, servers, projects);
 
     if (!servers.isEmpty() && projects.isEmpty()) {
-      menu.add(updateAction);
       if (servers.size() == 1) {
         menu.add(bindProjectsAction);
       }
@@ -131,7 +129,7 @@ public class BindingsViewActionProvider extends CommonActionProvider {
       if (servers.size() == 1) {
         menu.add(editAction);
       }
-      menu.add(deleteServerAction);
+      menu.add(deleteConnectionAction);
       menu.add(new Separator());
     }
 
@@ -139,19 +137,20 @@ public class BindingsViewActionProvider extends CommonActionProvider {
       var newServerAction = new NewConnectionWizardAction();
       menu.add(newServerAction);
     } else if (servers.isEmpty()) {
+      menu.add(shareBindingAction);
       menu.add(updateBindingAction);
       menu.add(unbindProjectsAction);
     }
 
   }
 
-  private static void populateServersAndProjects(IStructuredSelection selection, List<IConnectedEngineFacade> servers, List<ISonarLintProject> projects) {
+  private static void populateServersAndProjects(IStructuredSelection selection, List<ConnectionFacade> servers, List<ISonarLintProject> projects) {
     if (selection != null && !selection.isEmpty()) {
       var iterator = selection.iterator();
       while (iterator.hasNext()) {
         var obj = iterator.next();
-        if (obj instanceof IConnectedEngineFacade) {
-          servers.add((IConnectedEngineFacade) obj);
+        if (obj instanceof ConnectionFacade) {
+          servers.add((ConnectionFacade) obj);
         } else if (obj instanceof ISonarLintProject) {
           projects.add((ISonarLintProject) obj);
         }

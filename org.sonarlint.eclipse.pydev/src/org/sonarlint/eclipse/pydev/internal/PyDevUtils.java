@@ -19,7 +19,6 @@
  */
 package org.sonarlint.eclipse.pydev.internal;
 
-import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.text.IDocumentPartitioner;
 import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.python.pydev.core.partition.PyPartitionScanner;
@@ -30,9 +29,9 @@ import org.python.pydev.ui.ColorAndStyleCache;
 public class PyDevUtils {
   private PyDevUtils() {
   }
-  
+
   public static SourceViewerConfiguration sourceViewerConfiguration() {
-    IPreferenceStore chainedPrefStore = PyDevUiPrefs.getChainedPrefStore();
+    var chainedPrefStore = PyDevUiPrefs.getChainedPrefStore();
     return new PyEditConfiguration(new ColorAndStyleCache(chainedPrefStore), null, chainedPrefStore);
   }
 

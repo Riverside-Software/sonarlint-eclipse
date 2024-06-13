@@ -29,7 +29,6 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceVisitor;
-import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.team.core.RepositoryProvider;
@@ -38,6 +37,7 @@ import org.eclipse.team.core.subscribers.Subscriber;
 import org.eclipse.team.core.synchronize.SyncInfo;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.backend.FileSystemSynchronizer;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
@@ -85,10 +85,18 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
       project.accept(new IResourceVisitor() {
         @Override
         public boolean visit(IResource resource) throws CoreException {
+          // We don't want to visit all the folders except the ".sonarlint" one due to it possibly containing shared
+          // Connected Mode configuration files!
+          if (resource.getType() == IResource.FOLDER
+            && FileSystemSynchronizer.SONARLINT_FOLDER.equals(resource.getName())) {
+            return true;
+          }
+
           if (!SonarLintUtils.isSonarLintFileCandidate(resource)) {
             return false;
           }
-          var sonarLintFile = Adapters.adapt(resource, ISonarLintFile.class);
+          var sonarLintFile = SonarLintUtils.adapt(resource, ISonarLintFile.class,
+            "[DefaultSonarLintProjectAdapter#files] Try get file of resource '" + resource + "'");
           if (sonarLintFile != null) {
             result.add(sonarLintFile);
           }
@@ -134,9 +142,11 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
   }
 
   private static void collect(Subscriber subscriber, IResource resource, Collection<ISonarLintFile> changedFiles) throws TeamException {
-    var file = Adapters.adapt(resource, IFile.class);
+    var file = SonarLintUtils.adapt(resource, IFile.class,
+      "[DefaultSonarLintProjectAdapter#collect] Try get Eclipse file of resource '" + resource + "'");
     if (file != null) {
-      var sonarLintFile = Adapters.adapt(file, ISonarLintFile.class);
+      var sonarLintFile = SonarLintUtils.adapt(file, ISonarLintFile.class,
+        "[DefaultSonarLintProjectAdapter#collect] Try get file of Eclipse file '" + file + "'");
       if (sonarLintFile != null) {
         var syncInfo = subscriber.getSyncInfo(resource);
         if (syncInfo != null && !SyncInfo.isInSync(syncInfo.getKind())) {
@@ -165,10 +175,7 @@ public class DefaultSonarLintProjectAdapter implements ISonarLintProject {
     if (this == obj) {
       return true;
     }
-    if (obj == null) {
-      return false;
-    }
-    if (getClass() != obj.getClass()) {
+    if ((obj == null) || (getClass() != obj.getClass())) {
       return false;
     }
     var other = (DefaultSonarLintProjectAdapter) obj;

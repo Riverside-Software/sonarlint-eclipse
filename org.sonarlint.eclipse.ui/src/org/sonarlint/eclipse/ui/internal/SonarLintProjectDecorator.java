@@ -20,30 +20,31 @@
 package org.sonarlint.eclipse.ui.internal;
 
 import java.util.Collection;
-import org.eclipse.core.runtime.Adapters;
 import org.eclipse.core.runtime.ListenerList;
 import org.eclipse.jface.viewers.IDecoration;
 import org.eclipse.jface.viewers.ILabelProviderListener;
 import org.eclipse.jface.viewers.ILightweightLabelDecorator;
 import org.eclipse.jface.viewers.LabelProviderChangedEvent;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class SonarLintProjectDecorator implements ILightweightLabelDecorator {
 
   public static final String ID = "org.sonarlint.eclipse.ui.sonarlintDecorator";
 
-  private ListenerList<ILabelProviderListener> fListeners = new ListenerList<>();
+  private final ListenerList<ILabelProviderListener> fListeners = new ListenerList<>();
 
   @Override
   public void decorate(Object element, IDecoration decoration) {
-    var project = Adapters.adapt(element, ISonarLintProject.class);
+    var project = SonarLintUtils.adapt(element, ISonarLintProject.class,
+      "[SonarLintProjectDecorator#decorate] Try get project of object '" + element + "'");
     if (project != null && project.isOpen()) {
       var config = SonarLintCorePlugin.loadConfig(project);
       if (!config.isAutoEnabled()) {
         return;
       }
-      SonarLintCorePlugin.getServersManager().resolveBinding(project)
+      SonarLintCorePlugin.getConnectionManager().resolveBinding(project)
         .ifPresent(s -> decoration.addOverlay(SonarLintImages.SQ_LABEL_DECORATOR));
     }
   }
@@ -56,8 +57,8 @@ public class SonarLintProjectDecorator implements ILightweightLabelDecorator {
   @Override
   public void dispose() {
     var listeners = fListeners.getListeners();
-    for (var i = 0; i < listeners.length; i++) {
-      fListeners.remove(listeners[i]);
+    for (Object listener : listeners) {
+      fListeners.remove(listener);
     }
   }
 
@@ -68,19 +69,15 @@ public class SonarLintProjectDecorator implements ILightweightLabelDecorator {
 
   @Override
   public void removeListener(ILabelProviderListener listener) {
-    if (fListeners == null) {
-      return;
-    }
-
     fListeners.remove(listener);
   }
 
   public void fireChange(Collection<ISonarLintProject> elements) {
-    if (fListeners != null && !fListeners.isEmpty()) {
+    if (!fListeners.isEmpty()) {
       var event = new LabelProviderChangedEvent(this, elements.stream().map(ISonarLintProject::getObjectToNotify).toArray());
       var listeners = fListeners.getListeners();
-      for (var i = 0; i < listeners.length; i++) {
-        ((ILabelProviderListener) listeners[i]).labelProviderChanged(event);
+      for (Object listener : listeners) {
+        ((ILabelProviderListener) listener).labelProviderChanged(event);
       }
     }
   }

@@ -21,27 +21,26 @@ package org.sonarlint.eclipse.ui.internal.binding;
 
 import org.eclipse.jface.viewers.ITreeContentProvider;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
-import org.sonarlint.eclipse.core.internal.engine.connected.RemoteSonarProject;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.SonarProject;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class BindingsViewContentProvider extends BaseContentProvider implements ITreeContentProvider {
 
   @Override
   public Object[] getElements(Object element) {
-    return SonarLintCorePlugin.getServersManager().getServers().toArray();
+    return SonarLintCorePlugin.getConnectionManager().getConnections().toArray();
   }
 
   @Override
   public Object[] getChildren(Object element) {
-    if (element instanceof IConnectedEngineFacade) {
-      var server = (ConnectedEngineFacade) element;
-      return server.getBoundRemoteProjects().toArray();
+    if (element instanceof ConnectionFacade) {
+      var connection = (ConnectionFacade) element;
+      return connection.getBoundSonarProjects().toArray();
     }
-    if (element instanceof RemoteSonarProject) {
-      var project = (RemoteSonarProject) element;
-      return ((ConnectedEngineFacade) getParent(element)).getBoundProjects(project.getProjectKey()).toArray();
+    if (element instanceof SonarProject) {
+      var project = (SonarProject) element;
+      return ((ConnectionFacade) getParent(element)).getBoundProjects(project.getProjectKey()).toArray();
     }
     return new Object[0];
   }
@@ -49,25 +48,25 @@ public class BindingsViewContentProvider extends BaseContentProvider implements 
   @Override
   public Object getParent(Object element) {
     if (element instanceof ISonarLintProject) {
-      return SonarLintCorePlugin.getServersManager()
+      return SonarLintCorePlugin.getConnectionManager()
         .resolveBinding((ISonarLintProject) element)
-        .flatMap(b -> b.getEngineFacade().getCachedRemoteProject(b.getProjectBinding().projectKey()))
+        .flatMap(b -> b.getConnectionFacade().getCachedSonarProject(b.getProjectBinding().getProjectKey()))
         .orElse(null);
     }
-    if (element instanceof RemoteSonarProject) {
-      return SonarLintCorePlugin.getServersManager().findById(((RemoteSonarProject) element).getServerId()).orElse(null);
+    if (element instanceof SonarProject) {
+      return SonarLintCorePlugin.getConnectionManager().findById(((SonarProject) element).getConnectionId()).orElse(null);
     }
     return null;
   }
 
   @Override
   public boolean hasChildren(Object element) {
-    if (element instanceof IConnectedEngineFacade) {
-      return !((IConnectedEngineFacade) element).getBoundProjects().isEmpty();
+    if (element instanceof ConnectionFacade) {
+      return !((ConnectionFacade) element).getBoundProjects().isEmpty();
     }
-    if (element instanceof RemoteSonarProject) {
-      var project = (RemoteSonarProject) element;
-      return !((ConnectedEngineFacade) getParent(element)).getBoundProjects(project.getProjectKey()).isEmpty();
+    if (element instanceof SonarProject) {
+      var project = (SonarProject) element;
+      return !((ConnectionFacade) getParent(element)).getBoundProjects(project.getProjectKey()).isEmpty();
     }
     return false;
   }

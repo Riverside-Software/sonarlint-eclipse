@@ -19,29 +19,27 @@
  */
 package org.sonarlint.eclipse.ui.internal.preferences;
 
-import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Objects;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.preference.ComboFieldEditor;
 import org.eclipse.jface.preference.FieldEditorPreferencePage;
-import org.eclipse.jface.preference.StringButtonFieldEditor;
 import org.eclipse.jface.preference.StringFieldEditor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
+import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.documentation.SonarLintDocumentation;
-import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.jobs.TestFileClassifier;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
+import org.sonarlint.eclipse.core.internal.utils.JavaRuntimeUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
@@ -56,13 +54,11 @@ import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
  */
 public class SonarLintPreferencePage extends FieldEditorPreferencePage implements IWorkbenchPreferencePage {
   public static final String ID = "org.sonarlint.eclipse.ui.preferences.SonarLintPreferencePage";
-  private static final String NODE_JS_TOOLTIP = "SonarLint requires Node.js to analyze some languages. "
-    + "You can provide an explicit path for the node executable here or leave this field blank to let SonarLint look for it using your PATH environment variable.";
 
   // when we ask the user to change the preferences on "Open in IDE" feature;
   @Nullable
   private OpenIssueContext openIssueContext;
-  
+
   public SonarLintPreferencePage() {
     super(Messages.SonarPreferencePage_title, GRID);
   }
@@ -76,7 +72,7 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
   @Override
   protected void createFieldEditors() {
     var labelLayoutData = new GridData(SWT.LEFT, SWT.DOWN, true, false, Integer.MAX_VALUE, 1);
-    
+
     addField(new ComboFieldEditor(SonarLintGlobalConfiguration.PREF_MARKER_SEVERITY,
       Messages.SonarPreferencePage_label_marker_severity,
       new String[][] {
@@ -96,14 +92,14 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
     issueFilterLabel.setLayoutData(labelLayoutData);
     issueFilterLabel.addListener(SWT.Selection,
       e -> BrowserUtils.openExternalBrowser(SonarLintDocumentation.MARK_ISSUES_LINK, e.display));
-    
+
     addField(new ComboFieldEditor(SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER,
       Messages.SonarPreferencePage_label_issue_filter,
       new String[][] {
         {"Non-resolved issues", SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED},
         {"All issues (including resolved)", SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_ALL}},
       getFieldEditorParent()));
-    
+
     var issuePeriodLabel = new Link(getFieldEditorParent(), SWT.NONE);
     issuePeriodLabel.setText("<a>Learn how</a> SonarLint markers can help you focus on new code to deliver Clean Code.");
     issuePeriodLabel.setLayoutData(labelLayoutData);
@@ -116,57 +112,93 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
         {"Overall code", SonarLintGlobalConfiguration.PREF_ISSUE_PERIOD_ALLTIME},
         {"New code", SonarLintGlobalConfiguration.PREF_ISSUE_PERIOD_NEWCODE}},
       getFieldEditorParent()));
+
+    var separator = new Label(getFieldEditorParent(), SWT.SEPARATOR | SWT.HORIZONTAL);
+    separator.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false, Integer.MAX_VALUE, 1));
+
+    var powerUserLabel = new Link(getFieldEditorParent(), SWT.NONE);
+    powerUserLabel.setText("This section targets power users who want to tweak SonarLint even more. Please refer to <a>the documentation</a>.");
+    powerUserLabel.setLayoutData(labelLayoutData);
+    powerUserLabel.addListener(SWT.Selection,
+      e -> BrowserUtils.openExternalBrowser(SonarLintDocumentation.PROVIDE_JAVA_RUNTIME_LINK, e.display));
+
+    addField(new Java17Field(getFieldEditorParent()));
   }
 
-  private static class NodeJsField extends StringButtonFieldEditor {
+  private static class NodeJsField extends AbstractPathField {
+    private static final String NODE_JS_TOOLTIP = "SonarLint requires Node.js to analyze some languages. You can "
+      + "provide an explicit path for the node executable here or leave this field blank to let SonarLint look for "
+      + "it using your PATH environment variable.";
 
     public NodeJsField(Composite parent) {
-      super(SonarLintGlobalConfiguration.PREF_NODEJS_PATH, "Node.js executable path:", parent);
-      setChangeButtonText("Browse...");
+      super(SonarLintGlobalConfiguration.PREF_NODEJS_PATH, "Node.js executable path:", parent, false);
     }
 
     @Override
-    protected void doFillIntoGrid(Composite parent, int numColumns) {
-      super.doFillIntoGrid(parent, numColumns);
+    void provideDefaultValue() {
       getTextControl().setToolTipText(NODE_JS_TOOLTIP);
-      final var detectedNodeJsPath = SonarLintCorePlugin.getNodeJsManager().getNodeJsPath();
-      getTextControl().setMessage(detectedNodeJsPath != null ? detectedNodeJsPath.toString() : "Node.js not found");
+
+      String detectedNodeJs;
+      try {
+        var nodeJs = SonarLintBackendService.get().getBackend().getAnalysisService().getAutoDetectedNodeJs()
+          .join()
+          .getDetails();
+        if (nodeJs != null) {
+          detectedNodeJs = nodeJs.getPath().toString();
+        } else {
+          detectedNodeJs = "Node.js not found";
+        }
+      } catch (Exception err) {
+        // JSON-RPC error or backend not initialized -> shouldn't impact the preference page
+        SonarLintLogger.get().debug("SonarLint backend not responding on Node.js", err);
+        detectedNodeJs = "Node.js not found, backend not responding";
+      }
+      getTextControl().setMessage(detectedNodeJs);
     }
 
+    /** INFO: For now we don't check if the Node.js version is actually correct and supported, we can do so in the future! */
     @Override
-    protected boolean doCheckState() {
-      var stringValue = getStringValue();
-      Path path;
-      try {
-        path = Paths.get(stringValue);
-      } catch (InvalidPathException e) {
-        setErrorMessage("Invalid path: " + stringValue);
-        return false;
-      }
-      if (!Files.exists(path)) {
-        setErrorMessage("File doesn't exist: " + stringValue);
-        return false;
-      }
+    boolean checkStateFurther(Path value) {
       return true;
     }
+  }
 
-    @Nullable
-    @Override
-    protected String changePressed() {
-      var dialog = new FileDialog(getShell(), SWT.OPEN);
-      if (getStringValue().trim().length() > 0) {
-        dialog.setFileName(getStringValue());
-      }
-      var file = dialog.open();
-      if (file != null) {
-        file = file.trim();
-        if (file.length() > 0) {
-          return file;
-        }
-      }
-      return null;
+  private static class Java17Field extends AbstractPathField {
+    private static final String JAVA_17_TOOLTIP = "SonarLint provides its own JRE to run part of the plug-in out of "
+      + "process if Eclipse is not running with a Java 17+ one that can be used. You can provide an explicit Java 17+ "
+      + "installation to be used instead, e.g. when your IDE is running on Java 16 or lower. But be cautious as it is "
+      + "your responsibility to make sure that it works correctly!";
+
+    public Java17Field(Composite parent) {
+      super(SonarLintGlobalConfiguration.PREF_JAVA17_PATH, "Java 17+ installation path:", parent, true);
     }
 
+    @Override
+    void provideDefaultValue() {
+      getTextControl().setToolTipText(JAVA_17_TOOLTIP);
+
+      var javaRuntimeInformation = JavaRuntimeUtils.getJavaRuntime();
+      switch (javaRuntimeInformation.getProvider()) {
+        case SELF_MANAGED:
+          getTextControl().setMessage(javaRuntimeInformation.getPath().toString());
+          break;
+        case ECLIPSE_MANAGED:
+          getTextControl().setMessage("Using Java installation of Eclipse");
+          break;
+        case SONARLINT_BUNDLED:
+          getTextControl().setMessage("Using Java installation of SonarLint");
+      }
+    }
+
+    /** INFO: For now we only check for the Java executable being present, not if actually Java 17+, we can do so in the future! */
+    @Override
+    boolean checkStateFurther(Path value) {
+      var exists = JavaRuntimeUtils.checkForJavaExecutable(value);
+      if (!exists) {
+        setErrorMessage("Java executable could not be found inside: " + value.resolve("bin").toString());
+      }
+      return exists;
+    }
   }
 
   @Override
@@ -175,40 +207,40 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
     var previousIssuePeriod = SonarLintGlobalConfiguration.getIssuePeriod();
     var previousTestFileGlobPatterns = SonarLintGlobalConfiguration.getTestFileGlobPatterns();
     var previousNodeJsPath = SonarLintGlobalConfiguration.getNodejsPath();
+    var previousJava17Path = SonarLintGlobalConfiguration.getJava17Path();
     var result = super.performOk();
     var anyPreferenceChanged = false;
-    
+
     var issueFilterChanged = !previousIssueFilter.equals(SonarLintGlobalConfiguration.getIssueFilter());
     var issuePeriodChanged = !previousIssuePeriod.equals(SonarLintGlobalConfiguration.getIssuePeriod());
     if (issueFilterChanged || issuePeriodChanged) {
       TaintIssuesJobsScheduler.scheduleUpdateAfterPreferenceChange();
       anyPreferenceChanged = true;
     }
-    if (issuePeriodChanged) {
-      SonarLintBackendService.get().notifyTelemetryAfterNewCodePreferenceChanged();
-    }
     if (!previousTestFileGlobPatterns.equals(SonarLintGlobalConfiguration.getTestFileGlobPatterns())) {
       TestFileClassifier.get().reload();
       anyPreferenceChanged = true;
     }
-    if (!previousNodeJsPath.equals(SonarLintGlobalConfiguration.getNodejsPath())) {
-      SonarLintCorePlugin.getNodeJsManager().reload();
+    if (!Objects.equals(previousNodeJsPath, SonarLintGlobalConfiguration.getNodejsPath())) {
       anyPreferenceChanged = true;
+    }
+    if (!Objects.equals(previousJava17Path, SonarLintGlobalConfiguration.getJava17Path())) {
+      // Will be implemented with SLE-812 to restart Sloop!
     }
     if (anyPreferenceChanged) {
       AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STANDALONE_CONFIG_CHANGE);
     }
     if (openIssueContext != null) {
       // INFO: We cannot schedule it immediately as the OpenIssueInEclipseJob might be faster than the preferences
-      //       dialog closing. It will focus the MessageDialog when the issue cannot be found but in order to access it
-      //       we have to close the preferences dialog which cannot be focused.
-      //       -> This is a corner case but just in case (e.g. ITs crashing on our side because they're too fast).
-      new OpenIssueInEclipseJob(openIssueContext).schedule(250);
+      // dialog closing. It will focus the MessageDialog when the issue cannot be found but in order to access it
+      // we have to close the preferences dialog which cannot be focused.
+      // -> This is a corner case but just in case (e.g. ITs crashing on our side because they're too fast).
+      new OpenIssueInEclipseJob(openIssueContext).schedule(1000);
     }
 
     return result;
   }
-  
+
   public void setOpenIssueInEclipseJobParams(OpenIssueContext context) {
     this.openIssueContext = context;
   }

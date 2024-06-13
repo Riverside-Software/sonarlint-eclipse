@@ -37,7 +37,6 @@ import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
 import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
-import org.sonarsource.sonarlint.core.commons.RuleKey;
 
 public class DeactivateRuleUtils {
 
@@ -74,11 +73,10 @@ public class DeactivateRuleUtils {
     }
 
     Predicate<ISonarLintFile> filter = f -> !SonarLintCorePlugin.loadConfig(f.getProject()).isBound();
-    
+
     // Assuming the user is willingly changing the rules for a standalone project, don't check for unsupported
     // languages as this is not the correct trigger in this moment!
-    AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STANDALONE_CONFIG_CHANGE,
-      filter, false);
+    AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STANDALONE_CONFIG_CHANGE, filter);
   }
 
   private static void removeAnnotations(IMarker marker) {
@@ -87,7 +85,7 @@ public class DeactivateRuleUtils {
     }
   }
 
-  private static void removeReportIssuesMarkers(RuleKey ruleKey) {
+  private static void removeReportIssuesMarkers(String ruleKey) {
     ProjectsProviderUtils.allProjects().stream()
       .filter(p -> p.isOpen() && !SonarLintCorePlugin.loadConfig(p).isBound())
       .forEach(p -> Stream.concat(findSonarLintMarkers(p, SonarLintCorePlugin.MARKER_REPORT_ID), findSonarLintMarkers(p, SonarLintCorePlugin.MARKER_ON_THE_FLY_ID))

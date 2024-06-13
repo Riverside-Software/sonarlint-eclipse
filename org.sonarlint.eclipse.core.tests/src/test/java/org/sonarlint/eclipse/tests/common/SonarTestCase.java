@@ -44,10 +44,8 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.junit.AfterClass;
-import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.utils.NodeJsManager;
 
 import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.FileVisitResult.SKIP_SUBTREE;
@@ -200,8 +198,8 @@ public abstract class SonarTestCase {
 
     cleanWorkspace();
 
-    // Clear all registered servers to prevent auto-binding or auto-sync to create unexpected logs
-    SonarLintCorePlugin.getServersManager().getServers().forEach(s -> SonarLintCorePlugin.getServersManager().removeServer(s));
+    // Clear all registered connections to prevent auto-binding or auto-sync to create unexpected logs
+    SonarLintCorePlugin.getConnectionManager().getConnections().forEach(s -> SonarLintCorePlugin.getConnectionManager().removeConnection(s));
   }
 
   @AfterClass
@@ -231,7 +229,7 @@ public abstract class SonarTestCase {
     getProject(projectName, dst);
 
     final var project = workspace.getRoot().getProject(projectName);
-    final List<IProject> addedProjectList = new ArrayList<IProject>();
+    final List<IProject> addedProjectList = new ArrayList<>();
 
     workspace.run(new IWorkspaceRunnable() {
 
@@ -252,10 +250,5 @@ public abstract class SonarTestCase {
     JobHelpers.waitForJobsToComplete();
     return addedProjectList.get(0);
   }
-  
-  /** Some tests are not able to run on macOS due to issues with Node.js and Eclipse running in different contexts */
-  protected final void ignoreMacOS() {
-    var isMacOsOpt = NodeJsManager.isMac();
-    Assume.assumeFalse(isMacOsOpt.isEmpty() || isMacOsOpt.get().booleanValue());
-  }
+
 }

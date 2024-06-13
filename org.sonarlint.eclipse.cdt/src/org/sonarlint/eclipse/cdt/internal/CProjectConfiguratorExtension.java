@@ -20,6 +20,7 @@
 package org.sonarlint.eclipse.cdt.internal;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import org.eclipse.cdt.core.CCProjectNature;
@@ -35,17 +36,18 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
-import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
+import org.sonarlint.eclipse.core.analysis.SonarLintLanguage;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.core.rule.ISyntaxHighlightingProvider;
-import org.sonarsource.sonarlint.core.commons.Language;
 
 /**
  * Responsible for checking at runtime if CDT plugin is installed.
  */
 public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider, ISyntaxHighlightingProvider {
 
+  private static final String CPP_LANGUAGE_KEY = "cpp";
+  private static final String C_LANGUAGE_KEY = "c";
   @Nullable
   private final CdtUtils cdtUtils;
 
@@ -63,17 +65,9 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
   }
 
   @Override
-  public Set<String> whitelistedPlugins() {
-    if (isCdtPresent()) {
-      return Collections.singleton("cpp");
-    }
-    return Collections.emptySet();
-  }
-
-  @Override
-  public Set<Language> whitelistedLanguages() {
+  public Set<SonarLintLanguage> enableLanguages() {
     // Objective-C is not supported by CDT!
-    return isCdtPresent() ? SonarLintUtils.CONNECTED_MODE_LANGUAGES_CDT : Collections.emptySet();
+    return isCdtPresent() ? EnumSet.of(SonarLintLanguage.C, SonarLintLanguage.CPP) : Collections.emptySet();
   }
 
   @Override
@@ -97,7 +91,7 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
 
   @Nullable
   @Override
-  public String language(ISonarLintFile file) {
+  public SonarLintLanguage language(ISonarLintFile file) {
     if (canConfigure(file.getProject())) {
       var iFile = file.getResource() instanceof IFile ? (IFile) file.getResource() : null;
       if (cdtUtils != null && iFile != null) {
@@ -109,7 +103,7 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
 
   @Override
   public Optional<SourceViewerConfiguration> sourceViewerConfiguration(String ruleLanguage) {
-    if (isCdtPresent() && (ruleLanguage.equals(Language.C.getLanguageKey()) || ruleLanguage.equals(Language.CPP.getLanguageKey()))) {
+    if (isCdtPresent() && (ruleLanguage.equals(C_LANGUAGE_KEY) || ruleLanguage.equals(CPP_LANGUAGE_KEY))) {
       return Optional.of(CdtUiUtils.sourceViewerConfiguration());
     }
     return Optional.empty();
@@ -117,7 +111,7 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
 
   @Override
   public Optional<IDocumentPartitioner> documentPartitioner(String ruleLanguage) {
-    if (isCdtPresent() && (ruleLanguage.equals(Language.C.getLanguageKey()) || ruleLanguage.equals(Language.CPP.getLanguageKey()))) {
+    if (isCdtPresent() && (ruleLanguage.equals(C_LANGUAGE_KEY) || ruleLanguage.equals(CPP_LANGUAGE_KEY))) {
       return Optional.of(CdtUiUtils.documentPartitioner());
     }
     return Optional.empty();

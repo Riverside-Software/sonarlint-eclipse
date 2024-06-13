@@ -10,8 +10,8 @@ target/
 *.iml
 .idea/
 
-# VSCode
-org.sonarlint.eclipse.cdt/bin/
+# VScode
+.vscode/
 org.sonarlint.eclipse.core.tests/bin/
 org.sonarlint.eclipse.core/bin/
 org.sonarlint.eclipse.jdt/bin/
@@ -24,6 +24,7 @@ org.sonarlint.eclipse.core/plugins/
 org.sonarlint.eclipse.core/lib/
 org.sonarlint.eclipse.ui/lib/
 org.sonarlint.eclipse.pdt/lib/*
+**/sloop/
 
 # macOS files
 **/.DS_Store

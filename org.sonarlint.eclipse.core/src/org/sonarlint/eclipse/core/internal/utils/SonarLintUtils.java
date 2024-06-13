@@ -19,34 +19,44 @@
  */
 package org.sonarlint.eclipse.core.internal.utils;
 
+import java.net.URI;
 import java.util.EnumSet;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.stream.Stream;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.Adapters;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.SonarLintLogger;
+import org.sonarlint.eclipse.core.analysis.SonarLintLanguage;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
 import org.sonarlint.eclipse.core.internal.extension.SonarLintExtensionTracker;
+import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.commons.Language;
+import org.sonarsource.sonarlint.core.commons.api.SonarLanguage;
+import org.sonarsource.sonarlint.core.rpc.client.ConfigScopeNotFoundException;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.Language;
 
 public class SonarLintUtils {
   /**
    *  Enabled languages should be consistent with https://www.sonarsource.com/products/sonarlint/features/eclipse!
-   *  
+   *
    *  Currently the only sub-plugins bringing their own languages are JDT (Java/JSP) and CDT (C/C++).
    */
-  public static final Set<Language> STANDALONE_MODE_LANGUAGES = EnumSet.of(Language.PYTHON, Language.JS, Language.TS,
-    Language.HTML, Language.CSS, Language.PHP, Language.XML, Language.SECRETS);
-  public static final Set<Language> STANDALONE_MODE_LANGUAGES_JDT = EnumSet.of(Language.JAVA, Language.JSP);
-  public static final Set<Language> CONNECTED_MODE_LANGUAGES = EnumSet.of(Language.ABAP, Language.COBOL,
-    Language.KOTLIN, Language.PLI, Language.PLSQL, Language.RPG, Language.RUBY, Language.SCALA, Language.TSQL);
-  public static final Set<Language> CONNECTED_MODE_LANGUAGES_CDT = EnumSet.of(Language.C, Language.CPP);
+  private static final Set<SonarLintLanguage> DEFAULT_LANGUAGES = EnumSet.of(SonarLintLanguage.PYTHON, SonarLintLanguage.JS, SonarLintLanguage.TS,
+    SonarLintLanguage.HTML, SonarLintLanguage.CSS, SonarLintLanguage.PHP, SonarLintLanguage.XML, SonarLintLanguage.SECRETS);
+  private static final Set<SonarLintLanguage> OPTIONAL_LANGUAGES = EnumSet.of(SonarLintLanguage.JAVA, SonarLintLanguage.JSP);
+  private static final Set<SonarLintLanguage> DEFAULT_CONNECTED_LANGUAGES = EnumSet.of(SonarLintLanguage.ABAP,
+    SonarLintLanguage.COBOL, SonarLintLanguage.JCL, SonarLintLanguage.KOTLIN,
+    SonarLintLanguage.PLI, SonarLintLanguage.PLSQL, SonarLintLanguage.RPG, SonarLintLanguage.RUBY,
+    SonarLintLanguage.SCALA, SonarLintLanguage.TSQL);
+  private static final Set<SonarLintLanguage> OPTIONAL_CONNECTED_LANGUAGES = EnumSet.of(SonarLintLanguage.C, SonarLintLanguage.CPP);
 
   private SonarLintUtils() {
     // utility class, forbidden constructor
@@ -69,20 +79,68 @@ public class SonarLintUtils {
     return true;
   }
 
+  @Nullable
+  public static ISonarLintFile findFileFromUri(URI fileUri) {
+    var files = ResourcesPlugin.getWorkspace().getRoot().findFilesForLocationURI(fileUri);
+    if (files.length == 0) {
+      return null;
+    }
+    for (var file : files) {
+      var slFile = SonarLintUtils.adapt(file, ISonarLintFile.class,
+        "[SonarLintUtils#findFileFromUri] Try find file from '" + file.getName() + "'");
+      if (slFile != null) {
+        return slFile;
+      }
+    }
+    return null;
+  }
+
   public static String getPluginVersion() {
     return SonarLintCorePlugin.getInstance().getBundle().getVersion().toString();
   }
 
-  public static Set<Language> getEnabledLanguages() {
-    var enabledLanguages = EnumSet.noneOf(Language.class);
-    enabledLanguages.addAll(STANDALONE_MODE_LANGUAGES);
-    enabledLanguages.addAll(CONNECTED_MODE_LANGUAGES);
-    
+  public static Set<SonarLintLanguage> getStandaloneEnabledLanguages() {
+    var enabledLanguages = EnumSet.noneOf(SonarLintLanguage.class);
+    enabledLanguages.addAll(DEFAULT_LANGUAGES);
+
     var configurators = SonarLintExtensionTracker.getInstance().getAnalysisConfigurators();
     for (var configurator : configurators) {
-      enabledLanguages.addAll(configurator.whitelistedLanguages());
+      var enableLanguages = configurator.enableLanguages();
+      enableLanguages.stream().filter(OPTIONAL_LANGUAGES::contains).forEach(enabledLanguages::add);
     }
     return enabledLanguages;
+  }
+
+  public static Set<SonarLintLanguage> getConnectedEnabledLanguages() {
+    var enabledLanguages = EnumSet.noneOf(SonarLintLanguage.class);
+    enabledLanguages.addAll(DEFAULT_CONNECTED_LANGUAGES);
+
+    var configurators = SonarLintExtensionTracker.getInstance().getAnalysisConfigurators();
+    for (var configurator : configurators) {
+      var enableLanguages = configurator.enableLanguages();
+      enableLanguages.stream().filter(OPTIONAL_CONNECTED_LANGUAGES::contains).forEach(enabledLanguages::add);
+    }
+    return enabledLanguages;
+  }
+
+  @Nullable
+  public static SonarLintLanguage convert(Language rpcLanguage) {
+    try {
+      return SonarLintLanguage.valueOf(rpcLanguage.name());
+    } catch (IllegalArgumentException e) {
+      // The language doesn't exist in SLE
+      return null;
+    }
+  }
+
+  @Nullable
+  public static SonarLintLanguage convert(SonarLanguage engineLanguage) {
+    try {
+      return SonarLintLanguage.valueOf(engineLanguage.name());
+    } catch (IllegalArgumentException e) {
+      // The language doesn't exist in SLE
+      return null;
+    }
   }
 
   public static int getPlatformPid() {
@@ -96,7 +154,7 @@ public class SonarLintUtils {
       return result;
     };
   }
-  
+
   /** Check whether a file is bound to SQ / SC via its project */
   public static boolean isBoundToConnection(ISonarLintIssuable f) {
     var config = SonarLintCorePlugin.loadConfig(f.getProject());
@@ -105,31 +163,30 @@ public class SonarLintUtils {
   }
 
   /** Check whether a file is bound to SQ / SC via its project */
-  public static boolean isBoundToConnection(ISonarLintIssuable f, IConnectedEngineFacade facade) {
+  public static boolean isBoundToConnection(ISonarLintIssuable f, ConnectionFacade facade) {
     var config = SonarLintCorePlugin.loadConfig(f.getProject());
     return config.isBound()
       && config.getProjectBinding().isPresent()
-      && facade.getId().equals(config.getProjectBinding().get().connectionId());
+      && facade.getId().equals(config.getProjectBinding().get().getConnectionId());
   }
 
   /**
    *  Check if a project has a connection to a SonarQube 10.2+ instance can therefore offer the user the option to
    *  transition anticipated issues. If the project is not bound to any connection, just log it and provide an error
    *  if checking the server failed for any reason.
-   *  
+   *
    *  INFO: Because it is costly, maybe cache the information in the future and only check periodically!
    */
   public static boolean checkProjectSupportsAnticipatedStatusChange(ISonarLintProject project) {
+    var config = SonarLintCorePlugin.loadConfig(project);
+    if (!config.isBound()) {
+      return false;
+    }
     var viableForStatusChange = false;
     try {
-      viableForStatusChange = SonarLintBackendService.get().checkAnticipatedStatusChangeSupported(project).get().isSupported();
-    } catch (InterruptedException | ExecutionException err) {
-      var cause = err.getCause();
-      if (!(cause instanceof IllegalArgumentException)) {
-        SonarLintLogger.get().error("Could not check if project is bound and if connection is supporting anticipated issues", err);
-      } else {
-        SonarLintLogger.get().info("The project '" + project.getName() + "' is not bound either SonarQube or SonarCloud");
-      }
+      viableForStatusChange = SonarLintBackendService.get().checkAnticipatedStatusChangeSupported(project).join().isSupported();
+    } catch (Exception err) {
+      SonarLintLogger.get().error("Could not check if project is bound and if connection is supporting anticipated issues", err);
     }
 
     return viableForStatusChange;
@@ -137,16 +194,40 @@ public class SonarLintUtils {
 
   /**
    *  Wrapper around {@link org.eclipse.core.runtime.Adapters#adapt(Object, Class)} in order to log debug information
-   *  which we then can use when debugging / investigating issues.
+   *  which we then can use when debugging / investigating issues. Tracing is used for checking when this does not
+   *  succeed!
    */
   @Nullable
-  public static <T> T adapt(Object sourceObject, Class<T> adapter) {
+  public static <T> T adapt(@Nullable Object sourceObject, Class<T> adapter, String trace) {
+    if (sourceObject == null) {
+      SonarLintLogger.get().debug(trace);
+      return null;
+    }
+
     var adapted = Adapters.adapt(sourceObject, adapter);
     if (adapted == null) {
-      SonarLintLogger.get().debug("'" + sourceObject.toString() + "' could not be adapted to '"
-        + adapter.toString() + "'");
+      SonarLintLogger.get().debug(trace + " -> '" + sourceObject.toString() + "' could not be adapted to '"
+        + adapter.getCanonicalName() + "'");
     }
 
     return adapted;
+  }
+
+  public static ISonarLintProject resolveProject(String configScopeId) throws ConfigScopeNotFoundException {
+    var projectOpt = tryResolveProject(configScopeId);
+    if (projectOpt.isEmpty()) {
+      SonarLintLogger.get().debug("Unable to resolve project: " + configScopeId);
+      throw new ConfigScopeNotFoundException();
+    }
+    return projectOpt.get();
+  }
+
+  public static Optional<ISonarLintProject> tryResolveProject(String configScopeId) {
+    var projectUri = URI.create(configScopeId);
+    return Stream.of(ResourcesPlugin.getWorkspace().getRoot().findContainersForLocationURI(projectUri))
+      .map(c -> adapt(c, ISonarLintProject.class,
+        "[SonarLintUtils#tryResolveProject] Try adapt configScopeId '" + configScopeId + "'"))
+      .filter(Objects::nonNull)
+      .findFirst();
   }
 }

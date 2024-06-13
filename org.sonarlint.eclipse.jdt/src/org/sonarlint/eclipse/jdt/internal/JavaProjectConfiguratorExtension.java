@@ -20,6 +20,7 @@
 package org.sonarlint.eclipse.jdt.internal;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import org.eclipse.core.resources.IFile;
@@ -32,18 +33,18 @@ import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileTypeProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
-import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
+import org.sonarlint.eclipse.core.analysis.SonarLintLanguage;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintFileAdapterParticipant;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.core.rule.ISyntaxHighlightingProvider;
 import org.sonarlint.eclipse.ui.quickfixes.IMarkerResolutionEnhancer;
 import org.sonarlint.eclipse.ui.quickfixes.ISonarLintMarkerResolver;
-import org.sonarsource.sonarlint.core.commons.Language;
 
 public class JavaProjectConfiguratorExtension
   implements IAnalysisConfigurator, ISonarLintFileAdapterParticipant, IFileTypeProvider, IMarkerResolutionEnhancer, ISyntaxHighlightingProvider {
 
+  private static final String JAVA_LANGUAGE_KEY = "java";
   @Nullable
   private final JdtUtils javaProjectConfigurator;
   private final boolean jdtPresent;
@@ -73,8 +74,8 @@ public class JavaProjectConfiguratorExtension
   }
 
   @Override
-  public Set<Language> whitelistedLanguages() {
-    return isJdtPresent() ? SonarLintUtils.STANDALONE_MODE_LANGUAGES_JDT : Collections.emptySet();
+  public Set<SonarLintLanguage> enableLanguages() {
+    return isJdtPresent() ? EnumSet.of(SonarLintLanguage.JAVA, SonarLintLanguage.JSP) : Collections.emptySet();
   }
 
   @Override
@@ -114,7 +115,7 @@ public class JavaProjectConfiguratorExtension
 
   @Override
   public Optional<SourceViewerConfiguration> sourceViewerConfiguration(String ruleLanguage) {
-    if (jdtUiPresent && ruleLanguage.equals(Language.JAVA.getLanguageKey())) {
+    if (jdtUiPresent && ruleLanguage.equals(JAVA_LANGUAGE_KEY)) {
       return Optional.of(JdtUiUtils.sourceViewerConfiguration());
     }
     return Optional.empty();
@@ -122,7 +123,7 @@ public class JavaProjectConfiguratorExtension
 
   @Override
   public Optional<IDocumentPartitioner> documentPartitioner(String ruleLanguage) {
-    if (jdtUiPresent && ruleLanguage.equals(Language.JAVA.getLanguageKey())) {
+    if (jdtUiPresent && ruleLanguage.equals(JAVA_LANGUAGE_KEY)) {
       return Optional.of(JdtUiUtils.documentPartitioner());
     }
     return Optional.empty();

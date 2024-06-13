@@ -20,7 +20,6 @@
 package org.sonarlint.eclipse.ui.internal.properties;
 
 import java.util.List;
-import org.eclipse.core.runtime.Adapters;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
@@ -34,9 +33,10 @@ import org.eclipse.swt.widgets.Link;
 import org.eclipse.ui.dialogs.PropertyPage;
 import org.sonarlint.eclipse.core.documentation.SonarLintDocumentation;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfiguration.EclipseProjectBinding;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionWizard;
@@ -61,7 +61,8 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
   }
 
   public ISonarLintProject getProject() {
-    return Adapters.adapt(getElement(), ISonarLintProject.class);
+    return SonarLintUtils.adapt(getElement(), ISonarLintProject.class,
+      "[SonarLintProjectPropertyPage#getProject] Try get project of preference page '" + getElement().toString() + "'");
   }
 
   public SonarLintProjectConfiguration getProjectConfig() {
@@ -103,9 +104,9 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
     addServerLink.addSelectionListener(new SelectionAdapter() {
       @Override
       public void widgetSelected(SelectionEvent e) {
-        var serverId = getProjectConfig().getProjectBinding().map(EclipseProjectBinding::connectionId)
+        var connectionId = getProjectConfig().getProjectBinding().map(EclipseProjectBinding::getConnectionId)
           .orElseThrow(() -> new IllegalStateException("This link should only be visible when there is a serverId"));
-        var wd = ServerConnectionWizard.createDialog(container.getShell(), serverId);
+        var wd = ServerConnectionWizard.createDialog(container.getShell(), connectionId);
         if (wd.open() == Window.OK) {
           updateState();
         }
@@ -135,14 +136,14 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
     var projectBinding = getProjectConfig().getProjectBinding();
     if (projectBinding.isPresent()) {
       boundDetails
-        .setText("Bound to the project '" + projectBinding.get().projectKey() + "' on connection '" + serverName(projectBinding.get().connectionId()) + "'");
+        .setText("Bound to the project '" + projectBinding.get().getProjectKey() + "' on connection '" + serverName(projectBinding.get().getConnectionId()) + "'");
       bindLink.setText("<a>Update project binding</a>");
     } else {
-      boundDetails.setText("Using SonarLint in connected mode with SonarQube/SonarCloud will offer you a lot of benefits. <a>Learn more</a>");
+      boundDetails.setText("Using SonarLint in Connected Mode with SonarQube/SonarCloud will offer you a lot of benefits. <a>Learn more</a>");
       bindLink.setText("<a>Bind this Eclipse project to SonarQube/SonarCloud...</a>");
     }
-    if (projectBinding.isPresent() && SonarLintCorePlugin.getServersManager().resolveBinding(getProject()).isEmpty()) {
-      addServerLink.setText("<a>Re-create SonarQube/SonarCloud connection '" + projectBinding.get().connectionId() + "'</a>");
+    if (projectBinding.isPresent() && SonarLintCorePlugin.getConnectionManager().resolveBinding(getProject()).isEmpty()) {
+      addServerLink.setText("<a>Re-create SonarQube/SonarCloud connection '" + projectBinding.get().getConnectionId() + "'</a>");
       addServerLink.setVisible(true);
     } else {
       addServerLink.setVisible(false);
@@ -150,12 +151,12 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
     container.requestLayout();
   }
 
-  private static String serverName(final String serverId) {
-    if (serverId == null) {
+  private static String serverName(final String connectionId) {
+    if (connectionId == null) {
       return "";
     }
-    var server = SonarLintCorePlugin.getServersManager().findById(serverId);
-    return server.map(IConnectedEngineFacade::getId).orElseGet(() -> "Unknown server: '" + serverId + "'");
+    var connection = SonarLintCorePlugin.getConnectionManager().findById(connectionId);
+    return connection.map(ConnectionFacade::getId).orElseGet(() -> "Unknown connection: '" + connectionId + "'");
   }
 
   @Override

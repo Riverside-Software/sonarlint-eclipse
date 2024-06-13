@@ -27,14 +27,16 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 import org.sonarlint.eclipse.core.SonarLintLogger;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacadeManager;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionManager;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.util.wizard.ModelObject;
-import org.sonarsource.sonarlint.core.client.api.util.TextSearchIndex;
-import org.sonarsource.sonarlint.core.clientapi.backend.connection.org.OrganizationDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.org.OrganizationDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.Either;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.TokenDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.UsernamePasswordDto;
 
 public class ServerConnectionModel extends ModelObject {
 
@@ -58,6 +60,7 @@ public class ServerConnectionModel extends ModelObject {
   }
 
   private final boolean edit;
+  private final boolean fromConnectionSuggestion;
   private ConnectionType connectionType = ConnectionType.SONARCLOUD;
   private AuthMethod authMethod = AuthMethod.TOKEN;
   private String connectionId;
@@ -65,38 +68,46 @@ public class ServerConnectionModel extends ModelObject {
   private String organization;
   private String username;
   private String password;
-  private List<OrganizationDto> userOrgs;
-  private TextSearchIndex<OrganizationDto> userOrgsIndex;
   private boolean notificationsSupported;
   private boolean notificationsDisabled;
 
   private List<ISonarLintProject> selectedProjects;
 
-  public ServerConnectionModel() {
+  public ServerConnectionModel(boolean fromConnectionSuggestion) {
     this.edit = false;
+    this.fromConnectionSuggestion = fromConnectionSuggestion;
   }
 
-  public ServerConnectionModel(IConnectedEngineFacade server) {
+  public ServerConnectionModel() {
+    this(false);
+  }
+
+  public ServerConnectionModel(ConnectionFacade connection) {
     this.edit = true;
-    this.connectionId = server.getId();
-    this.serverUrl = server.getHost();
+    this.fromConnectionSuggestion = false;
+    this.connectionId = connection.getId();
+    this.serverUrl = connection.getHost();
     this.connectionType = SonarLintUtils.getSonarCloudUrl().equals(serverUrl) ? ConnectionType.SONARCLOUD : ConnectionType.ONPREMISE;
-    this.organization = server.getOrganization();
-    if (server.hasAuth()) {
+    this.organization = connection.getOrganization();
+    if (connection.hasAuth()) {
       try {
-        this.username = ConnectedEngineFacadeManager.getUsername(server);
-        this.password = ConnectedEngineFacadeManager.getPassword(server);
+        this.username = ConnectionManager.getUsername(connection);
+        this.password = ConnectionManager.getPassword(connection);
       } catch (StorageException e) {
         SonarLintLogger.get().error(ERROR_READING_SECURE_STORAGE, e);
         MessageDialog.openError(Display.getCurrent().getActiveShell(), ERROR_READING_SECURE_STORAGE, "Unable to read password from secure storage: " + e.getMessage());
       }
       this.authMethod = StringUtils.isBlank(password) ? AuthMethod.TOKEN : AuthMethod.PASSWORD;
     }
-    this.notificationsDisabled = server.areNotificationsDisabled();
+    this.notificationsDisabled = connection.areNotificationsDisabled();
   }
 
   public boolean isEdit() {
     return edit;
+  }
+
+  public boolean isFromConnectionSuggestion() {
+    return fromConnectionSuggestion;
   }
 
   public ConnectionType getConnectionType() {
@@ -180,34 +191,10 @@ public class ServerConnectionModel extends ModelObject {
     firePropertyChange(PROPERTY_PASSWORD, old, this.password);
   }
 
-  @Nullable
-  public List<OrganizationDto> getUserOrgs() {
-    return userOrgs;
-  }
-
-  public boolean hasOrganizations() {
-    return userOrgs != null && userOrgs.size() > 1;
-  }
-
-  public void setUserOrgs(List<OrganizationDto> list) {
-    this.userOrgs = list;
-    var index = new TextSearchIndex<OrganizationDto>();
-    for (var org : list) {
-      index.index(org, org.getKey() + " " + org.getName());
-    }
-    suggestOrganization(list);
-    this.userOrgsIndex = index;
-  }
-
-  private void suggestOrganization(@Nullable List<OrganizationDto> userOrgs) {
+  public void suggestOrganization(List<OrganizationDto> userOrgs) {
     if (!isEdit() && userOrgs != null && userOrgs.size() == 1) {
       setOrganization(userOrgs.get(0).getKey());
     }
-  }
-
-  @Nullable
-  public TextSearchIndex<OrganizationDto> getUserOrgsIndex() {
-    return userOrgsIndex;
   }
 
   private void suggestServerId() {
@@ -265,5 +252,13 @@ public class ServerConnectionModel extends ModelObject {
 
   public boolean getNotificationsDisabled() {
     return this.notificationsDisabled;
+  }
+
+  public Either<TokenDto, UsernamePasswordDto> getTransientRpcCrendentials() {
+    if (authMethod == AuthMethod.TOKEN) {
+      return Either.forLeft(new TokenDto(username));
+    } else {
+      return Either.forRight(new UsernamePasswordDto(username, password));
+    }
   }
 }

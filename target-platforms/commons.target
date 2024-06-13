@@ -9,15 +9,9 @@
 	  <location includeDependencyDepth="none" includeDependencyScopes="compile" includeSource="true" missingManifest="error" type="Maven">
 		  <dependencies>
 			  <dependency>
-				  <groupId>org.jetbrains.kotlin</groupId>
-				  <artifactId>kotlin-osgi-bundle</artifactId>
-				  <version>1.6.21</version>
-				  <type>jar</type>
-			  </dependency>
-			  <dependency>
 				  <groupId>org.sonarsource.sonarlint.core</groupId>
-				  <artifactId>sonarlint-core-osgi</artifactId>
-				  <version>9.8.99001</version>
+                  <artifactId>sonarlint-java-client-osgi</artifactId>
+				  <version>10.2.99001</version>
 				  <type>jar</type>
 			  </dependency>
 		  </dependencies>

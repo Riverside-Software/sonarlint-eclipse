@@ -31,13 +31,12 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest.FileWithDocument;
-import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 public class AnalyzeProjectsJob extends WorkspaceJob {
   private static final String UNABLE_TO_ANALYZE_FILES = "Unable to analyze files";
   private final Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject;
-  
+
   public AnalyzeProjectsJob(Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject) {
     super("Analyze all files");
     this.filesPerProject = filesPerProject;
@@ -61,12 +60,10 @@ public class AnalyzeProjectsJob extends WorkspaceJob {
           continue;
         }
         global.setTaskName("Analyzing project " + project.getName());
-        
-        // If the project is bound, we don't have to check for unsupported languages.
-        var req = new AnalyzeProjectRequest(project, entry.getValue(), TriggerType.MANUAL, false,
-          !SonarLintUtils.isBoundToConnection(project));
-        
-        var job = AbstractAnalyzeProjectJob.create(req);
+
+        var req = new AnalyzeProjectRequest(project, entry.getValue(), TriggerType.MANUAL, false);
+
+        var job = AnalyzeProjectJob.create(req);
         var subMonitor = analysisMonitor.newChild(1);
         job.run(subMonitor);
         subMonitor.done();
@@ -74,7 +71,7 @@ public class AnalyzeProjectsJob extends WorkspaceJob {
 
     } catch (Exception e) {
       SonarLintLogger.get().error(UNABLE_TO_ANALYZE_FILES, e);
-      return new Status(Status.ERROR, SonarLintCorePlugin.PLUGIN_ID, UNABLE_TO_ANALYZE_FILES, e);
+      return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID, UNABLE_TO_ANALYZE_FILES, e);
     }
     return monitor.isCanceled() ? Status.CANCEL_STATUS : Status.OK_STATUS;
   }

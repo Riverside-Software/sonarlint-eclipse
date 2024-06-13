@@ -30,7 +30,7 @@ import org.eclipse.osgi.util.NLS;
 import org.eclipse.swt.widgets.Shell;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintUiPlugin;
@@ -82,10 +82,10 @@ public class UnbindProjectDialog extends MessageDialog {
           }
           var binding = SonarLintCorePlugin.loadConfig(project).getProjectBinding();
           binding.ifPresent(b -> {
-            var oldConnectionId = b.connectionId();
-            ConnectedEngineFacade.unbind(project);
+            var oldConnectionId = b.getConnectionId();
+            ConnectionFacade.unbind(project);
             AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(project, TriggerType.BINDING_CHANGE);
-            AnalysisJobsScheduler.notifyServerViewAfterBindingChange(project, oldConnectionId);
+            AnalysisJobsScheduler.notifyBindingViewAfterBindingChange(project, oldConnectionId);
           });
         }
       } catch (Exception e) {

@@ -19,71 +19,29 @@
  */
 package org.sonarlint.eclipse.ui.internal.binding.actions;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.eclipse.jface.viewers.ISelectionProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbenchCommandConstants;
-import org.eclipse.ui.actions.SelectionProviderAction;
-import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.binding.UnbindProjectDialog;
 
-public class ProjectUnbindAction extends SelectionProviderAction {
-  private List<ISonarLintProject> selectedProjects;
-  private Shell shell;
-
+/** Action corresponding to the context menu option to unbind a project */
+public class ProjectUnbindAction extends AbstractBindingAction {
   public ProjectUnbindAction(Shell shell, ISelectionProvider selectionProvider) {
-    super(selectionProvider, Messages.actionUnbind);
-    this.shell = shell;
-    setImageDescriptor(SonarLintImages.UNBIND);
+    super(shell, selectionProvider, Messages.actionUnbind, SonarLintImages.UNBIND);
     setActionDefinitionId(IWorkbenchCommandConstants.EDIT_DELETE);
   }
 
   @Override
-  public void selectionChanged(IStructuredSelection sel) {
-    if (sel.isEmpty()) {
-      setEnabled(false);
-      return;
-    }
-    selectedProjects = new ArrayList<>();
-    var iterator = sel.iterator();
-    while (iterator.hasNext()) {
-      var obj = iterator.next();
-      if (obj instanceof ISonarLintProject) {
-        var project = (ISonarLintProject) obj;
-        selectedProjects.add(project);
-      } else {
-        setEnabled(false);
-        return;
-      }
-    }
-    setEnabled(!selectedProjects.isEmpty());
+  protected boolean disable(IStructuredSelection sel) {
+    return sel.isEmpty();
   }
 
   @Override
-  public void run() {
-    // It is possible that the server is created and added to the server view on workbench
-    // startup. As a result, when the user switches to the server view, the server is
-    // selected, but the selectionChanged event is not called, which results in servers
-    // being null. When servers is null the server will not be deleted and the error log
-    // will have an IllegalArgumentException.
-    //
-    // To handle the case where servers is null, the selectionChanged method is called
-    // to ensure servers will be populated.
-    if (selectedProjects == null) {
-      var sel = getStructuredSelection();
-      if (sel != null) {
-        selectionChanged(sel);
-      }
-    }
-
-    if (selectedProjects != null && !selectedProjects.isEmpty()) {
-      var dialog = new UnbindProjectDialog(shell, selectedProjects);
-      dialog.open();
-    }
+  protected void doRun() {
+    var dialog = new UnbindProjectDialog(shell, selectedProjects);
+    dialog.open();
   }
-
 }

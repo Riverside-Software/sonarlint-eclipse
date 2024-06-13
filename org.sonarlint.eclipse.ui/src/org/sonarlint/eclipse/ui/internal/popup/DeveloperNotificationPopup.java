@@ -21,22 +21,22 @@ package org.sonarlint.eclipse.ui.internal.popup;
 
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
-import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
+import org.sonarlint.eclipse.core.internal.telemetry.SonarLintTelemetry;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.EditNotificationsWizard;
 import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
-import org.sonarsource.sonarlint.core.clientapi.client.smartnotification.ShowSmartNotificationParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.client.smartnotification.ShowSmartNotificationParams;
 
 public class DeveloperNotificationPopup extends AbstractSonarLintPopup {
 
   private final ShowSmartNotificationParams notification;
   private final boolean isSonarCloud;
   private final String sqOrSc;
-  private final IConnectedEngineFacade server;
+  private final ConnectionFacade connection;
 
-  public DeveloperNotificationPopup(IConnectedEngineFacade server, ShowSmartNotificationParams notification, boolean isSonarCloud) {
-    this.server = server;
+  public DeveloperNotificationPopup(ConnectionFacade connection, ShowSmartNotificationParams notification, boolean isSonarCloud) {
+    this.connection = connection;
     this.notification = notification;
     this.isSonarCloud = isSonarCloud;
     sqOrSc = isSonarCloud ? "SonarCloud" : "SonarQube";
@@ -52,14 +52,13 @@ public class DeveloperNotificationPopup extends AbstractSonarLintPopup {
     super.createContentArea(composite);
 
     addLink("Open in " + sqOrSc, e -> {
-      var telemetry = SonarLintCorePlugin.getTelemetry();
-      telemetry.devNotificationsClicked(notification.getCategory());
+      SonarLintTelemetry.devNotificationsClicked(notification.getCategory());
       BrowserUtils.openExternalBrowser(notification.getLink(), e.display);
       close();
     });
 
     addLink("Configure", e -> {
-      var wd = EditNotificationsWizard.createDialog(getParentShell(), server);
+      var wd = EditNotificationsWizard.createDialog(getParentShell(), connection);
       wd.open();
     });
   }

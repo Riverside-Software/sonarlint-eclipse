@@ -21,10 +21,11 @@ package org.sonarlint.eclipse.ui.internal.popup;
 
 import java.util.List;
 import org.eclipse.swt.widgets.Composite;
+import org.sonarlint.eclipse.core.internal.telemetry.SonarLintTelemetry;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.project.ProjectBindingProcess;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.project.ProjectBindingWizard;
-import org.sonarsource.sonarlint.core.clientapi.backend.config.binding.BindingSuggestionDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.config.binding.BindingSuggestionDto;
 
 public class SingleBindingSuggestionPopup extends AbstractBindingSuggestionPopup {
 
@@ -51,7 +52,16 @@ public class SingleBindingSuggestionPopup extends AbstractBindingSuggestionPopup
     super.createContentArea(composite);
 
     addLinkWithTooltip("Bind", "Accept suggested binding", e -> {
-      ProjectBindingProcess.scheduleProjectBinding(bindingSuggestionDto.getConnectionId(), projectsToBind, bindingSuggestionDto.getSonarProjectKey());
+      ProjectBindingProcess.bindProjects(bindingSuggestionDto.getConnectionId(), projectsToBind, bindingSuggestionDto.getSonarProjectKey());
+
+      if (SonarLintTelemetry.isEnabled()) {
+        if (bindingSuggestionDto.isFromSharedConfiguration()) {
+          SonarLintTelemetry.addedImportedBindings();
+        } else {
+          SonarLintTelemetry.addedAutomaticBindings();
+        }
+      }
+
       close();
     });
 

@@ -23,12 +23,9 @@ import org.eclipse.swt.graphics.Image;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 
 public class MessagePopup extends AbstractSonarLintPopup {
-
-  private final String type;
   private final String message;
 
-  public MessagePopup(String type, String message) {
-    this.type = type;
+  public MessagePopup(String message) {
     this.message = message;
   }
 

@@ -75,7 +75,7 @@ public abstract class AbstractListPropertyPage extends PropertyPage {
   }
 
   protected static void removeSelection(TableViewer table, Consumer<Object> remover) {
-    IStructuredSelection selection = (IStructuredSelection) table.getSelection();
+    var selection = (IStructuredSelection) table.getSelection();
 
     var idx = table.getTable().getSelectionIndex();
     var elements = selection.iterator();
@@ -95,9 +95,9 @@ public abstract class AbstractListPropertyPage extends PropertyPage {
       }
     }
   }
-  
+
   /** Check for issue binding: Either SonarQube or SonarCloud */
   protected static Optional<ResolvedBinding> getBinding(ISonarLintProject project) {
-    return SonarLintCorePlugin.getServersManager().resolveBinding(project);
+    return SonarLintCorePlugin.getConnectionManager().resolveBinding(project);
   }
 }

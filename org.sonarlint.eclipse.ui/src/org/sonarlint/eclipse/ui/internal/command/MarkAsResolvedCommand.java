@@ -31,7 +31,6 @@ import org.eclipse.jface.window.Window;
 import org.eclipse.swt.widgets.Shell;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
 import org.sonarlint.eclipse.core.internal.engine.connected.ResolvedBinding;
 import org.sonarlint.eclipse.core.internal.jobs.MarkAsResolvedJob;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
@@ -41,9 +40,9 @@ import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.dialog.MarkAnticipatedIssueAsResolvedDialog;
 import org.sonarlint.eclipse.ui.internal.dialog.MarkAsResolvedDialog;
-import org.sonarsource.sonarlint.core.clientapi.backend.issue.CheckStatusChangePermittedParams;
-import org.sonarsource.sonarlint.core.clientapi.backend.issue.CheckStatusChangePermittedResponse;
-import org.sonarsource.sonarlint.core.clientapi.backend.issue.ResolutionStatus;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.CheckStatusChangePermittedParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.CheckStatusChangePermittedResponse;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.ResolutionStatus;
 
 /**
  *  Command invoked on issues matched from SonarQube / SonarCloud or on anticipated issues in connection with
@@ -54,7 +53,7 @@ public class MarkAsResolvedCommand extends AbstractResolvedCommand {
   static {
     TITLE = "Mark Issue as Resolved";
   }
-  
+
   @Override
   protected void execute(IMarker marker, ISonarLintFile file, ISonarLintProject project, String issueKey, boolean isTaint) {
     var checkJob = new Job("Check user permissions for setting the issue resolution") {
@@ -69,7 +68,7 @@ public class MarkAsResolvedCommand extends AbstractResolvedCommand {
           try {
             result = JobUtils.waitForFuture(monitor, SonarLintBackendService.get().getBackend().getIssueService()
               .checkStatusChangePermitted(
-                new CheckStatusChangePermittedParams(resolvedBinding.getProjectBinding().connectionId(), issueKey)));
+                new CheckStatusChangePermittedParams(resolvedBinding.getProjectBinding().getConnectionId(), issueKey)));
             return Status.OK_STATUS;
           } catch (ExecutionException e) {
             return new Status(IStatus.ERROR, SonarLintCorePlugin.PLUGIN_ID,
@@ -91,8 +90,8 @@ public class MarkAsResolvedCommand extends AbstractResolvedCommand {
 
   private void afterCheckSuccessful(IMarker marker, ISonarLintProject project, ISonarLintFile file, String issueKey,
     Boolean isTaintVulnerability, CheckStatusChangePermittedResponse result, ResolvedBinding resolvedBinding) {
-    var hostURL = resolvedBinding.getEngineFacade().getHost();
-    var isSonarCloud = resolvedBinding.getEngineFacade().isSonarCloud();
+    var hostURL = resolvedBinding.getConnectionFacade().getHost();
+    var isSonarCloud = resolvedBinding.getConnectionFacade().isSonarCloud();
 
     if (!result.isPermitted()) {
       currentWindow.getShell().getDisplay()
@@ -108,13 +107,12 @@ public class MarkAsResolvedCommand extends AbstractResolvedCommand {
         var newStatus = dialog.getFinalTransition();
         var comment = dialog.getFinalComment();
 
-        var job = new MarkAsResolvedJob(project, (ConnectedEngineFacade) resolvedBinding.getEngineFacade(), file,
-          issueKey, newStatus, StringUtils.trimToNull(comment), isTaintVulnerability);
+        var job = new MarkAsResolvedJob(project, file, issueKey, newStatus, StringUtils.trimToNull(comment), isTaintVulnerability);
         job.schedule();
       }
     });
   }
-  
+
   /** Get the correct dialog (differing for server / anticipated issues) */
   protected MarkAsResolvedDialog createDialog(IMarker marker, Shell parentShell, List<ResolutionStatus> transitions,
     String hostURL, boolean isSonarCloud) {

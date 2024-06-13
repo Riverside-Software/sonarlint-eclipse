@@ -42,13 +42,14 @@ import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfigurat
 import org.sonarlint.eclipse.core.internal.quickfixes.MarkerQuickFixes;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
-import org.sonarsource.sonarlint.core.commons.CleanCodeAttribute;
-import org.sonarsource.sonarlint.core.commons.ImpactSeverity;
-import org.sonarsource.sonarlint.core.commons.IssueSeverity;
-import org.sonarsource.sonarlint.core.commons.RuleKey;
-import org.sonarsource.sonarlint.core.commons.RuleType;
-import org.sonarsource.sonarlint.core.commons.SoftwareQuality;
-import org.sonarsource.sonarlint.core.commons.TextRange;
+import org.sonarsource.sonarlint.core.commons.api.TextRange;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.TextRangeWithHashDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.CleanCodeAttribute;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.ImpactSeverity;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.IssueSeverity;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.RuleType;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.SoftwareQuality;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.TextRangeDto;
 
 public final class MarkerUtils {
   public static final String SONAR_MARKER_RULE_KEY_ATTR = "rulekey";
@@ -124,7 +125,8 @@ public final class MarkerUtils {
   }
 
   @Nullable
-  public static String encodeHighestImpact(@Nullable Map<SoftwareQuality, ImpactSeverity> decoded) {
+  public static String encodeHighestImpact(
+    @Nullable Map<SoftwareQuality, ImpactSeverity> decoded) {
     if (decoded == null || decoded.size() == 0) {
       return null;
     }
@@ -144,7 +146,8 @@ public final class MarkerUtils {
   }
 
   @Nullable
-  public static String encodeImpacts(@Nullable Map<SoftwareQuality, ImpactSeverity> decoded) {
+  public static String encodeImpacts(
+    @Nullable Map<SoftwareQuality, ImpactSeverity> decoded) {
     if (decoded == null || decoded.size() == 0) {
       return null;
     }
@@ -168,31 +171,56 @@ public final class MarkerUtils {
 
   /**
    *  Get the matching status of a specific markers' issue by id
-   *  
+   *
    *  @param markerId for the marker <-> project connection
    *  @param markerServerKey marker information from the connection, null if not on server
    *  @return specific matching status of a markers' issue
    */
   public static FindingMatchingStatus getMatchingStatus(IMarker marker, @Nullable String markerServerKey) {
-    var slFile = SonarLintUtils.adapt(marker.getResource(), ISonarLintFile.class);
+    var slFile = SonarLintUtils.adapt(marker.getResource(), ISonarLintFile.class,
+      "[MarkerUtils#getMatchingStatus] Try get file of marker '" + marker.toString() + "'");
     if (slFile == null) {
-      SonarLintLogger.get().debug("MarkerUtils.getMatchingStatus: Resolving project of marker '" + marker.toString()
-        + "' was not possible due to the file not being adaptable.");
       return FindingMatchingStatus.NOT_MATCHED;
     }
-    
-    var bindingOptional = SonarLintCorePlugin.getServersManager().resolveBinding(slFile.getProject());
+
+    var bindingOptional = SonarLintCorePlugin.getConnectionManager().resolveBinding(slFile.getProject());
     if (bindingOptional.isEmpty() || markerServerKey == null) {
       return FindingMatchingStatus.NOT_MATCHED;
     }
-    if (bindingOptional.get().getEngineFacade().isSonarCloud()) {
+    if (bindingOptional.get().getConnectionFacade().isSonarCloud()) {
       return FindingMatchingStatus.MATCHED_WITH_SC;
     }
     return FindingMatchingStatus.MATCHED_WITH_SQ;
   }
 
   @Nullable
+  public static Position getPosition(final IDocument document, @Nullable TextRangeDto textRange) {
+    if (textRange == null) {
+      return null;
+    }
+    try {
+      return convertToGlobalOffset(document, textRange, Position::new);
+    } catch (BadLocationException e) {
+      SonarLintLogger.get().error("failed to compute line offsets for start, end = " + textRange.getStartLine() + ", " + textRange.getEndLine(), e);
+      return null;
+    }
+  }
+
+  @Nullable
   public static Position getPosition(final IDocument document, @Nullable TextRange textRange) {
+    if (textRange == null) {
+      return null;
+    }
+    try {
+      return convertToGlobalOffset(document, textRange, Position::new);
+    } catch (BadLocationException e) {
+      SonarLintLogger.get().error("failed to compute line offsets for start, end = " + textRange.getStartLine() + ", " + textRange.getEndLine(), e);
+      return null;
+    }
+  }
+
+  @Nullable
+  public static Position getPosition(final IDocument document, @Nullable TextRangeWithHashDto textRange) {
     if (textRange == null) {
       return null;
     }
@@ -223,6 +251,15 @@ public final class MarkerUtils {
     return new Position(startLineStartOffset, length - lineDelimiterLength);
   }
 
+  private static <G> G convertToGlobalOffset(final IDocument document, TextRangeDto textRange, BiFunction<Integer, Integer, G> function)
+    throws BadLocationException {
+    var startLineStartOffset = document.getLineOffset(textRange.getStartLine() - 1);
+    var endLineStartOffset = textRange.getEndLine() != textRange.getStartLine() ? document.getLineOffset(textRange.getEndLine() - 1) : startLineStartOffset;
+    var start = startLineStartOffset + textRange.getStartLineOffset();
+    var end = endLineStartOffset + textRange.getEndLineOffset();
+    return function.apply(start, end - start);
+  }
+
   private static <G> G convertToGlobalOffset(final IDocument document, TextRange textRange, BiFunction<Integer, Integer, G> function)
     throws BadLocationException {
     var startLineStartOffset = document.getLineOffset(textRange.getStartLine() - 1);
@@ -232,13 +269,18 @@ public final class MarkerUtils {
     return function.apply(start, end - start);
   }
 
+  private static <G> G convertToGlobalOffset(final IDocument document, TextRangeWithHashDto textRange, BiFunction<Integer, Integer, G> function)
+    throws BadLocationException {
+    var startLineStartOffset = document.getLineOffset(textRange.getStartLine() - 1);
+    var endLineStartOffset = textRange.getEndLine() != textRange.getStartLine() ? document.getLineOffset(textRange.getEndLine() - 1) : startLineStartOffset;
+    var start = startLineStartOffset + textRange.getStartLineOffset();
+    var end = endLineStartOffset + textRange.getEndLineOffset();
+    return function.apply(start, end - start);
+  }
+
   @Nullable
-  public static RuleKey getRuleKey(IMarker marker) {
-    var repositoryAndKey = marker.getAttribute(SONAR_MARKER_RULE_KEY_ATTR, null);
-    if (repositoryAndKey == null) {
-      return null;
-    }
-    return RuleKey.parse(repositoryAndKey);
+  public static String getRuleKey(IMarker marker) {
+    return marker.getAttribute(SONAR_MARKER_RULE_KEY_ATTR, null);
   }
 
   public static MarkerFlows getIssueFlows(IMarker marker) {

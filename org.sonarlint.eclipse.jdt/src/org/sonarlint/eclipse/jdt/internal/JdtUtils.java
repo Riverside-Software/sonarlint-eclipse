@@ -80,7 +80,13 @@ public class JdtUtils {
       var fileExtensions = javaContentType.getFileSpecs(IContentType.FILE_EXTENSION_SPEC);
       return List.of(fileExtensions).contains(file.getFileExtension());
     }
-    return !javaElt.getJavaProject().isOnClasspath(javaElt) || !isStructureKnown(javaElt);
+
+    // SLE-854 When a supposed Java file was found, we also have to check if it is a Java project. When not a Java
+    // project, we shouldn't exclude files just because there is no JavaProject and no classpath configured correctly.
+    // The file might have been flagged as Java because `JavaCore.getJavaLikeExtensions()` tried to categorize the file
+    // by accident!
+    return hasJavaNature(file.getProject())
+      && (!javaElt.getJavaProject().isOnClasspath(javaElt) || !isStructureKnown(javaElt));
   }
 
   private static boolean isStructureKnown(IJavaElement javaElt) {
@@ -98,7 +104,7 @@ public class JdtUtils {
 
     context.setAnalysisProperty("sonar.java.source", javaSource);
     context.setAnalysisProperty("sonar.java.target", javaTarget);
-    
+
     var javaPreview = Optional.ofNullable(javaProject.getOption(JavaCore.COMPILER_PB_ENABLE_PREVIEW_FEATURES, true)).orElse(JavaCore.DISABLED);
     context.setAnalysisProperty("sonar.java.enablePreview", javaPreview.equalsIgnoreCase(JavaCore.ENABLED) ? "true" : "false");
 
@@ -203,10 +209,7 @@ public class JdtUtils {
 
   private static void processSourceEntry(IClasspathEntry entry, JavaProjectConfiguration context, boolean topProject, boolean testEntry, boolean isWithoutTestCode)
     throws JavaModelException {
-    if (isSourceExcluded(entry)) {
-      return;
-    }
-    if (isTest(entry) && isWithoutTestCode) {
+    if (isSourceExcluded(entry) || (isTest(entry) && isWithoutTestCode)) {
       return;
     }
     if (entry.getOutputLocation() != null) {
@@ -217,10 +220,7 @@ public class JdtUtils {
   private static void processLibraryEntry(IClasspathEntry entry, IJavaProject javaProject, JavaProjectConfiguration context, boolean topProject, boolean testEntry,
     boolean isWithoutTestCode)
     throws JavaModelException {
-    if (isTest(entry) && isWithoutTestCode) {
-      return;
-    }
-    if (!topProject && !entry.isExported()) {
+    if ((isTest(entry) && isWithoutTestCode) || (!topProject && !entry.isExported())) {
       return;
     }
     final var libPath = resolveLibrary(javaProject, entry);
@@ -264,7 +264,7 @@ public class JdtUtils {
           + javaProject.getPath() + "' from workspace member: " + member);
         return null;
       }
-      
+
       libPath = location.toOSString();
     } else {
       libPath = entry.getPath().makeAbsolute().toOSString();

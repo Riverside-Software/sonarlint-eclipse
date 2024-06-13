@@ -21,14 +21,14 @@ package org.sonarlint.eclipse.core.internal.tracking;
 
 import java.util.UUID;
 import org.eclipse.jdt.annotation.Nullable;
-import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.sonarlint.eclipse.core.internal.tracking.matching.MatchableIssue;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
-import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue;
-import org.sonarsource.sonarlint.core.clientapi.backend.tracking.LocalOnlyIssueDto;
-import org.sonarsource.sonarlint.core.clientapi.backend.tracking.ServerMatchedIssueDto;
-import org.sonarsource.sonarlint.core.commons.IssueSeverity;
-import org.sonarsource.sonarlint.core.commons.RuleType;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.LocalOnlyIssueDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.ServerMatchedIssueDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.client.analysis.RawIssueDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.Either;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.IssueSeverity;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.RuleType;
 
 public class TrackedIssue implements MatchableIssue {
 
@@ -85,7 +85,7 @@ public class TrackedIssue implements MatchableIssue {
     return issue;
   }
 
-  public Issue getIssueFromAnalysis() {
+  public RawIssueDto getIssueFromAnalysis() {
     return raw.getIssueFromAnalysis();
   }
 
@@ -118,16 +118,16 @@ public class TrackedIssue implements MatchableIssue {
   public boolean isResolved() {
     return resolved;
   }
-  
+
   public boolean isNewCode() {
     return isNewCode;
   }
-  
+
   @Nullable
   public UUID getId() {
     return id;
   }
-  
+
   public void setId(@Nullable UUID id) {
     this.id = id;
   }
@@ -177,8 +177,8 @@ public class TrackedIssue implements MatchableIssue {
     resultIssue.map(serverMatched -> {
       this.id = serverMatched.getId();
       this.creationDate = serverMatched.getIntroductionDate();
-      this.overridenIssueSeverity = serverMatched.getOverriddenSeverity();
-      this.overridenIssueType = serverMatched.getType();
+      this.overridenIssueSeverity = serverMatched.getOverriddenSeverity() != null ? IssueSeverity.valueOf(serverMatched.getOverriddenSeverity().name()) : null;
+      this.overridenIssueType = serverMatched.getType() != null ? RuleType.valueOf(serverMatched.getType().name()) : null;
       this.serverIssueKey = serverMatched.getServerKey();
       this.resolved = serverMatched.isResolved();
       this.isNewCode = serverMatched.isOnNewCode();

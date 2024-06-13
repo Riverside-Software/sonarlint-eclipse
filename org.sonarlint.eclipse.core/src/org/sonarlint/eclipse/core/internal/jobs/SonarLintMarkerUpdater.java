@@ -19,6 +19,7 @@
  */
 package org.sonarlint.eclipse.core.internal.jobs;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,18 +29,21 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
 import org.sonarlint.eclipse.core.internal.markers.MarkerFlow;
 import org.sonarlint.eclipse.core.internal.markers.MarkerFlowLocation;
 import org.sonarlint.eclipse.core.internal.markers.MarkerFlows;
@@ -52,14 +56,17 @@ import org.sonarlint.eclipse.core.internal.quickfixes.MarkerTextEdit;
 import org.sonarlint.eclipse.core.internal.resources.ProjectsProviderUtils;
 import org.sonarlint.eclipse.core.internal.tracking.DigestUtils;
 import org.sonarlint.eclipse.core.internal.tracking.TrackedIssue;
+import org.sonarlint.eclipse.core.internal.utils.JobUtils;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.listener.TaintVulnerabilitiesListener;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.analysis.api.QuickFix;
-import org.sonarsource.sonarlint.core.commons.IssueSeverity;
-import org.sonarsource.sonarlint.core.serverconnection.issues.ServerTaintIssue;
-import org.sonarsource.sonarlint.core.serverconnection.issues.ServerTaintIssue.ServerIssueLocation;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.TaintVulnerabilityDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.TaintVulnerabilityDto.FlowDto.LocationDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.TextRangeWithHashDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.client.analysis.QuickFixDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.TextRangeDto;
 
 public class SonarLintMarkerUpdater {
 
@@ -94,38 +101,47 @@ public class SonarLintMarkerUpdater {
     }
   }
 
-  public static void refreshMarkersForTaint(ISonarLintFile currentFile, String branchName,
-    ConnectedEngineFacade facade, final String issuePeriodPreference, final String issueFilterPreference) {
+  public static void refreshMarkersForTaint(ISonarLintFile currentFile,
+    ConnectionFacade facade, final String issuePeriodPreference, final String issueFilterPreference, IProgressMonitor monitor) throws InterruptedException, ExecutionException {
     deleteTaintMarkers(currentFile);
 
     var project = currentFile.getProject();
     var config = SonarLintCorePlugin.loadConfig(project);
-    config.getProjectBinding().ifPresent(binding -> {
-      var includeResolvedByPreference = Objects.equals(
-        SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_ALL, issueFilterPreference);
-      
-      var taintVulnerabilities = facade.getServerTaintIssues(binding, branchName,
-        currentFile.getProjectRelativePath(), includeResolvedByPreference)
-        .stream()
-        .collect(Collectors.toList());
+    var projectBinding = config.getProjectBinding();
+    if (projectBinding.isEmpty()) {
+      return;
+    }
+    var binding = projectBinding.get();
 
-      var boundSiblingProjects = facade.getBoundProjects(binding.projectKey());
-      var bindings = boundSiblingProjects.stream()
-        .collect(Collectors.toMap(p -> p, p -> SonarLintCorePlugin.loadConfig(p).getProjectBinding().get()));
+    var future = SonarLintBackendService.get().listAllTaintVulnerabilities(project);
+    var response = JobUtils.waitForFuture(monitor, future);
 
-      var actualTaintMarkersCreated = false;
-      for (var taintIssue : taintVulnerabilities) {
-        if (!(shouldHideResolvedTaintMarker(taintIssue, issueFilterPreference)
-          || shouldHidePreNewCodeTaintMarker(taintIssue, issuePeriodPreference))) {
-          findFileForLocationInBoundProjects(bindings, taintIssue.getFilePath())
-            .ifPresent(primaryLocationFile -> createTaintMarker(primaryLocationFile.getDocument(), primaryLocationFile, taintIssue, bindings));
-          actualTaintMarkersCreated = true;
+    var taintVulnerabilities = response.getTaintVulnerabilities();
+
+    var boundSiblingProjects = facade.getBoundProjects(binding.getProjectKey());
+    var bindings = boundSiblingProjects.stream()
+      .collect(Collectors.toMap(p -> p, p -> SonarLintCorePlugin.loadConfig(p).getProjectBinding().get()));
+
+    var actualTaintMarkersCreated = false;
+    for (var taintIssue : taintVulnerabilities) {
+      if (!(shouldHideResolvedTaintMarker(taintIssue, issueFilterPreference)
+        || shouldHidePreNewCodeTaintMarker(taintIssue, issuePeriodPreference))) {
+        var optFileForTaint = findFileForLocationInBoundProjects(bindings, taintIssue.getIdeFilePath());
+        if (optFileForTaint.isEmpty()) {
+          continue;
         }
+        var fileForTaint = optFileForTaint.get();
+        if (!fileForTaint.equals(currentFile)) {
+          continue;
+        }
+
+        createTaintMarker(fileForTaint.getDocument(), fileForTaint, taintIssue, bindings);
+        actualTaintMarkersCreated = true;
       }
-      if (actualTaintMarkersCreated && taintVulnerabilitiesListener != null) {
-        taintVulnerabilitiesListener.markersCreated(facade.isSonarCloud());
-      }
-    });
+    }
+    if (actualTaintMarkersCreated && taintVulnerabilitiesListener != null) {
+      taintVulnerabilitiesListener.markersCreated(facade.isSonarCloud());
+    }
 
   }
 
@@ -141,18 +157,11 @@ public class SonarLintMarkerUpdater {
     }
   }
 
-  private static Optional<ISonarLintFile> findFileForLocationInBoundProjects(Map<ISonarLintProject, EclipseProjectBinding> bindingsPerProjects, @Nullable String serverIssuePath) {
-    if (serverIssuePath == null) {
-      // Should never occur, no taint issues are at file level
-      return Optional.empty();
-    }
+  private static Optional<ISonarLintFile> findFileForLocationInBoundProjects(Map<ISonarLintProject, EclipseProjectBinding> bindingsPerProjects, Path filePath) {
     for (var entry : bindingsPerProjects.entrySet()) {
-      var idePath = entry.getValue().serverPathToIdePath(serverIssuePath);
-      if (idePath.isPresent()) {
-        var primaryLocationFile = entry.getKey().find(idePath.get());
-        if (primaryLocationFile.isPresent()) {
-          return primaryLocationFile;
-        }
+      var primaryLocationFile = entry.getKey().find(filePath.toString());
+      if (primaryLocationFile.isPresent()) {
+        return primaryLocationFile;
       }
     }
     return Optional.empty();
@@ -260,7 +269,7 @@ public class SonarLintMarkerUpdater {
     return triggerType.isOnTheFly() ? SonarLintCorePlugin.MARKER_ON_THE_FLY_FLOW_ID : SonarLintCorePlugin.MARKER_REPORT_FLOW_ID;
   }
 
-  private static void createTaintMarker(IDocument document, ISonarLintIssuable issuable, ServerTaintIssue taintIssue,
+  private static void createTaintMarker(IDocument document, ISonarLintIssuable issuable, TaintVulnerabilityDto taintIssue,
     Map<ISonarLintProject, EclipseProjectBinding> bindingsPerProjects) {
     try {
       var marker = issuable.getResource().createMarker(SonarLintCorePlugin.MARKER_TAINT_ID);
@@ -281,17 +290,16 @@ public class SonarLintMarkerUpdater {
         marker.setAttribute(IMarker.CHAR_START, position.getOffset());
         marker.setAttribute(IMarker.CHAR_END, position.getOffset() + position.getLength());
       } else {
-        SonarLintLogger.get().debug("Position cannot be set for taint issue '" + taintIssue.getKey() + "' in '"
-          + taintIssue.getFilePath() + "'");
+        SonarLintLogger.get().debug("Position cannot be set for taint issue '" + taintIssue.getId() + "' in '" + taintIssue.getIdeFilePath() + "'");
       }
 
       marker.setAttribute(IMarker.PRIORITY, getPriority(taintIssue.getSeverity()));
       marker.setAttribute(MarkerUtils.SONAR_MARKER_ISSUE_SEVERITY_ATTR, taintIssue.getSeverity().name());
       marker.setAttribute(MarkerUtils.SONAR_MARKER_ISSUE_TYPE_ATTR, taintIssue.getType().name());
-      marker.setAttribute(MarkerUtils.SONAR_MARKER_SERVER_ISSUE_KEY_ATTR, taintIssue.getKey());
+      marker.setAttribute(MarkerUtils.SONAR_MARKER_SERVER_ISSUE_KEY_ATTR, taintIssue.getSonarServerKey());
       marker.setAttribute(MarkerUtils.SONAR_MARKER_RESOLVED_ATTR, taintIssue.isResolved());
 
-      var creationDate = taintIssue.getCreationDate().toEpochMilli();
+      var creationDate = taintIssue.getIntroductionDate().toEpochMilli();
       marker.setAttribute(MarkerUtils.SONAR_MARKER_CREATION_DATE_ATTR, String.valueOf(creationDate));
 
       createFlowMarkersForTaint(taintIssue, marker, bindingsPerProjects);
@@ -312,7 +320,7 @@ public class SonarLintMarkerUpdater {
 
     setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_RULE_KEY_ATTR, trackedIssue.getRuleKey());
     setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_RULE_DESC_CONTEXT_KEY_ATTR,
-      trackedIssue.getIssueFromAnalysis().getRuleDescriptionContextKey().orElse(null));
+      trackedIssue.getIssueFromAnalysis().getRuleDescriptionContextKey());
     setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.SEVERITY, SonarLintGlobalConfiguration.getMarkerSeverity());
 
     setMarkerAttributeIfDifferent(marker, existingAttributes, IMarker.MESSAGE, trackedIssue.getMessage());
@@ -326,7 +334,7 @@ public class SonarLintMarkerUpdater {
 
     var issueFromAnalysis = trackedIssue.getIssueFromAnalysis();
     setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_ATTRIBUTE_ATTR,
-      issueFromAnalysis.getCleanCodeAttribute().orElse(null));
+      issueFromAnalysis.getCleanCodeAttribute());
     setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_IMPACTS_ATTR,
       MarkerUtils.encodeImpacts(issueFromAnalysis.getImpacts()));
     setMarkerAttributeIfDifferent(marker, existingAttributes, MarkerUtils.SONAR_MARKER_ISSUE_HIGHEST_IMPACT_ATTR,
@@ -340,10 +348,10 @@ public class SonarLintMarkerUpdater {
     var flowMarkerId = markerIdForFlows(triggerType);
     var flows = new ArrayList<MarkerFlow>();
     var i = 1;
-    for (var engineFlow : trackedIssue.getIssueFromAnalysis().flows()) {
+    for (var engineFlow : trackedIssue.getIssueFromAnalysis().getFlows()) {
       var flow = new MarkerFlow(i);
       flows.add(flow);
-      var locations = new ArrayList<>(engineFlow.locations());
+      var locations = new ArrayList<>(engineFlow.getLocations());
       Collections.reverse(locations);
       for (var l : locations) {
         var flowLocation = new MarkerFlowLocation(flow, l.getMessage());
@@ -360,24 +368,21 @@ public class SonarLintMarkerUpdater {
       return;
     }
     var qfs = new ArrayList<MarkerQuickFix>();
-    for (var engineQuickFix : trackedIssue.getIssueFromAnalysis().quickFixes()) {
+    for (var engineQuickFix : trackedIssue.getIssueFromAnalysis().getQuickFixes()) {
       createQuickFix(document, issuable, qfs, engineQuickFix);
     }
     marker.setAttribute(MarkerUtils.SONAR_MARKER_QUICK_FIXES_ATTR, new MarkerQuickFixes(qfs));
   }
 
-  private static void createQuickFix(IDocument document, ISonarLintIssuable issuable, List<MarkerQuickFix> qfs, QuickFix engineQuickFix) {
-    var qf = new MarkerQuickFix(engineQuickFix.message());
-    for (var edits : engineQuickFix.inputFileEdits()) {
-      var inputFile = (EclipseInputFile) edits.target();
-      if (!issuable.equals(inputFile.getClientObject())) {
-        SonarLintLogger.get().debug("Quick fix on multiple files is not supported yet: " + engineQuickFix.message());
+  private static void createQuickFix(IDocument document, ISonarLintIssuable issuable, List<MarkerQuickFix> qfs, QuickFixDto rpcQuickFix) {
+    var qf = new MarkerQuickFix(rpcQuickFix.message());
+    for (var edits : rpcQuickFix.fileEdits()) {
+      var fileWithEdit = SonarLintUtils.findFileFromUri(edits.target());
+      if (!issuable.equals(fileWithEdit)) {
+        SonarLintLogger.get().debug("Quick fix on multiple files is not supported yet: " + rpcQuickFix.message());
         return;
       }
-      if (inputFile.hasDocumentOlderThan(document)) {
-        SonarLintLogger.get().debug("Document has changed since quick fix was contributed: " + engineQuickFix.message());
-        return;
-      }
+      // should we discard the quick fix if the document has changed since the analysis?
       for (var txtEditFromEngine : edits.textEdits()) {
         var markerForTextEdit = createMarkerForTextRange(document, issuable.getResource(), SonarLintCorePlugin.MARKER_ON_THE_FLY_QUICK_FIX_ID, null,
           txtEditFromEngine.range());
@@ -385,7 +390,7 @@ public class SonarLintMarkerUpdater {
           var textEdit = new MarkerTextEdit(markerForTextEdit.get(), txtEditFromEngine.newText());
           qf.addTextEdit(textEdit);
         } else {
-          SonarLintLogger.get().debug("Unable to create text edit marker for quick fix: " + engineQuickFix.message());
+          SonarLintLogger.get().debug("Unable to create text edit marker for quick fix: " + rpcQuickFix.message());
           return;
         }
       }
@@ -393,8 +398,7 @@ public class SonarLintMarkerUpdater {
     qfs.add(qf);
   }
 
-  private static Optional<IMarker> createMarkerForTextRange(IDocument document, IResource resource, String markerId, @Nullable String message,
-    org.sonarsource.sonarlint.core.commons.@Nullable TextRange textRange) {
+  private static Optional<IMarker> createMarkerForTextRange(IDocument document, IResource resource, String markerId, @Nullable String message, @Nullable TextRangeDto textRange) {
     try {
       var marker = resource.createMarker(markerId);
       if (message != null) {
@@ -420,25 +424,30 @@ public class SonarLintMarkerUpdater {
     }
   }
 
-  private static void createFlowMarkersForTaint(ServerTaintIssue taintIssue, IMarker primaryLocationMarker, Map<ISonarLintProject, EclipseProjectBinding> bindingsPerProjects)
+  private static void createFlowMarkersForTaint(TaintVulnerabilityDto taintIssue, IMarker primaryLocationMarker, Map<ISonarLintProject, EclipseProjectBinding> bindingsPerProjects)
     throws CoreException {
     var flows = new ArrayList<MarkerFlow>();
     var i = 1;
-    for (var engineFlow : taintIssue.getFlows()) {
+    for (var rpcFlow : taintIssue.getFlows()) {
       var flow = new MarkerFlow(i);
       flows.add(flow);
-      var locations = new ArrayList<>(engineFlow.locations());
+      var locations = new ArrayList<>(rpcFlow.getLocations());
       Collections.reverse(locations);
       for (var l : locations) {
-        var flowLocation = new MarkerFlowLocation(flow, l.getMessage(), l.getFilePath());
+        var filePath = l.getFilePath();
+        if (filePath == null) {
+          // Can we really have project level locations?
+          continue;
+        }
+        var flowLocation = new MarkerFlowLocation(flow, l.getMessage(), filePath);
 
-        var locationFile = findFileForLocationInBoundProjects(bindingsPerProjects, l.getFilePath());
+        var locationFile = findFileForLocationInBoundProjects(bindingsPerProjects, filePath);
         if (locationFile.isEmpty()) {
           continue;
         }
         var file = locationFile.get();
         try {
-          var marker = createMarkerIfCodeMatches(file, l);
+          var marker = createMarker(file, l);
           if (marker != null) {
             flowLocation.setMarker(marker);
           } else {
@@ -454,17 +463,35 @@ public class SonarLintMarkerUpdater {
   }
 
   @Nullable
-  private static IMarker createMarkerIfCodeMatches(ISonarLintFile file, ServerIssueLocation location) throws BadLocationException, CoreException {
+  private static IMarker createMarker(ISonarLintFile file, LocationDto l) throws BadLocationException, CoreException {
     var document = file.getDocument();
-    var startOffset = document.getLineOffset(location.getTextRange().getStartLine() - 1) + location.getTextRange().getStartLineOffset();
-    var endOffset = document.getLineOffset(location.getTextRange().getEndLine() - 1) + location.getTextRange().getEndLineOffset();
+    var textRange = l.getTextRange();
+    if (textRange != null) {
+      return createMarkerIfCodeMatches(file, document, textRange, l);
+    } else {
+      return createFileLevelMarker(file, l);
+    }
+  }
+
+  private static IMarker createFileLevelMarker(ISonarLintFile file, LocationDto l) throws CoreException {
+    var marker = file.getResource().createMarker(SonarLintCorePlugin.MARKER_TAINT_FLOW_ID);
+    marker.setAttribute(IMarker.MESSAGE, l.getMessage());
+    marker.setAttribute(IMarker.LINE_NUMBER, 1);
+    return marker;
+  }
+
+  @Nullable
+  private static IMarker createMarkerIfCodeMatches(ISonarLintFile file, IDocument document, TextRangeWithHashDto textRange, LocationDto l)
+    throws BadLocationException, CoreException {
+    var startOffset = document.getLineOffset(textRange.getStartLine() - 1) + textRange.getStartLineOffset();
+    var endOffset = document.getLineOffset(textRange.getEndLine() - 1) + textRange.getEndLineOffset();
     var inEditorCode = document.get(startOffset, endOffset - startOffset);
     var inEditorDigest = DigestUtils.digest(inEditorCode);
-    if (inEditorDigest.equals(location.getTextRange().getHash())) {
+    if (inEditorDigest.equals(textRange.getHash())) {
       var marker = file.getResource().createMarker(SonarLintCorePlugin.MARKER_TAINT_FLOW_ID);
-      marker.setAttribute(IMarker.MESSAGE, location.getMessage());
-      marker.setAttribute(IMarker.LINE_NUMBER, location.getTextRange() != null ? location.getTextRange().getStartLine() : 1);
-      var flowPosition = MarkerUtils.getPosition(document, location.getTextRange());
+      marker.setAttribute(IMarker.MESSAGE, l.getMessage());
+      marker.setAttribute(IMarker.LINE_NUMBER, textRange.getStartLine());
+      var flowPosition = MarkerUtils.getPosition(document, textRange);
       if (flowPosition != null) {
         marker.setAttribute(IMarker.CHAR_START, flowPosition.getOffset());
         marker.setAttribute(IMarker.CHAR_END, flowPosition.getOffset() + flowPosition.getLength());
@@ -519,8 +546,8 @@ public class SonarLintMarkerUpdater {
    * @see IMarker.PRIORITY_NORMAL
    * @see IMarker.PRIORITY_LOW
    */
-  private static int getPriority(@Nullable final IssueSeverity severity) {
-    switch (severity != null ? severity : IssueSeverity.INFO) {
+  private static int getPriority(final org.sonarsource.sonarlint.core.rpc.protocol.common.@Nullable IssueSeverity severity) {
+    switch (severity != null ? severity : org.sonarsource.sonarlint.core.rpc.protocol.common.IssueSeverity.INFO) {
       case BLOCKER:
       case CRITICAL:
         return IMarker.PRIORITY_HIGH;
@@ -550,7 +577,7 @@ public class SonarLintMarkerUpdater {
         p.deleteAllMarkers(SonarLintCorePlugin.MARKER_TAINT_FLOW_ID);
       });
   }
-  
+
   /** Markers should not be set / should be removed for issues already resolved when preference is set */
   private static boolean shouldHideResolvedIssueMarker(TrackedIssue issue, final String issueFilterPreference) {
     return Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED, issueFilterPreference)
@@ -566,15 +593,15 @@ public class SonarLintMarkerUpdater {
       && Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_PERIOD_NEWCODE, issuePeriodPreference)
       && !issue.isNewCode();
   }
-  
+
   /** Taint marker should not be set / should be removed for issues already resolved when preference is set */
-  private static boolean shouldHideResolvedTaintMarker(ServerTaintIssue issue, final String issueFilterPreference) {
+  private static boolean shouldHideResolvedTaintMarker(TaintVulnerabilityDto issue, final String issueFilterPreference) {
     return Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_DISPLAY_FILTER_NONRESOLVED, issueFilterPreference)
       && issue.isResolved();
   }
 
   /** Taint markers should not be set / should be removed for issues not on new code when preference is set! */
-  private static boolean shouldHidePreNewCodeTaintMarker(ServerTaintIssue issue, final String issuePeriodPreference) {
+  private static boolean shouldHidePreNewCodeTaintMarker(TaintVulnerabilityDto issue, final String issuePeriodPreference) {
     return Objects.equals(SonarLintGlobalConfiguration.PREF_ISSUE_PERIOD_NEWCODE, issuePeriodPreference)
       && !issue.isOnNewCode();
   }

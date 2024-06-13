@@ -19,10 +19,8 @@
  */
 package org.sonarlint.eclipse.ui.internal;
 
-import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
@@ -45,25 +43,18 @@ import org.sonarlint.eclipse.core.SonarLintNotifications.Notification;
 import org.sonarlint.eclipse.core.internal.LogListener;
 import org.sonarlint.eclipse.core.internal.NotificationListener;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
-import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
-import org.sonarlint.eclipse.core.internal.engine.connected.ConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.backend.SonarLintRpcClientSupportSynchronizer;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintMarkerUpdater;
-import org.sonarlint.eclipse.core.internal.jobs.TaintIssuesUpdateOnFileOpenedJob;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
-import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarlint.eclipse.ui.internal.backend.SonarLintEclipseClient;
-import org.sonarlint.eclipse.ui.internal.binding.actions.AnalysisJobsScheduler;
+import org.sonarlint.eclipse.ui.internal.backend.SonarLintEclipseRpcClient;
 import org.sonarlint.eclipse.ui.internal.console.SonarLintConsole;
 import org.sonarlint.eclipse.ui.internal.extension.SonarLintUiExtensionTracker;
 import org.sonarlint.eclipse.ui.internal.flowlocations.SonarLintFlowLocationsService;
-import org.sonarlint.eclipse.ui.internal.job.PeriodicStoragesSynchronizerJob;
 import org.sonarlint.eclipse.ui.internal.popup.GenericNotificationPopup;
-import org.sonarlint.eclipse.ui.internal.popup.SurveyPopup;
 import org.sonarlint.eclipse.ui.internal.popup.TaintVulnerabilityAvailablePopup;
-import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 
 public class SonarLintUiPlugin extends AbstractUIPlugin {
 
@@ -84,8 +75,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   private static final SonarLintPostBuildListener SONARLINT_POST_BUILD_LISTENER = new SonarLintPostBuildListener();
   private static final SonarLintVcsCacheCleaner SONARLINT_VCS_CACHE_CLEANER = new SonarLintVcsCacheCleaner();
   private static final SonarLintFlowLocationsService SONARLINT_FLOW_LOCATION_SERVICE = new SonarLintFlowLocationsService();
-  private static final SonarLintLanguageFromConnectedModeService SONARLINT_LANUGAGE_CONNECTED_MODE_SERVICE = new SonarLintLanguageFromConnectedModeService();
   private static final SonarLintNoAutomaticBuildWarningService SONARLINT_AUTOMATIC_BUILD_SERVICE = new SonarLintNoAutomaticBuildWarningService();
+  private static final SonarLintRpcClientSupportService SONARLINT_RPC_CLIENT_SUPPORT_SERVICE = new SonarLintRpcClientSupportService();
 
   public SonarLintUiPlugin() {
     plugin = this;
@@ -101,21 +92,21 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     private final ExecutorService logConsumer = Executors.newSingleThreadExecutor(SonarLintUtils.threadFactory("sonarlint-log-consummer", true));
 
     @Override
-    public void info(String msg, boolean fromAnalyzer) {
+    public void info(@Nullable String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
         doAsyncInUiThread(() -> getSonarConsole().info(msg, fromAnalyzer));
       }
     }
 
     @Override
-    public void error(String msg, boolean fromAnalyzer) {
+    public void error(@Nullable String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
         doAsyncInUiThread(() -> getSonarConsole().error(msg, fromAnalyzer));
       }
     }
 
     @Override
-    public void debug(String msg, boolean fromAnalyzer) {
+    public void debug(@Nullable String msg, boolean fromAnalyzer) {
       if (PlatformUI.isWorkbenchRunning()) {
         doAsyncInUiThread(() -> getSonarConsole().debug(msg, fromAnalyzer));
       }
@@ -152,16 +143,13 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     notifListener = new PopupNotification();
     SonarLintNotifications.get().addNotificationListener(notifListener);
 
-    SonarLintBackendService.get().init(new SonarLintEclipseClient());
-
-    // Schedule auto-sync
-    new PeriodicStoragesSynchronizerJob().schedule(Duration.ofSeconds(1).toMillis());
+    SonarLintBackendService.get().init(new SonarLintEclipseRpcClient());
 
     addPostBuildListener();
     ResourcesPlugin.getWorkspace().addResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_FLOW_LOCATION_SERVICE);
-    SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_LANUGAGE_CONNECTED_MODE_SERVICE);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_AUTOMATIC_BUILD_SERVICE);
+    SonarLintRpcClientSupportSynchronizer.addListener(SONARLINT_RPC_CLIENT_SUPPORT_SERVICE);
 
     prefListener = event -> {
       if (event.getProperty().equals(SonarLintGlobalConfiguration.PREF_MARKER_SEVERITY)) {
@@ -196,8 +184,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     removePostBuildListener();
     ResourcesPlugin.getWorkspace().removeResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_FLOW_LOCATION_SERVICE);
-    SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_LANUGAGE_CONNECTED_MODE_SERVICE);
     SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_AUTOMATIC_BUILD_SERVICE);
+    SonarLintRpcClientSupportSynchronizer.removeListener(SONARLINT_RPC_CLIENT_SUPPORT_SERVICE);
     SonarLintLogger.get().removeLogListener(logListener);
     logListener.shutdown();
     SonarLintNotifications.get().removeNotificationListener(notifListener);
@@ -246,7 +234,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     }
   }
 
-  private class StartupJob extends Job {
+  /** We don't run an analysis of all opened files anymore as the backend needs to get ready first */
+  private static class StartupJob extends Job {
 
     StartupJob() {
       super("SonarLint UI startup");
@@ -256,10 +245,6 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
     public IStatus run(IProgressMonitor monitor) {
       SonarLintLogger.get().info("Starting SonarLint for Eclipse " + SonarLintUtils.getPluginVersion());
 
-      AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles((ISonarLintProject) null, TriggerType.STARTUP);
-
-      scheduleReloadOfTaintVulnerabilities();
-
       if (PlatformUI.isWorkbenchRunning()) {
         // Handle future opened/closed windows
         PlatformUI.getWorkbench().addWindowListener(WINDOW_OPEN_CLOSE_LISTENER);
@@ -268,24 +253,11 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
           WindowOpenCloseListener.addListenerToAllPages(window);
         }
       }
-      
+
       // Display user survey pop-up (comment out if not needed, comment in again if needed and replace link)
-      //Display.getDefault().syncExec(() -> SurveyPopup.displaySurveyPopupIfNotAlreadyAccessed(""));
+      // Display.getDefault().syncExec(() -> SurveyPopup.displaySurveyPopupIfNotAlreadyAccessed(""));
 
       return Status.OK_STATUS;
-    }
-
-    private void scheduleReloadOfTaintVulnerabilities() {
-      var filesByProject = PlatformUtils.collectOpenedFiles((ISonarLintProject) null, f -> true);
-
-      for (var entry : filesByProject.entrySet()) {
-        var aProject = entry.getKey();
-        var bindingOpt = SonarLintCorePlugin.getServersManager().resolveBinding(aProject);
-        if (bindingOpt.isPresent()) {
-          new TaintIssuesUpdateOnFileOpenedJob((ConnectedEngineFacade) bindingOpt.get().getEngineFacade(),
-            aProject, entry.getValue().stream().map(f -> f.getFile()).collect(Collectors.toList()), bindingOpt.get().getProjectBinding()).schedule();
-        }
-      }
     }
 
   }

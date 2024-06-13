@@ -35,9 +35,8 @@ import org.eclipse.swt.widgets.Text;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.preferences.RuleConfig;
 import org.sonarlint.eclipse.core.internal.utils.StringUtils;
-import org.sonarsource.sonarlint.core.clientapi.backend.rules.RuleDefinitionDto;
-import org.sonarsource.sonarlint.core.clientapi.backend.rules.RuleParamDefinitionDto;
-import org.sonarsource.sonarlint.core.clientapi.backend.rules.RuleParamType;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.RuleDefinitionDto;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.RuleParamDefinitionDto;
 
 public class RuleParameterPanel extends Composite {
   private final Link defaultLink;
@@ -86,7 +85,7 @@ public class RuleParameterPanel extends Composite {
     var layout = new GridLayout();
     layout.numColumns = 2;
     paramInputsContainer.setLayout(layout);
-    
+
     selectedRuleMetadata.getParamsByKey().values().forEach(it -> addParamInput(paramInputsContainer, it));
 
     sc.setMinSize(paramInputsContainer.computeSize(SWT.DEFAULT, SWT.DEFAULT));
@@ -105,7 +104,7 @@ public class RuleParameterPanel extends Composite {
     ruleParameterLabel.setLayoutData(layoutData);
     ruleParameterLabel.setText(ruleParam.getName());
 
-    RuleParamType rp = ruleParam.getType();
+    var rp = ruleParam.getType();
     switch (rp) {
       case BOOLEAN:
         addCheckboxInput(parent, ruleParam);

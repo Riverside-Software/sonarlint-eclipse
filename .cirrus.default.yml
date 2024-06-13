@@ -11,6 +11,8 @@ env:
   BURGR_PASSWORD: VAULT[development/kv/data/burgr data.cirrus_password]
   SONAR_HOST_URL: VAULT[development/kv/data/next data.url]
   SONAR_TOKEN: VAULT[development/kv/data/next data.token]
+  SLACK_TOKEN: VAULT[development/kv/data/slack data.token]
+  CIRRUS_PIPELINE_NAME: "SLE default"
 
 auto_cancellation: $CIRRUS_BRANCH != 'master'
 
@@ -46,7 +48,7 @@ eks_builder_container: &BUILDER_CONTAINER_DEFINITION
     CIRRUS_AWS_ACCOUNT: ${CIRRUS_AWS_ACCOUNT}
   builder_role: cirrus-builder
   builder_image: docker-builder-v*
-  builder_instance_type: t3.small
+  builder_instance_type: m6a.large
   builder_subnet_id: ${CIRRUS_AWS_SUBNET}
 
 maven_cache: &SETUP_MAVEN_CACHE
@@ -70,7 +72,8 @@ build_task:
   eks_container:
     <<: *BUILDER_CONTAINER_DEFINITION
     cpu: 4
-    memory: 2G
+    memory: 8G
+    type: m6a.large
   env:
     ARTIFACTORY_DEPLOY_REPO: sonarsource-public-qa
     ARTIFACTORY_DEPLOY_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-qa-deployer
@@ -92,8 +95,14 @@ build_task:
   build_script: |
     base64 --decode "${SM_CLIENT_CERT_FILE}.b64" > "${SM_CLIENT_CERT_FILE}"
     source cirrus-env BUILD-PRIVATE
-    .cirrus/regular_mvn_build_deploy_analyze -Dmaven.test.skip=true -Dsonar.skip=true
+    .cirrus/regular_mvn_build_deploy_analyze -Dmaven.test.skip=true -Dsonar.skip=true -Dcyclonedx.skip=false
+  site_artifacts:
+    paths: org.sonarlint.eclipse.site/target/org.sonarlint.eclipse.site-*.zip
+    type: application/zip
   cleanup_before_cache_script: cleanup_maven_repository
+  on_failure:
+    slack_notification_script: |
+      .cirrus/slack-notification.sh
 
 validate_task:
   # name: "Run unit tests on Linux"
@@ -103,7 +112,8 @@ validate_task:
   eks_container:
     <<: *BUILDER_CONTAINER_DEFINITION
     cpu: 4
-    memory: 4G
+    memory: 8G
+    type: m6a.large
   env:
     DEPLOY_PULL_REQUEST: false
     DISPLAY: :10
@@ -125,6 +135,8 @@ validate_task:
     junit_artifacts:
       path: '**/target/surefire-reports/TEST-*.xml'
       format: junit
+    slack_notification_script: |
+      .cirrus/slack-notification.sh
 
 qa_task:
   #  name: "Run ITs"
@@ -133,8 +145,9 @@ qa_task:
   <<: *ONLY_IF_EXCEPT_NIGHTLY
   eks_container:
     <<: *BUILDER_CONTAINER_DEFINITION
-    cpu: 4
+    cpu: 6
     memory: 12G
+    type: m6a.large
   env:
     ARTIFACTORY_API_KEY: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader access_token]
     GITHUB_TOKEN: VAULT[development/github/token/licenses-ro token]
@@ -195,6 +208,8 @@ qa_task:
       - "**/test-results/**/*.xml"
       - "**/target/surefire-reports/TEST-*.xml"
       format: junit
+    slack_notification_script: |
+      .cirrus/slack-notification.sh
 
 sonarqube_task:
   # name: "Run SonarQube analysis"
@@ -204,7 +219,8 @@ sonarqube_task:
   eks_container:
     <<: *BUILDER_CONTAINER_DEFINITION
     cpu: 4
-    memory: 4G
+    memory: 8G
+    type: m6a.large
   env:
     DEPLOY_PULL_REQUEST: false
     DISPLAY: :10
@@ -221,13 +237,15 @@ sonarqube_task:
     unzip jacoco.zip -d ${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/
     source cirrus-env QA
     .cirrus/regular_mvn_build_deploy_analyze \
-      -P-deploy-sonarsource,-release,-sign -Dmaven.install.skip=true -Dmaven.deploy.skip=true -Dcyclonedx.skip=true \
+      -P-deploy-sonarsource,-release,-sign -Dmaven.install.skip=true -Dmaven.deploy.skip=true \
       -Pcoverage -Djacoco.append=true -Dsonar.coverage.jacoco.xmlReportPaths=${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/site/jacoco-aggregate/jacoco.xml
     /etc/init.d/xvfb stop
   cleanup_before_cache_script: cleanup_maven_repository
   on_failure:
     xvfb_log_artifacts:
       path: "${CIRRUS_WORKING_DIR}/Xvfb.out"
+    slack_notification_script: |
+      .cirrus/slack-notification.sh
 
 mend_scan_task:
   # Run Mend analysis
@@ -238,19 +256,23 @@ mend_scan_task:
     <<: *BUILDER_CONTAINER_DEFINITION
     cpu: 4
     memory: 8G
+    type: m6a.large
   env:
     WS_APIKEY: VAULT[development/kv/data/mend data.apikey]
   <<: *SETUP_MAVEN_CACHE
   whitesource_script:
     - source cirrus-env QA
     - source .cirrus/set_maven_build_version $BUILD_NUMBER
-    - mvn -B -e -V clean install -DskipTests
+    - mvn -B -e -V clean install -DskipTests -Dcyclonedx.skip=false
     - source ws_scan.sh
   cleanup_before_cache_script: cleanup_maven_repository
   allow_failures: "true"
   always:
     ws_artifacts:
       path: "whitesource/**/*"
+  on_failure:
+    slack_notification_script: |
+      .cirrus/slack-notification.sh
 
 promote_task:
   depends_on:
@@ -261,7 +283,8 @@ promote_task:
   eks_container:
     <<: *CONTAINER_DEFINITION
     cpu: 2
-    memory: 1G
+    memory: 4G
+    type: m6a.large
   env:
     ARTIFACTORY_PROMOTE_ACCESS_TOKEN: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-promoter access_token]
     GITHUB_TOKEN: VAULT[development/github/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-promotion token]
@@ -269,9 +292,11 @@ promote_task:
     ARTIFACTS: org.sonarsource.sonarlint.eclipse:org.sonarlint.eclipse.site:zip,org.sonarsource.sonarlint.eclipse:sonarlint-eclipse-parent:json:cyclonedx
   <<: *SETUP_MAVEN_CACHE
   promote_script: |
-    source cirrus-env PROMOTE
     .cirrus/cirrus_promote_maven
   cleanup_before_cache_script: cleanup_maven_repository
+  on_failure:
+    slack_notification_script: |
+      .cirrus/slack-notification.sh
 
 dogfood_task:
   #  name: "Update internal dogfooding p2"
@@ -280,16 +305,19 @@ dogfood_task:
     - promote
   only_if: $CIRRUS_USER_COLLABORATOR == 'true' && $CIRRUS_TAG == "" && $CIRRUS_BRANCH == $CIRRUS_DEFAULT_BRANCH
   eks_container:
-    <<: *CONTAINER_DEFINITION
+    <<: *BUILDER_CONTAINER_DEFINITION
     cpu: 2
-    memory: 1G
+    memory: 4G
+    type: m6a.large
   env:
-    ARTIFACTORY_API_USER: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-promoter
-    ARTIFACTORY_API_KEY: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-promoter access_token]
+    AWS_ACCESS_KEY_ID: VAULT[development/aws/sts/downloads access_key]
+    AWS_SECRET_ACCESS_KEY: VAULT[development/aws/sts/downloads secret_key]
+    AWS_SESSION_TOKEN: VAULT[development/aws/sts/downloads security_token]
+    AWS_DEFAULT_REGION: eu-central-1
   dogfood_script: |
     source cirrus-env QA
-    source .cirrus/set_maven_build_version $BUILD_NUMBER
-    jfrog rt cp \
-      sonarsource-public-builds/org/sonarsource/sonarlint/eclipse/org.sonarlint.eclipse.site/${PROJECT_VERSION}/org.sonarlint.eclipse.site-${PROJECT_VERSION}.zip \
-      sonarlint-eclipse-dogfood/org.sonarlint.eclipse.site-dogfood.zip \
-      --flat --url "${ARTIFACTORY_URL}" --access-token "${ARTIFACTORY_API_KEY}" --build "${CIRRUS_REPO_NAME}/${BUILD_NUMBER}"
+    source .cirrus/set_maven_build_version "$BUILD_NUMBER"
+    .cirrus/publish-dogfood-site.sh
+  on_failure:
+    slack_notification_script: |
+      .cirrus/slack-notification.sh

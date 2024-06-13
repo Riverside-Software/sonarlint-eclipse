@@ -20,7 +20,7 @@
 package org.sonarlint.eclipse.core.internal.jobs;
 
 import org.eclipse.core.runtime.IProgressMonitor;
-import org.sonarsource.sonarlint.core.commons.progress.ClientProgressMonitor;
+import org.sonarsource.sonarlint.core.commons.api.progress.ClientProgressMonitor;
 
 public class WrappedProgressMonitor implements ClientProgressMonitor {
 
@@ -39,7 +39,7 @@ public class WrappedProgressMonitor implements ClientProgressMonitor {
 
   @Override
   public void setFraction(float fraction) {
-    int total = (int) (fraction * 100);
+    var total = (int) (fraction * 100);
     wrapped.worked(total - worked);
     this.worked = total;
   }

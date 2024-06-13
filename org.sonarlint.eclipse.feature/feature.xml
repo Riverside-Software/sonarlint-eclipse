@@ -2,7 +2,7 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="9.3.3008"
+      version="10.2.3100"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
@@ -39,71 +39,67 @@
       <import plugin="org.eclipse.ui.navigator"/>
       <import plugin="org.eclipse.ui.editors"/>
       <import plugin="org.eclipse.ui.forms"/>
-      <import plugin="org.sonarsource.sonarlint.core.sonarlint-core-osgi" version="9.6.0" match="greaterOrEqual"/>
    </requires>
 
    <plugin
          id="org.sonarlint.eclipse.core"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.sonarlint.eclipse.ui"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
-
-   <plugin
-         id="org.sonarsource.sonarlint.core.sonarlint-core-osgi"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.sonarlint.eclipse.cdt"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.sonarlint.eclipse.jdt"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.sonarlint.eclipse.m2e"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         version="0.0.0"/>
    
    <plugin
          id="org.sonarlint.eclipse.pydev"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         version="0.0.0"/>
 
    <plugin
-         id="org.jetbrains.kotlin.osgi-bundle"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         id="org.sonarlint.eclipse.sloop.macosx.aarch64"
+         os="macosx"
+         arch="aarch64"
+         version="0.0.0"/>
 
    <plugin
-         id="org.slf4j.api"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
+         id="org.sonarlint.eclipse.sloop.macosx.x64"
+         os="macosx"
+         arch="x86_64"
+         version="0.0.0"/>
+
+   <plugin
+         id="org.sonarlint.eclipse.sloop.linux.aarch64"
+         os="linux"
+         arch="aarch64"
+         version="0.0.0"/>
+
+   <plugin
+         id="org.sonarlint.eclipse.sloop.linux.x64"
+         os="linux"
+         arch="x86_64"
+         version="0.0.0"/>
+
+   <plugin
+         id="org.sonarlint.eclipse.sloop.windows.x64"
+         os="win32"
+         arch="x86_64"
+         version="0.0.0"/>
+
+   <plugin
+         id="org.sonarlint.eclipse.sloop.no-arch"
+         os="win32"
+         arch="aarch64"
+         version="0.0.0"/>
 
    <plugin
          id="org.sonarlint.eclipse.pdt"
@@ -111,6 +107,10 @@
          install-size="0"
          version="0.0.0"
          unpack="false"/>
+
+   <plugin
+         id="org.sonarsource.sonarlint.core.sonarlint-java-client-osgi"
+         version="0.0.0"/>
 
 
 </feature>

@@ -2,12 +2,13 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.m2e;singleton:=true
-Bundle-Version: 9.3.3008
+Bundle-Version: 10.2.3100
 Bundle-Vendor: %bundle_vendor
 Bundle-ClassPath: .
 Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.core.resources,
  org.eclipse.m2e.core;resolution:=optional,
+ org.eclipse.m2e.maven.runtime;resolution:=optional,
  org.sonarlint.eclipse.core,
  org.eclipse.jdt.annotation;resolution:=optional
 Bundle-RequiredExecutionEnvironment: JavaSE-11

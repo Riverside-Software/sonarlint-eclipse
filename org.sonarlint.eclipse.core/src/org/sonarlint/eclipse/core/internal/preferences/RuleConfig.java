@@ -68,14 +68,17 @@ public class RuleConfig {
     if (this == obj) {
       return true;
     }
-    if (obj == null) {
+    if ((obj == null) || (getClass() != obj.getClass())) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
-      return false;
-    }
-    RuleConfig other = (RuleConfig) obj;
+    var other = (RuleConfig) obj;
     return isActive == other.isActive && Objects.equals(key, other.key) && Objects.equals(params, other.params);
+  }
+
+  public RuleConfig createMutableCopy() {
+    var copy = new RuleConfig(key, isActive);
+    copy.params = new HashMap<>(params);
+    return copy;
   }
 
 }

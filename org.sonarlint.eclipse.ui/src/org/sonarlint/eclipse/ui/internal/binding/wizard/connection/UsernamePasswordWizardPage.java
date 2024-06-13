@@ -43,9 +43,9 @@ import org.sonarlint.eclipse.ui.internal.util.wizard.WidgetPropertiesCompat;
 public class UsernamePasswordWizardPage extends AbstractServerConnectionWizardPage {
   public static final String DEPRECATION_MESSAGE = "Authentication via username and password is deprecated and will "
     + "be removed in the future. Please use a token instead.";
-  
-  private Text serverUsernameText;
-  private Text serverPasswordText;
+
+  private Text connectionUsernameText;
+  private Text connectionPasswordText;
 
   private Binding usernameTextBinding;
 
@@ -64,7 +64,7 @@ public class UsernamePasswordWizardPage extends AbstractServerConnectionWizardPa
 
     var dataBindingContext = new DataBindingContext();
     usernameTextBinding = dataBindingContext.bindValue(
-      WidgetPropertiesCompat.text(SWT.Modify).observe(serverUsernameText),
+      WidgetPropertiesCompat.text(SWT.Modify).observe(connectionUsernameText),
       BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_USERNAME)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(
@@ -72,7 +72,7 @@ public class UsernamePasswordWizardPage extends AbstractServerConnectionWizardPa
       null);
     ControlDecorationSupport.create(usernameTextBinding, SWT.LEFT | SWT.TOP);
     passwordTextBinding = dataBindingContext.bindValue(
-      WidgetPropertiesCompat.text(SWT.Modify).observe(serverPasswordText),
+      WidgetPropertiesCompat.text(SWT.Modify).observe(connectionPasswordText),
       BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_PASSWORD)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(
@@ -82,20 +82,20 @@ public class UsernamePasswordWizardPage extends AbstractServerConnectionWizardPa
 
     WizardPageSupport.create(this, dataBindingContext);
   }
-  
+
   private static void createDeprecationLabel(final Composite container) {
     var deprecationContainer = new Composite(container, SWT.NONE);
     deprecationContainer.setLayout(new GridLayout(3, false));
     deprecationContainer.setLayoutData(new GridData(SWT.LEFT, SWT.DOWN, true, false, Integer.MAX_VALUE, 1));
-    
+
     // icon on the left
     new Label(deprecationContainer, SWT.NULL).setImage(SonarLintImages.IMG_SEVERITY_BLOCKER);
-    
+
     var labelDeprecation = new Label(deprecationContainer, SWT.NULL);
     labelDeprecation.setText(DEPRECATION_MESSAGE);
     labelDeprecation.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
     labelDeprecation.setFont(JFaceResources.getFontRegistry().getBold(JFaceResources.DEFAULT_FONT));
-    
+
     // icon on the right
     new Label(deprecationContainer, SWT.NULL).setImage(SonarLintImages.IMG_SEVERITY_BLOCKER);
   }
@@ -103,19 +103,19 @@ public class UsernamePasswordWizardPage extends AbstractServerConnectionWizardPa
   private void createPasswordField(final Composite container) {
     var labelPassword = new Label(container, SWT.NULL);
     labelPassword.setText(Messages.ServerLocationWizardPage_label_password);
-    serverPasswordText = new Text(container, SWT.BORDER | SWT.SINGLE | SWT.PASSWORD);
+    connectionPasswordText = new Text(container, SWT.BORDER | SWT.SINGLE | SWT.PASSWORD);
     var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
-    serverPasswordText.setLayoutData(gd);
+    connectionPasswordText.setLayoutData(gd);
   }
 
   private void createUsernameOrTokenField(final Composite container) {
     var labelUsername = new Label(container, SWT.NULL);
     labelUsername.setText("Username:");
-    serverUsernameText = new Text(container, SWT.BORDER | SWT.SINGLE);
+    connectionUsernameText = new Text(container, SWT.BORDER | SWT.SINGLE);
     var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
-    serverUsernameText.setLayoutData(gd);
+    connectionUsernameText.setLayoutData(gd);
   }
 
   @Override

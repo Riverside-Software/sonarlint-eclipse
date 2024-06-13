@@ -22,6 +22,7 @@ package org.sonarlint.eclipse.its;
 import com.sonar.orchestrator.container.Server;
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +34,6 @@ import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.IJobChangeListener;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.core.runtime.jobs.JobChangeAdapter;
-import org.eclipse.core.runtime.preferences.ConfigurationScope;
 import org.eclipse.core.runtime.preferences.IEclipsePreferences;
 import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.eclipse.equinox.security.storage.ISecurePreferences;
@@ -41,6 +41,7 @@ import org.eclipse.equinox.security.storage.SecurePreferencesFactory;
 import org.eclipse.reddeer.common.wait.TimePeriod;
 import org.eclipse.reddeer.common.wait.WaitUntil;
 import org.eclipse.reddeer.common.wait.WaitWhile;
+import org.eclipse.reddeer.core.lookup.ShellLookup;
 import org.eclipse.reddeer.eclipse.condition.ConsoleHasText;
 import org.eclipse.reddeer.eclipse.condition.ProjectExists;
 import org.eclipse.reddeer.eclipse.core.resources.Project;
@@ -70,6 +71,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.osgi.framework.Version;
 import org.osgi.service.prefs.BackingStoreException;
+import org.sonarlint.eclipse.its.reddeer.conditions.AnalysisReady;
 import org.sonarlint.eclipse.its.reddeer.preferences.FileAssociationsPreferences;
 import org.sonarlint.eclipse.its.reddeer.preferences.RuleConfigurationPreferences;
 import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences;
@@ -99,35 +101,34 @@ public abstract class AbstractSonarLintTest {
   protected static final String ON_THE_FLY_ANNOTATION_TYPE = "org.sonarlint.eclipse.onTheFlyIssueAnnotationType";
 
   private static final ISecurePreferences ROOT_SECURE = SecurePreferencesFactory.getDefault().node(PLUGIN_ID);
-  private static final IEclipsePreferences ROOT = InstanceScope.INSTANCE.getNode(PLUGIN_ID);
+  private static final IEclipsePreferences ROOT_CORE = InstanceScope.INSTANCE.getNode(PLUGIN_ID);
+  private static final IEclipsePreferences ROOT_UI = InstanceScope.INSTANCE.getNode(UI_PLUGIN_ID);
 
   @ClassRule
   public static final TemporaryFolder tempFolder = new TemporaryFolder();
-  
+
   @BeforeClass
   public static final void setUpBeforeClass() {
     System.setProperty("sonarlint.internal.ignoreEnhancedFeature", "true");
     System.setProperty("sonarlint.internal.ignoreMissingFeature", "true");
     System.setProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning", "true");
   }
-  
+
   @AfterClass
   public static final void cleanupAfterClass() {
     System.clearProperty("sonarlint.internal.ignoreEnhancedFeature");
     System.clearProperty("sonarlint.internal.ignoreMissingFeature");
     System.clearProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning");
-    
+
     // remove warning about soon unsupported version (there can be multiple)
     if ("oldest".equals(System.getProperty("target.platform"))) {
-      while (true) {
-        try {
-          new DefaultShell("SonarQube - Soon unsupported version").close();
-        } catch (Exception ignored) {
-          break;
-        }
-      }
+      Optional<DefaultShell> dialog;
+      do {
+        dialog = shellByName("SonarLint - New Eclipse user survey");
+        dialog.ifPresent(DefaultShell::close);
+      } while (dialog.isPresent());
     }
-    
+
     // File associations must be set explicitly on macOS!
     restoreDefaultFileAssociationConfiguration();
   }
@@ -137,12 +138,9 @@ public abstract class AbstractSonarLintTest {
     // first wait for previous analyzes to finish properly
     // this prevents trying to clear the console in the middle of a job
     waitSonarLintAnalysisJobs();
-    
+
     // remove PyDev default preferences window if shown
-    try {
-      new DefaultShell("Default Eclipse preferences for PyDev").close();
-    } catch (Exception ignored) {
-    }
+    shellByName("Default Eclipse preferences for PyDev").ifPresent(DefaultShell::close);
 
     var consoleView = new SonarLintConsole();
     System.out.println(consoleView.getConsoleView().getConsoleText());
@@ -150,12 +148,12 @@ public abstract class AbstractSonarLintTest {
 
     new WorkbenchShell().maximize();
     new CleanWorkspaceRequirement().fulfill();
-    
+
     restoreDefaultRulesConfiguration();
 
     setNewCodePreference(IssuePeriod.ALL_TIME);
 
-    ConfigurationScope.INSTANCE.getNode(UI_PLUGIN_ID).remove(PREF_SECRETS_EVER_DETECTED);
+    ROOT_UI.remove(PREF_SECRETS_EVER_DETECTED);
   }
 
   protected static void setNewCodePreference(IssuePeriod period) {
@@ -166,7 +164,7 @@ public abstract class AbstractSonarLintTest {
     preferences.setNewCodePreference(period);
     preferenceDialog.ok();
   }
-  
+
   protected static void setIssueFilterPreference(IssueFilter filter) {
     var preferenceDialog = new WorkbenchPreferenceDialog();
     preferenceDialog.open();
@@ -206,11 +204,11 @@ public abstract class AbstractSonarLintTest {
   public static final void beforeClass() throws BackingStoreException {
     System.out.println("Eclipse: " + platformVersion());
     System.out.println("GTK: " + System.getProperty("org.eclipse.swt.internal.gtk.version"));
-    
+
     // Integration tests should not open the external browser
     System.setProperty("sonarlint.internal.externalBrowser.disabled", "true");
 
-    ROOT.node("servers").removeNode();
+    ROOT_CORE.node("servers").removeNode();
     ROOT_SECURE.node("servers").removeNode();
 
     if (sonarlintItJobListener == null) {
@@ -258,13 +256,9 @@ public abstract class AbstractSonarLintTest {
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
-    
+
     // If we have any SonarLint for Eclipse user survey, just click it away as we don't test the behavior!
-    try {
-      new DefaultShell("SonarLint - New Eclipse user survey").close();
-    } catch (Exception ignored) {
-      System.out.println("SonarLint for Eclipse user survey found, ignoring it!");
-    }
+    shellByName("SonarLint - New Eclipse user survey").ifPresent(DefaultShell::close);
   }
 
   protected static final void importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder) {
@@ -290,21 +284,32 @@ public abstract class AbstractSonarLintTest {
     Button button = new FinishButton(dialog);
     button.click();
 
-    try {
-      var pythonNotConfiguredDialog = new DefaultShell("Python not configured");
+    shellByName("Python not configured").ifPresent(pythonNotConfiguredDialog -> {
       new PushButton(pythonNotConfiguredDialog, "Don't ask again").click();
-    } catch (Exception e) {
-      // Do nothing
-    }
+    });
 
     new WaitWhile(new WindowIsAvailable(dialog), TimePeriod.LONG);
     new WaitWhile(new JobIsRunning(), TimePeriod.LONG);
+  }
+
+  /**
+   * Find a shell that can be missing
+   * @param title
+   * @return
+   */
+  private static Optional<DefaultShell> shellByName(String title) {
+    try {
+      return Optional.of(new DefaultShell(ShellLookup.getInstance().getShell(title, TimePeriod.SHORT)));
+    } catch (Exception e) {
+      return Optional.empty();
+    }
   }
 
   protected static final Project importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder, String projectName) {
     importExistingProjectIntoWorkspace(relativePathFromProjectsFolder);
     var projectExplorer = new ProjectExplorer();
     new WaitUntil(new ProjectExists(projectName, projectExplorer));
+    new WaitUntil(new AnalysisReady(projectName), TimePeriod.getCustom(30));
     return projectExplorer.getProject(projectName);
   }
 
@@ -370,18 +375,18 @@ public abstract class AbstractSonarLintTest {
     ruleConfigurationPreferences.restoreDefaults();
     ruleConfigurationPreferences.ok();
   }
-  
+
   /** Some tests are not able to run on macOS due to issues with Node.js and Eclipse running in different contexts */
   protected final void ignoreMacOS() {
     var ignoreMacOS = false;
-    
+
     try {
       var os = System.getProperty("os.name");
       ignoreMacOS = os == null || os.toLowerCase().contains("mac");
     } catch (Exception ignored) {
       ignoreMacOS = false;
     }
-    
+
     Assume.assumeFalse(ignoreMacOS);
   }
 }

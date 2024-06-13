@@ -38,7 +38,8 @@ import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.sonarlint.eclipse.ui.internal.util.BrowserUtils;
-import org.sonarsource.sonarlint.core.clientapi.backend.issue.ResolutionStatus;
+import org.sonarsource.sonarlint.core.client.utils.IssueResolutionStatus;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.ResolutionStatus;
 
 /** Dialog for marking an issue as resolved using the possible transitions */
 public class MarkAsResolvedDialog extends Dialog {
@@ -64,7 +65,7 @@ public class MarkAsResolvedDialog extends Dialog {
   protected Control createDialogArea(Composite parent) {
     return createDialogAreaInternally((Composite) super.createDialogArea(parent));
   }
-  
+
   protected Composite createDialogAreaInternally(Composite container) {
     var group = new Group(container, SWT.NONE);
     group.setLayout(new GridLayout(1, true));
@@ -73,8 +74,9 @@ public class MarkAsResolvedDialog extends Dialog {
     group.setLayoutData(gridData);
 
     transitions.forEach(transition -> {
+      var statusWithLabel = IssueResolutionStatus.fromDto(transition);
       var btn = new IssueStatusRadioButton(group, transition);
-      btn.getButton().setText(transition.getTitle() + " - " + transition.getDescription());
+      btn.getButton().setText(statusWithLabel.getTitle() + " - " + statusWithLabel.getDescription());
 
       var innerGridData = new GridData(GridData.HORIZONTAL_ALIGN_FILL);
       innerGridData.grabExcessHorizontalSpace = true;

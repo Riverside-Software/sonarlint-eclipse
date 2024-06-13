@@ -30,8 +30,8 @@ import org.eclipse.ui.views.markers.MarkerField;
 import org.eclipse.ui.views.markers.MarkerItem;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
-import org.sonarsource.sonarlint.core.commons.ImpactSeverity;
-import org.sonarsource.sonarlint.core.commons.IssueSeverity;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.ImpactSeverity;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.IssueSeverity;
 
 /**
  * Each rule in Sonar has severity, so it seems logical to combine rule name and severity in one field.
@@ -60,7 +60,7 @@ public class IssueDescriptionField extends MarkerField {
   @Override
   public String getValue(MarkerItem item) {
     var sb = new StringBuilder();
-    
+
     sb.append(item.getAttributeValue(IMarker.MESSAGE, "No message"));
     var marker = item.getMarker();
     // When grouping by severity, MarkerItem will be a MarkerCategory, that doesn't have an attached marker
@@ -73,8 +73,8 @@ public class IssueDescriptionField extends MarkerField {
 
   @Override
   public int compare(MarkerItem item1, MarkerItem item2) {
-    int severity1 = getSeverity(item1);
-    int severity2 = getSeverity(item2);
+    var severity1 = getSeverity(item1);
+    var severity2 = getSeverity(item2);
     if (severity1 == severity2) {
       return super.compare(item1, item2);
     }
@@ -110,9 +110,9 @@ public class IssueDescriptionField extends MarkerField {
       // Get the matching status of this markers' issue (found locally / on SC or SQ)
       var matchingStatus = MarkerUtils.getMatchingStatus(item.getMarker(),
         item.getAttributeValue(MarkerUtils.SONAR_MARKER_SERVER_ISSUE_KEY_ATTR, null));
-      
+
       var isResolved = item.getAttributeValue(MarkerUtils.SONAR_MARKER_RESOLVED_ATTR, false);
-      
+
       // We have to check if we want to display an old or new CCT issue
       var cleanCodeAttribute = MarkerUtils.decodeCleanCodeAttribute(
         item.getAttributeValue(MarkerUtils.SONAR_MARKER_ISSUE_ATTRIBUTE_ATTR, null));
@@ -124,7 +124,7 @@ public class IssueDescriptionField extends MarkerField {
           item.getAttributeValue(MarkerUtils.SONAR_MARKER_ISSUE_TYPE_ATTR, "code_smell"),
           isResolved);
       }
-      
+
       return SonarLintImages.getIssueImage(matchingStatus, highestImpact.name(), isResolved);
     } else {
       // It is no actual marker but a groupBy item which groups the headers
@@ -132,7 +132,7 @@ public class IssueDescriptionField extends MarkerField {
         .replaceAll("\\(\\d+\\s+items?\\)", "")
         .toUpperCase(Locale.ENGLISH)
         .trim();
-      
+
       // As we offer multiple different grouping options (severity / impacts), we have to display
       // the correct grouping icon!
       if (ImpactSeverity.HIGH.name().equals(groupByTitle)

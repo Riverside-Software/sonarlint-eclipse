@@ -36,19 +36,28 @@ public class SonarLintProjectConfigurationManager {
 
   private static final String P_EXTRA_PROPS = "extraProperties";
   private static final String P_FILE_EXCLUSIONS = "fileExclusions";
-  public static final String P_SERVER_ID = "serverId";
+  // Changing the node name would be a breaking change so we keep the old name "serverId" for now
+  public static final String P_CONNECTION_ID = "serverId";
   public static final String P_PROJECT_KEY = "projectKey";
+  /**
+   * @deprecated since 10.0
+   */
+  @Deprecated(since = "10.0")
   private static final String P_SQ_PREFIX_KEY = "sqPrefixKey";
+  /**
+   * @deprecated since 10.0
+   */
+  @Deprecated(since = "10.0")
   private static final String P_IDE_PREFIX_KEY = "idePrefixKey";
   /**
    * @deprecated since 3.7
    */
-  @Deprecated
+  @Deprecated(since = "3.7")
   private static final String P_MODULE_KEY = "moduleKey";
   private static final String P_AUTO_ENABLED_KEY = "autoEnabled";
   public static final String P_BINDING_SUGGESTIONS_DISABLED_KEY = "bindingSuggestionsDisabled";
 
-  private static final Set<String> BINDING_RELATED_PROPERTIES = Set.of(P_PROJECT_KEY, P_SERVER_ID, P_BINDING_SUGGESTIONS_DISABLED_KEY);
+  private static final Set<String> BINDING_RELATED_PROPERTIES = Set.of(P_PROJECT_KEY, P_CONNECTION_ID, P_BINDING_SUGGESTIONS_DISABLED_KEY);
 
   public static void registerPreferenceChangeListenerForBindingProperties(ISonarLintProject project, Consumer<ISonarLintProject> listener) {
     ofNullable(project.getScopeContext().getNode(SonarLintCorePlugin.PLUGIN_ID))
@@ -81,9 +90,9 @@ public class SonarLintProjectConfigurationManager {
       SonarLintLogger.get().info("Binding configuration of project '" + projectName + "' is outdated. Please rebind this project.");
     }
     projectNode.remove(P_MODULE_KEY);
-    var serverId = projectNode.get(P_SERVER_ID, "");
-    if (isNotBlank(serverId) && isNotBlank(projectKey)) {
-      projectConfig.setProjectBinding(new EclipseProjectBinding(serverId, projectKey, projectNode.get(P_SQ_PREFIX_KEY, ""), projectNode.get(P_IDE_PREFIX_KEY, "")));
+    var connectionId = projectNode.get(P_CONNECTION_ID, "");
+    if (isNotBlank(connectionId) && isNotBlank(projectKey)) {
+      projectConfig.setProjectBinding(new EclipseProjectBinding(connectionId, projectKey));
     }
     projectConfig.setAutoEnabled(projectNode.getBoolean(P_AUTO_ENABLED_KEY, false));
     projectConfig.setBindingSuggestionsDisabled(projectNode.getBoolean(P_BINDING_SUGGESTIONS_DISABLED_KEY, false));
@@ -112,14 +121,12 @@ public class SonarLintProjectConfigurationManager {
 
     configuration.getProjectBinding().ifPresentOrElse(
       binding -> {
-        projectNode.put(P_PROJECT_KEY, binding.projectKey());
-        projectNode.put(P_SERVER_ID, binding.connectionId());
-        projectNode.put(P_SQ_PREFIX_KEY, binding.serverPathPrefix());
-        projectNode.put(P_IDE_PREFIX_KEY, binding.idePathPrefix());
+        projectNode.put(P_PROJECT_KEY, binding.getProjectKey());
+        projectNode.put(P_CONNECTION_ID, binding.getConnectionId());
       },
       () -> {
         projectNode.remove(P_PROJECT_KEY);
-        projectNode.remove(P_SERVER_ID);
+        projectNode.remove(P_CONNECTION_ID);
         projectNode.remove(P_SQ_PREFIX_KEY);
         projectNode.remove(P_IDE_PREFIX_KEY);
       });

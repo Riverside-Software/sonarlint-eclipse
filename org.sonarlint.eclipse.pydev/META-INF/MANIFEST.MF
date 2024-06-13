@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.pydev;singleton:=true
-Bundle-Version: 9.3.3008
+Bundle-Version: 10.2.3100
 Bundle-Vendor: %bundle_vendor
 Bundle-ClassPath: .
 Require-Bundle: org.eclipse.core.runtime,
@@ -12,7 +12,6 @@ Require-Bundle: org.eclipse.core.runtime,
  org.python.pydev;resolution:=optional,
  org.python.pydev.core;resolution:=optional,
  org.sonarlint.eclipse.core,
- org.sonarsource.sonarlint.core.sonarlint-core-osgi,
  org.eclipse.jdt.annotation;resolution:=optional,
  org.sonarlint.eclipse.ui,
  org.eclipse.ui.ide,

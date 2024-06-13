@@ -23,8 +23,8 @@ import com.sonar.orchestrator.build.MavenBuild;
 import com.sonar.orchestrator.container.Server;
 import com.sonar.orchestrator.junit4.OrchestratorRule;
 import com.sonar.orchestrator.locator.URLLocation;
-import java.io.IOException;
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.Path;
@@ -39,6 +39,7 @@ import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
 import org.eclipse.swt.widgets.Label;
 import org.junit.Before;
 import org.osgi.framework.FrameworkUtil;
+import org.sonarlint.eclipse.its.reddeer.conditions.AnalysisReadyAfterUnready;
 import org.sonarlint.eclipse.its.reddeer.dialogs.ProjectSelectionDialog;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView;
 import org.sonarlint.eclipse.its.reddeer.wizards.ProjectBindingWizard;
@@ -52,12 +53,12 @@ import static org.assertj.core.api.Assertions.fail;
 /** Every test class targeting SonarQube derives from here */
 public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLintTest {
   protected static WsClient adminWsClient;
-  
+
   /** Should be used on @BeforeClass implementation for orchestrators to share the logic */
   public static void prepare(OrchestratorRule orchestrator) {
     adminWsClient = newAdminWsClient(orchestrator.getServer());
     adminWsClient.settings().set(SetRequest.builder().setKey("sonar.forceAuthentication").setValue("true").build());
-    
+
     try {
       orchestrator.getServer().restoreProfile(
         URLLocation.create(FileLocator.toFileURL(FileLocator.find(FrameworkUtil.getBundle(SonarQubeConnectedModeTest.class), new Path("res/java-sonarlint.xml"), null))));
@@ -74,7 +75,7 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
     bindingsView.open();
     bindingsView.removeAllBindings();
   }
-  
+
   /** Create a project on SonarQube via Web API with corresponding quality profile assigned */
   public static void createProjectOnSonarQube(OrchestratorRule orchestrator, String projectKey, String qualityProfile) {
     adminWsClient.projects()
@@ -84,7 +85,7 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
         .build());
     orchestrator.getServer().associateProjectToQualityProfile(projectKey, "java", qualityProfile);
   }
-  
+
   /** Run Maven build on specific project in folder with optional additional analysis properties */
   public static void runMavenBuild(OrchestratorRule orchestrator, String projectKey, String folder, String path,
     Map<String, String> analysisProperties) {
@@ -93,14 +94,14 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
       .setProperty("sonar.login", Server.ADMIN_LOGIN)
       .setProperty("sonar.password", Server.ADMIN_PASSWORD)
       .setProperty("sonar.projectKey", projectKey);
-    
-    for (var pair: analysisProperties.entrySet()) {
+
+    for (var pair : analysisProperties.entrySet()) {
       build = build.setProperty(pair.getKey(), pair.getValue());
     }
 
     orchestrator.executeBuild(build);
   }
-  
+
   /** Bind a specific project to SonarQube */
   protected static void createConnectionAndBindProject(OrchestratorRule orchestrator, String projectKey) {
     createConnectionAndBindProject(orchestrator, projectKey, Server.ADMIN_LOGIN, Server.ADMIN_PASSWORD);
@@ -154,27 +155,22 @@ public abstract class AbstractSonarQubeConnectedModeTest extends AbstractSonarLi
     serverProjectSelectionPage.waitForProjectsToBeFetched();
     serverProjectSelectionPage.setProjectKey(projectKey);
     projectBindingWizard.finish();
-
-    var bindingsView = new BindingsView();
-    bindingsView.open();
-    bindingsView.updateAllProjectBindings();
-    new WaitWhile(new JobIsRunning(), TimePeriod.LONG);
   }
-  
+
   protected static void bindProjectFromContextMenu(Project project, String projectKey) {
     new ContextMenu(project.getTreeItem()).getItem("SonarLint", "Bind to SonarQube or SonarCloud...").select();
-    
+
     var projectBindingWizard = new ProjectBindingWizard();
     projectBindingWizard.next();
-    
+
     var serverProjectSelectionPage = new ProjectBindingWizard.ServerProjectSelectionPage(projectBindingWizard);
     serverProjectSelectionPage.waitForProjectsToBeFetched();
     serverProjectSelectionPage.setProjectKey(projectKey);
     projectBindingWizard.finish();
-    
-    var bindingsView = new BindingsView();
-    bindingsView.open();
-    bindingsView.updateAllProjectBindings();
-    new WaitWhile(new JobIsRunning(), TimePeriod.LONG);
+  }
+
+  /** When binding project it will move to unready state before going to ready state again */
+  protected static void waitForAnalysisReady(String projectName) {
+    new WaitUntil(new AnalysisReadyAfterUnready(projectName), TimePeriod.getCustom(60));
   }
 }

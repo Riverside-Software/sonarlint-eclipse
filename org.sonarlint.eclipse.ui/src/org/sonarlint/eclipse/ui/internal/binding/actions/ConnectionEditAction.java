@@ -19,74 +19,28 @@
  */
 package org.sonarlint.eclipse.ui.internal.binding.actions;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.eclipse.jface.viewers.ISelectionProvider;
-import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IWorkbenchCommandConstants;
-import org.eclipse.ui.actions.SelectionProviderAction;
-import org.sonarlint.eclipse.core.internal.engine.connected.IConnectedEngineFacade;
+import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
 import org.sonarlint.eclipse.ui.internal.Messages;
 import org.sonarlint.eclipse.ui.internal.SonarLintImages;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionWizard;
 
-public class ConnectionEditAction extends SelectionProviderAction {
-  private List<IConnectedEngineFacade> servers;
-  private Shell shell;
+public class ConnectionEditAction extends AbstractConnectionAction {
 
   public ConnectionEditAction(Shell shell, ISelectionProvider selectionProvider) {
-    super(selectionProvider, Messages.actionEdit);
-    this.shell = shell;
-    setImageDescriptor(SonarLintImages.EDIT_SERVER);
+    super(Messages.actionEdit, SonarLintImages.EDIT_SERVER, shell, selectionProvider);
     setActionDefinitionId(IWorkbenchCommandConstants.FILE_RENAME);
   }
 
   @Override
-  public void selectionChanged(IStructuredSelection sel) {
-    if (sel.isEmpty()) {
-      setEnabled(false);
-      return;
-    }
-    servers = new ArrayList<>();
-    var iterator = sel.iterator();
-    while (iterator.hasNext()) {
-      var obj = iterator.next();
-      if (obj instanceof IConnectedEngineFacade) {
-        var server = (IConnectedEngineFacade) obj;
-        servers.add(server);
-      } else {
-        setEnabled(false);
-        return;
-      }
-    }
-    setEnabled(servers.size() == 1);
+  protected void doRun(Shell shell, ConnectionFacade selectedConnection) {
+    openEditWizard(shell, selectedConnection);
   }
 
-  @Override
-  public void run() {
-    // It is possible that the server is created and added to the server view on workbench
-    // startup. As a result, when the user switches to the server view, the server is
-    // selected, but the selectionChanged event is not called, which results in servers
-    // being null. When servers is null the server will not be deleted and the error log
-    // will have an IllegalArgumentException.
-    //
-    // To handle the case where servers is null, the selectionChanged method is called
-    // to ensure servers will be populated.
-    if (servers == null) {
-      var sel = getStructuredSelection();
-      if (sel != null) {
-        selectionChanged(sel);
-      }
-    }
-
-    if (servers != null && !servers.isEmpty()) {
-      openEditWizard(shell, servers.get(0));
-    }
-  }
-
-  public static void openEditWizard(Shell shell, IConnectedEngineFacade server) {
-    var dialog = ServerConnectionWizard.createDialog(shell, server);
+  public static void openEditWizard(Shell shell, ConnectionFacade connection) {
+    var dialog = ServerConnectionWizard.createDialog(shell, connection);
     dialog.open();
   }
 

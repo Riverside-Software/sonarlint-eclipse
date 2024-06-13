@@ -32,8 +32,9 @@ public class MandatoryAndUniqueServerIdValidator implements IValidator {
     this.edit = edit;
   }
 
+  @Override
   public IStatus validate(Object value) {
-    var errorMsg = SonarLintCorePlugin.getServersManager().validate((String) value, edit);
+    var errorMsg = SonarLintCorePlugin.getConnectionManager().validate((String) value, edit);
     if (errorMsg != null) {
       return ValidationStatus.error(errorMsg);
     }

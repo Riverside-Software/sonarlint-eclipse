@@ -65,7 +65,6 @@ import org.sonarlint.eclipse.its.reddeer.views.SonarLintIssueMarker;
 import org.sonarlint.eclipse.its.reddeer.views.SonarLintTaintVulnerabilitiesView;
 import org.sonarlint.eclipse.its.reddeer.wizards.ProjectBindingWizard;
 import org.sonarlint.eclipse.its.reddeer.wizards.ServerConnectionWizard;
-import org.sonarlint.eclipse.its.reddeer.wizards.ServerConnectionWizard.AuthenticationPage;
 import org.sonarqube.ws.QualityProfiles.SearchWsResponse.QualityProfile;
 import org.sonarqube.ws.client.PostRequest;
 import org.sonarqube.ws.client.permission.AddGroupWsRequest;
@@ -88,7 +87,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
   private static final String INSUFFICIENT_PERMISSION_USER = "iHaveNoRights";
   private static final MarkerDescriptionMatcher ISSUE_MATCHER = new MarkerDescriptionMatcher(
     CoreMatchers.containsString("System.out"));
-  
+
   /** Orchestrator to not be re-used in order for ITs to not fail -> always use latest release locally (not LTS) */
   @ClassRule
   public static final OrchestratorRule orchestrator = OrchestratorRule.builderEnv()
@@ -103,7 +102,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     .setServerProperty("sonar.pushevents.polling.period", "1")
     .setServerProperty("sonar.pushevents.polling.last.timestamp", "1")
     .build();
-  
+
   @BeforeClass
   public static void prepare() {
     prepare(orchestrator);
@@ -155,7 +154,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     assertThat(wizard.isNextEnabled()).isFalse();
     authenticationPage.setPassword("wrong");
     assertThat(wizard.isNextEnabled()).isTrue();
-    
+
     // until we change the ITs with the removal of the username / password authentication we check here once
     assertThat(authenticationPage.getDeprecationMessage()).isEqualTo(authenticationPage.DEPRECATION_MESSAGE);
 
@@ -220,11 +219,6 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
 
   @Test
   public void shouldFindSecretsInConnectedMode() {
-    // INFO: Currently disabled on 10.4 DEV as the sonar-text / sonar-text-enterprise artifacts supporting SonarLint
-    //       are not yet on master! After this was done, the test can be enabled again on this axis!
-    //       -> blocked by SONAR-21522
-    Assume.assumeTrue(!orchestrator.getServer().version().isGreaterThanOrEquals(10, 4));
-    
     adminWsClient.projects()
       .create(CreateRequest.builder()
         .setName(SECRET_JAVA_PROJECT_NAME)
@@ -238,6 +232,8 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     // Remove binding suggestion notification
     var bindingSuggestionNotificationShell = new DefaultShell("SonarLint Binding Suggestion");
     new DefaultLink(bindingSuggestionNotificationShell, "Don't ask again").click();
+
+    waitForAnalysisReady(SECRET_JAVA_PROJECT_NAME);
 
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("src", "sec", "Secret.java"));
 
@@ -263,6 +259,8 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     // Remove binding suggestion notification
     var bindingSuggestionNotificationShell = new DefaultShell("SonarLint Binding Suggestion");
     new DefaultLink(bindingSuggestionNotificationShell, "Don't ask again").click();
+
+    waitForAnalysisReady(JAVA_SIMPLE_PROJECT_KEY);
 
     var file = rootProject.getResource("src", "hello", "Hello.java");
     openFileAndWaitForAnalysisCompletion(file);
@@ -308,6 +306,8 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     // Remove binding suggestion notification
     var bindingSuggestionNotificationShell = new DefaultShell("SonarLint Binding Suggestion");
     new DefaultLink(bindingSuggestionNotificationShell, "Don't ask again").click();
+
+    waitForAnalysisReady(JAVA_SIMPLE_PROJECT_KEY);
 
     var file = rootProject.getResource("src", "hello", "Hello.java");
     openFileAndWaitForAnalysisCompletion(file);
@@ -381,6 +381,8 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     var notificationShell = new DefaultShell("SonarLint Binding Suggestion");
     new DefaultLink(notificationShell, "Don't ask again").click();
 
+    waitForAnalysisReady(MAVEN2_PROJECT_KEY);
+
     // 8) Open first file and try to open the "Mark issue as ..." dialog
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("src/main/java", "hello", "Hello.java"));
 
@@ -440,7 +442,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
         .setName(MAVEN_TAINT_PROJECT_KEY)
         .setKey(MAVEN_TAINT_PROJECT_KEY).build());
     orchestrator.getServer().associateProjectToQualityProfile(MAVEN_TAINT_PROJECT_KEY, "java", "SonarLint IT New Code");
-    
+
     runMavenBuild(orchestrator, MAVEN_TAINT_PROJECT_KEY, "projects", "java/maven-taint/pom.xml", Map.of());
 
     // 2) import project / check that new code period preference does nothing in standalone mode
@@ -470,6 +472,8 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     var notificationShell = new DefaultShell("SonarLint Binding Suggestion");
     new DefaultLink(notificationShell, "Don't ask again").click();
 
+    waitForAnalysisReady(MAVEN_TAINT_PROJECT_KEY);
+
     await().untilAsserted(() -> assertThat(onTheFlyView.getItems()).hasSize(2));
     await().untilAsserted(() -> assertThat(taintVulnerabilitiesView.getItems()).hasSize(1));
 
@@ -482,10 +486,10 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     bindingsView.removeAllBindings();
 
     setNewCodePeriodToPreviousVersion(MAVEN_TAINT_PROJECT_KEY);
-    
+
     runMavenBuild(orchestrator, MAVEN_TAINT_PROJECT_KEY, "projects", "java/maven-taint/pom.xml",
       Map.of("sonar.projectVersion", "1.1-SNAPSHOT"));
-    
+
     // Because of a bug in SQ that returns the techncial issue creation date, we have to run another analysis
     // to be sure issues will be before the new code period
     runMavenBuild(orchestrator, MAVEN_TAINT_PROJECT_KEY, "projects", "java/maven-taint/pom.xml",
@@ -493,6 +497,8 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
 
     // 5) bind to project on SonarQube / check that new code period preference is working
     createConnectionAndBindProject(orchestrator, MAVEN_TAINT_PROJECT_KEY, Server.ADMIN_LOGIN, Server.ADMIN_PASSWORD);
+
+    waitForAnalysisReady(MAVEN_TAINT_PROJECT_KEY);
 
     await().untilAsserted(() -> assertThat(onTheFlyView.getItems()).hasSize(2));
     await().untilAsserted(() -> assertThat(taintVulnerabilitiesView.getItems()).hasSize(1));

@@ -42,29 +42,47 @@ import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnect
 import org.sonarlint.eclipse.ui.internal.util.DisplayUtils;
 import org.sonarlint.eclipse.ui.internal.util.wizard.BeanPropertiesCompat;
 import org.sonarlint.eclipse.ui.internal.util.wizard.WidgetPropertiesCompat;
-import org.sonarsource.sonarlint.core.clientapi.backend.connection.auth.HelpGenerateUserTokenParams;
-import org.sonarsource.sonarlint.core.clientapi.backend.connection.auth.HelpGenerateUserTokenResponse;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.auth.HelpGenerateUserTokenParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.auth.HelpGenerateUserTokenResponse;
 
 public class TokenWizardPage extends AbstractServerConnectionWizardPage {
 
-  private Text serverTokenText;
+  private Text connectionTokenText;
 
   private Binding tokenTextBinding;
 
   public TokenWizardPage(ServerConnectionModel model) {
-    super("server_token_page", null, model, 3);
+    super("connection_token_page", null, model, 3);
   }
 
   @SuppressWarnings("unchecked")
   @Override
   protected void doCreateControl(Composite container) {
+    // When using the Connection suggestion we only use this page but for that we have to display the information
+    // regarding the SonarQube URL / SonarCloud organization and project key
+    if (model.isFromConnectionSuggestion()) {
+      var connectionLabel = new Label(container, SWT.WRAP);
+
+      var organization = model.getOrganization();
+      if (organization == null) {
+        connectionLabel.setText("The token is used for setting up the connection to the SonarQube server URL '"
+          + model.getServerUrl() + "'.");
+      } else {
+        connectionLabel.setText("The token is used for setting up the connection with SonarCloud to the organization '"
+          + organization + "'.");
+      }
+
+      var gd = new GridData(GridData.FILL_HORIZONTAL);
+      gd.horizontalSpan = 3;
+      connectionLabel.setLayoutData(gd);
+    }
 
     createTokenField(container);
     createOpenSecurityPageButton(container);
 
     var dataBindingContext = new DataBindingContext();
     tokenTextBinding = dataBindingContext.bindValue(
-      WidgetPropertiesCompat.text(SWT.Modify).observe(serverTokenText),
+      WidgetPropertiesCompat.text(SWT.Modify).observe(connectionTokenText),
       BeanPropertiesCompat.value(ServerConnectionModel.class, ServerConnectionModel.PROPERTY_USERNAME)
         .observe(model),
       new UpdateValueStrategy().setBeforeSetValidator(
@@ -78,10 +96,10 @@ public class TokenWizardPage extends AbstractServerConnectionWizardPage {
   private void createTokenField(final Composite container) {
     var labelUsername = new Label(container, SWT.NULL);
     labelUsername.setText("Token:");
-    serverTokenText = new Text(container, SWT.BORDER | SWT.SINGLE | SWT.PASSWORD);
+    connectionTokenText = new Text(container, SWT.BORDER | SWT.SINGLE | SWT.PASSWORD);
     var gd = new GridData(GridData.FILL_HORIZONTAL);
     gd.horizontalIndent = 10;
-    serverTokenText.setLayoutData(gd);
+    connectionTokenText.setLayoutData(gd);
   }
 
   private void createOpenSecurityPageButton(Composite container) {
@@ -112,7 +130,7 @@ public class TokenWizardPage extends AbstractServerConnectionWizardPage {
 
   private void handleReceivedToken(String token) {
     DisplayUtils.asyncExec(() -> {
-      serverTokenText.setText(token);
+      connectionTokenText.setText(token);
       DisplayUtils.bringToFront();
     });
   }

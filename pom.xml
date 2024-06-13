@@ -6,13 +6,13 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>71.0.0.1292</version>
+    <version>73.0.0.1710</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>9.3.3008</version>
+  <version>10.2.3100</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -49,6 +49,13 @@
     <module>org.sonarlint.eclipse.pdt</module>
     <module>org.sonarlint.eclipse.pydev</module>
 
+    <module>org.sonarlint.eclipse.sloop.linux.aarch64</module>
+    <module>org.sonarlint.eclipse.sloop.linux.x64</module>
+    <module>org.sonarlint.eclipse.sloop.macosx.aarch64</module>
+    <module>org.sonarlint.eclipse.sloop.macosx.x64</module>
+    <module>org.sonarlint.eclipse.sloop.windows.x64</module>
+    <module>org.sonarlint.eclipse.sloop.no-arch</module>
+
     <module>org.sonarlint.eclipse.site</module>
 
     <module>org.sonarlint.eclipse.core.tests</module>
@@ -71,12 +78,15 @@
     <license.title>SonarLint for Eclipse</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <tycho.version>4.0.2</tycho.version>
+    <tycho.version>4.0.6</tycho.version>
     <jdk.min.version>11</jdk.min.version>
     <!-- Same protobuf version than the one in SonarLint Core-->
     <protobuf.version>3.25.1</protobuf.version>
     <jacoco.version>0.8.8</jacoco.version>
     <jarsigner.version>3.0.0</jarsigner.version>
+
+    <!-- Sloop embedded CLI version for fragment projects -->
+    <sloop.version>10.2.0.78029</sloop.version>
 
     <!-- ================== -->
     <!-- For SonarQube analysis -->
@@ -87,7 +97,8 @@
 
     <gitRepositoryName>sonarlint-eclipse</gitRepositoryName>
     <artifactsToPublish>${project.groupId}:org.sonarlint.eclipse.site:zip,${project.groupId}:sonarlint-eclipse-parent:json:cyclonedx</artifactsToPublish>
-    <version.cyclonedx.plugin>2.7.5</version.cyclonedx.plugin>
+    
+    <cyclonedx.skip>true</cyclonedx.skip>
   </properties>
 
   <build>
@@ -210,6 +221,8 @@
           </includes>
         </configuration>
       </plugin>
+
+      <!-- The environments must be in sync with Sloop embedded CLI distributions (see ITs pom) -->
       <plugin>
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>target-platform-configuration</artifactId>
@@ -226,17 +239,17 @@
             <environment>
               <os>linux</os>
               <ws>gtk</ws>
-              <arch>x86</arch>
-            </environment>
-            <environment>
-              <os>win32</os>
-              <ws>win32</ws>
-              <arch>x86</arch>
+              <arch>aarch64</arch>
             </environment>
             <environment>
               <os>win32</os>
               <ws>win32</ws>
               <arch>x86_64</arch>
+            </environment>
+            <environment>
+              <os>win32</os>
+              <ws>win32</ws>
+              <arch>aarch64</arch>
             </environment>
             <environment>
               <os>macosx</os>
