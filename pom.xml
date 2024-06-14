@@ -49,10 +49,6 @@
     <module>org.sonarlint.eclipse.pdt</module>
     <module>org.sonarlint.eclipse.pydev</module>
 
-    <module>org.sonarlint.eclipse.sloop.linux.aarch64</module>
-    <module>org.sonarlint.eclipse.sloop.linux.x64</module>
-    <module>org.sonarlint.eclipse.sloop.macosx.aarch64</module>
-    <module>org.sonarlint.eclipse.sloop.macosx.x64</module>
     <module>org.sonarlint.eclipse.sloop.windows.x64</module>
     <module>org.sonarlint.eclipse.sloop.no-arch</module>
 
@@ -86,7 +82,7 @@
     <jarsigner.version>3.0.0</jarsigner.version>
 
     <!-- Sloop embedded CLI version for fragment projects -->
-    <sloop.version>10.2.0.78029</sloop.version>
+    <sloop.version>10.2.99008</sloop.version>
 
     <!-- ================== -->
     <!-- For SonarQube analysis -->

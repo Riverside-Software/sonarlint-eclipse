@@ -75,11 +75,13 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
+import org.sonarlint.eclipse.core.analysis.SonarLintLanguage;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarsource.sonarlint.core.commons.Language;
 
 public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider {
+
+  private static final String OPENEDGE_LANGUAGE_KEY = "oe";
 
   public OEProjectConfiguratorExtension() {
     SonarLintLogger.get().debug("OEProjectConfiguratorExtension");
@@ -95,8 +97,8 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
   }
 
   @Override
-  public Set<Language> whitelistedLanguages() {
-    return EnumSet.of(Language.OPENEDGE, Language.OPENEDGE_DB);
+  public Set<SonarLintLanguage> enableLanguages() {
+    return EnumSet.of(SonarLintLanguage.OPENEDGE, SonarLintLanguage.OPENEDGE_DB);
   }
 
   @Override
@@ -294,16 +296,16 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
   }
 
   @Override
-  public String language(ISonarLintFile file) {
+  public SonarLintLanguage language(ISonarLintFile file) {
     IFile iFile = file.getResource() instanceof IFile ? (IFile) file.getResource() : null;
     SonarLintLogger.get().debug("Language on " + iFile);
     String ext = iFile == null ? null : iFile.getFileExtension();
     if (ext == null) {
       return null;
     } else if ("p".equalsIgnoreCase(ext) || "w".equalsIgnoreCase(ext) || "i".equalsIgnoreCase(ext) || "cls".equalsIgnoreCase(ext)) {
-      return "oe";
+      return SonarLintLanguage.OPENEDGE;
     } else if ("df".equalsIgnoreCase(ext)) {
-      return "oedb";
+      return SonarLintLanguage.OPENEDGE_DB;
     }
 
     return null;

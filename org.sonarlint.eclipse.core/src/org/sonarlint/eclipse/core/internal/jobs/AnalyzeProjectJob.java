@@ -19,6 +19,7 @@
  */
 package org.sonarlint.eclipse.core.internal.jobs;
 
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -304,8 +305,8 @@ public class AnalyzeProjectJob extends AbstractSonarProjectJob {
   private void updateMarkers(Map<ISonarLintFile, IDocument> docPerFile, Map<ISonarLintIssuable, List<RawIssueDto>> issuesPerResource, AnalyzeFilesResponse result,
     TriggerType triggerType, final IProgressMonitor monitor) throws CoreException {
     var failedFileUris = result.getFailedAnalysisFiles();
-    for (ISonarLintFile lintFile : failedFiles) {
-      SonarLintLogger.get().error("Parser error -- " + lintFile.getProjectRelativePath() + " -- Check analysis log for details");
+    for (URI uri : failedFileUris) {
+      SonarLintLogger.get().error("Parser error -- " + uri.toString() + " -- Check analysis log for details");
     }
 
     var successfulFiles = issuesPerResource.entrySet().stream()

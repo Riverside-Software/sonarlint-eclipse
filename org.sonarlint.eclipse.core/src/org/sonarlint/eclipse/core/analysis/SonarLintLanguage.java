@@ -37,6 +37,8 @@ public enum SonarLintLanguage {
   JS,
   JSP,
   KOTLIN,
+  OPENEDGE,
+  OPENEDGE_DB,
   PHP,
   PLI,
   PLSQL,

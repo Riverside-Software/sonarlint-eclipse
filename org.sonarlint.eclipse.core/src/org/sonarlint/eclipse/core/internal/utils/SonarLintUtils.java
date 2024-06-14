@@ -50,12 +50,12 @@ public class SonarLintUtils {
    *  Currently the only sub-plugins bringing their own languages are JDT (Java/JSP) and CDT (C/C++).
    */
   private static final Set<SonarLintLanguage> DEFAULT_LANGUAGES = EnumSet.of(SonarLintLanguage.PYTHON, SonarLintLanguage.JS, SonarLintLanguage.TS,
-    SonarLintLanguage.HTML, SonarLintLanguage.CSS, SonarLintLanguage.PHP, SonarLintLanguage.XML, SonarLintLanguage.SECRETS);
+    SonarLintLanguage.HTML, SonarLintLanguage.CSS, SonarLintLanguage.PHP, SonarLintLanguage.XML, SonarLintLanguage.SECRETS, SonarLintLanguage.OPENEDGE, SonarLintLanguage.OPENEDGE_DB);
   private static final Set<SonarLintLanguage> OPTIONAL_LANGUAGES = EnumSet.of(SonarLintLanguage.JAVA, SonarLintLanguage.JSP);
   private static final Set<SonarLintLanguage> DEFAULT_CONNECTED_LANGUAGES = EnumSet.of(SonarLintLanguage.ABAP,
     SonarLintLanguage.COBOL, SonarLintLanguage.JCL, SonarLintLanguage.KOTLIN,
     SonarLintLanguage.PLI, SonarLintLanguage.PLSQL, SonarLintLanguage.RPG, SonarLintLanguage.RUBY,
-    SonarLintLanguage.SCALA, SonarLintLanguage.TSQL);
+    SonarLintLanguage.SCALA, SonarLintLanguage.TSQL, SonarLintLanguage.OPENEDGE, SonarLintLanguage.OPENEDGE_DB);
   private static final Set<SonarLintLanguage> OPTIONAL_CONNECTED_LANGUAGES = EnumSet.of(SonarLintLanguage.C, SonarLintLanguage.CPP);
 
   private SonarLintUtils() {
