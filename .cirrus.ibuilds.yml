@@ -6,9 +6,6 @@ env:
   ARTIFACTORY_PRIVATE_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader
   ARTIFACTORY_PRIVATE_PASSWORD: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader access_token]
   ARTIFACTORY_ACCESS_TOKEN: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader access_token]
-  BURGR_URL: VAULT[development/kv/data/burgr data.url]
-  BURGR_USERNAME: VAULT[development/kv/data/burgr data.cirrus_username]
-  BURGR_PASSWORD: VAULT[development/kv/data/burgr data.cirrus_password]
   SLACK_TOKEN: VAULT[development/kv/data/slack data.token]
   CIRRUS_PIPELINE_NAME: "SLE iBuilds"
 
@@ -38,9 +35,22 @@ maven_cache_qa: &SETUP_MAVEN_CACHE
   maven_cache:
     folder: ${CIRRUS_WORKING_DIR}/.m2/repository
     fingerprint_script:
-      - echo $TARGET_PLATFORM
       - /usr/bin/find . -name pom.xml -not -path './its/*' -exec cat {} \+
       - cat target-platforms/build.target target-platforms/commons.target its/target-platforms/*.target
+
+# Orchestrator cache for integration tests (Connected Mode with SonarQube)
+orchestrator_cache_qa: &SETUP_ORCHESTRATOR_CACHE
+  set_orchestrator_home_script: |
+    export THIS_MONTH=$(date '+%Y-%m')
+    echo "THIS_MONTH=${THIS_MONTH}" >> $CIRRUS_ENV
+    echo "ORCHESTRATOR_HOME=${CIRRUS_WORKING_DIR}/orchestrator/${THIS_MONTH}" >> $CIRRUS_ENV
+  mkdir_orchestrator_home_script: |
+    echo "Create dir ${ORCHESTRATOR_HOME} if needed"
+    mkdir -p ${ORCHESTRATOR_HOME}
+  orchestrator_cache:
+    folder: ${ORCHESTRATOR_HOME}
+    fingerprint_script: echo ${THIS_MONTH}
+    reupload_on_changes: 'true'
 
 # Run iBuilds compatibility tests (with packaged update site for that)
 qa_ibuilds_task:
@@ -58,20 +68,8 @@ qa_ibuilds_task:
     SONARCLOUD_IT_PASSWORD: VAULT[development/team/sonarlint/kv/data/sonarcloud-it data.password]
     DISPLAY: :10
     MAVEN_OPTS: -Xmx3072m
-  matrix:
-    - env:
-        TARGET_PLATFORM: 'ibuilds'
-        SQ_VERSION: 'LATEST_RELEASE[8.9]'
-        QA_CATEGORY: 'Oldest'
-    - env:
-        TARGET_PLATFORM: 'ibuilds'
-        SQ_VERSION: 'LATEST_RELEASE[9.9]'
-        QA_CATEGORY: 'Latest-LTS'
-    - env:
-        TARGET_PLATFORM: 'ibuilds'
-        SQ_VERSION: 'DEV'
-        QA_CATEGORY: 'Latest'
   <<: *SETUP_MAVEN_CACHE
+  <<: *SETUP_ORCHESTRATOR_CACHE
   prepare_update_site_script: |
     set -euo pipefail
     source cirrus-env QA
@@ -83,13 +81,13 @@ qa_ibuilds_task:
     metacity --sm-disable --replace &
     sleep 10 # give metacity some time to start
     echo 'Recording tests on video'
-    ffmpeg -loglevel warning -f x11grab -video_size 1920x1080 -i ${DISPLAY} -codec:v libx264 -r 12 ${CIRRUS_WORKING_DIR}/recording_${QA_CATEGORY}.mp4
+    ffmpeg -loglevel warning -f x11grab -video_size 1920x1080 -i ${DISPLAY} -codec:v libx264 -r 12 ${CIRRUS_WORKING_DIR}/recording.mp4
   run_its_script: |
-    echo "Run Maven ITs for Eclipse iBuilds and Server ${SQ_VERSION}"
+    echo "Run Maven ITs for Eclipse iBuilds and SonarQube 9.9 LTS"
     mvn -B -e -V verify -f its/pom.xml \
-      -Dtarget.platform=${TARGET_PLATFORM} -Dtycho.localArtifacts=ignore \
+      -Dtarget.platform=ibuilds -Dtycho.localArtifacts=ignore \
       -Dsonarlint-eclipse.p2.url="file://${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.site/target/repository" \
-      -Dsonar.runtimeVersion=${SQ_VERSION}
+      -Dsonar.runtimeVersion="LATEST_RELEASE[9.9]"
   cleanup_before_cache_script: cleanup_maven_repository
   always:
     stop_recording_script: |
@@ -97,9 +95,7 @@ qa_ibuilds_task:
       while pgrep ffmpeg >/dev/null; do sleep 1; done
       /etc/init.d/xvfb stop
     test_recording_artifacts:
-      path: "${CIRRUS_WORKING_DIR}/recording_${QA_CATEGORY}.mp4"
-    log_artifacts:
-      path: "its/build/idea-sandbox/system/log"
+      path: "${CIRRUS_WORKING_DIR}/recording.mp4"
   on_failure:
     xvfb_log_artifacts:
       path: "${CIRRUS_WORKING_DIR}/Xvfb.out"
@@ -112,3 +108,19 @@ qa_ibuilds_task:
       format: junit
     slack_notification_script: |
       .cirrus/slack-notification.sh
+
+# Inspect orchestrator cache
+inspect_orchestrator_cache_task:
+  <<: *ONLY_IF
+  depends_on: qa_ibuilds
+  eks_container:
+    <<: *CONTAINER_DEFINITION
+    cpu: 4
+    memory: 8G
+  <<: *SETUP_ORCHESTRATOR_CACHE
+  inspect_cache_script: |
+    echo "Inspecting cache ${ORCHESTRATOR_HOME}..."
+    cd "${ORCHESTRATOR_HOME}"
+    ls -l
+    find .
+    echo "Inspecting cache done."

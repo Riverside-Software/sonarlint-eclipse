@@ -39,7 +39,7 @@ import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.backend.ConfigScopeSynchronizer;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintEclipseHeadlessRpcClient;
-import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectJob;
+import org.sonarlint.eclipse.core.internal.jobs.AnalysisReadyStatusCache;
 import org.sonarlint.eclipse.core.internal.jobs.TaintIssuesMarkerUpdateJob;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.telemetry.SonarLintTelemetry;
@@ -154,16 +154,24 @@ public class SonarLintEclipseRpcClient extends SonarLintEclipseHeadlessRpcClient
 
   @Override
   public AssistCreatingConnectionResponse assistCreatingConnection(AssistCreatingConnectionParams params, SonarLintCancelChecker cancelChecker) throws CancellationException {
-    var baseUrl = params.getServerUrl();
-
     try {
       AbstractAssistCreatingConnectionJob job;
 
+      // We want to check if is a request for a SonarQube server or SonarCloud. Based on the parameter "left" is
+      // SonarQube (denoted by a URL) and "right" is SonarCloud (denoted by a Organization)
+      Either<String, String> serverUrlOrOrganization;
+      var connectionParams = params.getConnectionParams();
+      if (connectionParams.isLeft()) {
+        serverUrlOrOrganization = Either.forLeft(connectionParams.getLeft().getServerUrl());
+      } else {
+        serverUrlOrOrganization = Either.forRight(connectionParams.getRight().getOrganizationKey());
+      }
+
       SonarLintLogger.get().debug("Assist creating a new connection...");
       if (params.getTokenName() != null && params.getTokenValue() != null) {
-        job = new AssistCreatingAutomaticConnectionJob(Either.forLeft(baseUrl), params.getTokenValue());
+        job = new AssistCreatingAutomaticConnectionJob(serverUrlOrOrganization, params.getTokenValue());
       } else {
-        job = new AssistCreatingManualConnectionJob(Either.forLeft(baseUrl));
+        job = new AssistCreatingManualConnectionJob(serverUrlOrOrganization);
       }
 
       job.schedule();
@@ -319,7 +327,7 @@ public class SonarLintEclipseRpcClient extends SonarLintEclipseHeadlessRpcClient
 
     // Handle expensive checks and actual logic in separate job to not block the thread
     new OpenIssueInEclipseJob(new OpenIssueContext("Open in IDE", issueDetails, project, bindingOpt.get()))
-      .schedule();
+      .schedule(500);
   }
 
   @Override
@@ -332,8 +340,14 @@ public class SonarLintEclipseRpcClient extends SonarLintEclipseHeadlessRpcClient
     var project = projectOpt.get();
     var bindingOpt = SonarLintCorePlugin.getConnectionManager().resolveBinding(project);
     if (bindingOpt.isPresent()) {
+      // INFO: It can be that there is no file of that project currently opened, in that case return directly!
       var openedFiles = PlatformUtils.collectOpenedFiles(project, f -> true);
-      var files = openedFiles.get(project).stream()
+      var projectFiles = openedFiles.get(project);
+      if (projectFiles == null || projectFiles.isEmpty()) {
+        return;
+      }
+
+      var files = projectFiles.stream()
         .map(file -> file.getFile())
         .collect(Collectors.toList());
 
@@ -348,6 +362,8 @@ public class SonarLintEclipseRpcClient extends SonarLintEclipseHeadlessRpcClient
       ? ("\n\n" + params.getStackTrace())
       : "";
 
+    // The tracing coming from SLCORE should not be confused with the SonarLintLogger#traceIdeMessage(String) message!
+    // This is only to be used for IDE-specific logging (e.g. adaptations, interaction with extension points, ...)
     switch (params.getLevel()) {
       case TRACE:
       case DEBUG:
@@ -375,7 +391,8 @@ public class SonarLintEclipseRpcClient extends SonarLintEclipseHeadlessRpcClient
         + "' changed ready status for analysis to: " + areReadyForAnalysis);
     }
 
-    AnalyzeProjectJob.changeAnalysisReadiness(configurationScopeIds, areReadyForAnalysis);
+    configurationScopeIds.stream()
+      .forEach(configurationScopeId -> AnalysisReadyStatusCache.changeAnalysisReadiness(configurationScopeId, areReadyForAnalysis));
     if (areReadyForAnalysis) {
       AnalysisJobsScheduler.scheduleAnalysisOfOpenFiles(projects, TriggerType.ANALYSIS_READY);
     }

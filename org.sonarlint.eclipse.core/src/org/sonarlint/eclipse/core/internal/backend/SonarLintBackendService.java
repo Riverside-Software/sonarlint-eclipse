@@ -26,7 +26,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +43,6 @@ import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.annotation.Nullable;
-import org.eclipse.jface.text.IDocument;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.StoragePathManager;
@@ -55,21 +53,20 @@ import org.sonarlint.eclipse.core.internal.utils.DurationUtils;
 import org.sonarlint.eclipse.core.internal.utils.JavaRuntimeUtils;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.internal.vcs.VcsService;
-import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarsource.sonarlint.core.rpc.client.SloopLauncher;
 import org.sonarsource.sonarlint.core.rpc.client.SonarLintRpcClientDelegate;
 import org.sonarsource.sonarlint.core.rpc.protocol.SonarLintRpcServer;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.analysis.AnalyzeFilesParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.analysis.AnalyzeFilesAndTrackParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.analysis.AnalyzeFilesResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.binding.GetSharedConnectedModeConfigFileParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.binding.GetSharedConnectedModeConfigFileResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.branch.DidVcsRepositoryChangeParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.branch.GetMatchedSonarProjectBranchParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.branch.GetMatchedSonarProjectBranchResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.config.DidChangeCredentialsParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.projects.GetAllProjectsParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.projects.SonarProjectDto;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.file.GetFilesStatusParams;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.file.GetFilesStatusResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.ClientConstantInfoDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.FeatureFlagsDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.HttpConfigurationDto;
@@ -92,11 +89,8 @@ import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.GetEffectiveRul
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.GetStandaloneRuleDescriptionParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.GetStandaloneRuleDescriptionResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.ListAllStandaloneRulesDefinitionsResponse;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.ClientTrackedFindingDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.ListAllParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.ListAllResponse;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.TrackWithServerIssuesParams;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.tracking.TrackWithServerIssuesResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.common.Language;
 
 import static java.util.Objects.requireNonNull;
@@ -179,7 +173,7 @@ public class SonarLintBackendService {
           var telemetryEnabled = !Boolean.parseBoolean(System.getProperty("sonarlint.telemetry.disabled", "false"));
 
           backend.initialize(new InitializeParams(
-            new ClientConstantInfoDto(getIdeName(), "CABL - SonarLint Eclipse " + SonarLintUtils.getPluginVersion(), SonarLintUtils.getPlatformPid()),
+            new ClientConstantInfoDto(getIdeName(), "CABL - SonarLint Eclipse " + SonarLintUtils.getPluginVersion()),
             new TelemetryClientConstantAttributesDto("eclipse-cabl", "CABL - SonarLint Eclipse", SonarLintUtils.getPluginVersion(), SonarLintTelemetry.ideVersionForTelemetry(),
               Map.of()),
             getHttpConfiguration(),
@@ -191,11 +185,12 @@ public class SonarLintBackendService {
             embeddedPlugins,
             SonarLintUtils.getStandaloneEnabledLanguages().stream().map(l -> Language.valueOf(l.name())).collect(Collectors.toSet()),
             SonarLintUtils.getConnectedEnabledLanguages().stream().map(l -> Language.valueOf(l.name())).collect(Collectors.toSet()),
+            null,
             sqConnections,
             scConnections,
             null,
             SonarLintGlobalConfiguration.buildStandaloneRulesConfigDto(),
-            SonarLintGlobalConfiguration.PREF_ISSUE_PERIOD_NEWCODE.equals(SonarLintGlobalConfiguration.getIssuePeriod()),
+            SonarLintGlobalConfiguration.issuesOnlyNewCode(),
             new LanguageSpecificRequirements(SonarLintGlobalConfiguration.getNodejsPath(), null))).join();
         } catch (IOException e) {
           throw new IllegalStateException("Unable to initialize the SonarLint Backend", e);
@@ -292,6 +287,14 @@ public class SonarLintBackendService {
       .didVcsRepositoryChange(new DidVcsRepositoryChangeParams(ConfigScopeSynchronizer.getConfigScopeId(project)));
   }
 
+  public GetMatchedSonarProjectBranchResponse getMatchedSonarProjectBranch(ISonarLintProject project)
+    throws InterruptedException, ExecutionException {
+    return getBackend()
+      .getSonarProjectBranchService()
+      .getMatchedSonarProjectBranch(new GetMatchedSonarProjectBranchParams(ConfigScopeSynchronizer.getConfigScopeId(project)))
+      .get();
+  }
+
   public void credentialsChanged(ConnectionFacade connection) {
     getBackend().getConnectionService().didChangeCredentials(new DidChangeCredentialsParams(connection.getId()));
   }
@@ -379,13 +382,6 @@ public class SonarLintBackendService {
       .addComment(new AddIssueCommentParams(ConfigScopeSynchronizer.getConfigScopeId(project), serverIssueKey, text));
   }
 
-  public CompletableFuture<TrackWithServerIssuesResponse> trackWithServerIssues(ISonarLintProject project,
-    Map<Path, List<ClientTrackedFindingDto>> clientTrackedIssuesByIdeRelativePath,
-    boolean shouldFetchIssuesFromServer) {
-    return getBackend().getIssueTrackingService().trackWithServerIssues(
-      new TrackWithServerIssuesParams(ConfigScopeSynchronizer.getConfigScopeId(project), clientTrackedIssuesByIdeRelativePath, shouldFetchIssuesFromServer));
-  }
-
   public CompletableFuture<GetNewCodeDefinitionResponse> getNewCodeDefinition(ISonarLintProject project) {
     return getBackend().getNewCodeService().getNewCodeDefinition(new GetNewCodeDefinitionParams(ConfigScopeSynchronizer.getConfigScopeId(project)));
   }
@@ -410,20 +406,15 @@ public class SonarLintBackendService {
     return getBackend().getTaintVulnerabilityTrackingService().listAll(new ListAllParams(ConfigScopeSynchronizer.getConfigScopeId(project)));
   }
 
-  public CompletableFuture<GetFilesStatusResponse> getFilesStatus(ISonarLintProject project, Collection<ISonarLintFile> notExcluded) {
-    return getBackend().getFileService().getFilesStatus(
-      new GetFilesStatusParams(Map.of(ConfigScopeSynchronizer.getConfigScopeId(project), notExcluded.stream().map(ISonarLintFile::uri).collect(Collectors.toList()))));
-  }
-
   public CompletableFuture<GetSharedConnectedModeConfigFileResponse> getSharedConnectedModeConfigFileContents(ISonarLintProject project) {
     return getBackend()
       .getBindingService()
       .getSharedConnectedModeConfigFileContents(new GetSharedConnectedModeConfigFileParams(ConfigScopeSynchronizer.getConfigScopeId(project)));
   }
 
-  public CompletableFuture<AnalyzeFilesResponse> analyzeFiles(ISonarLintProject project, UUID analysisId, Map<ISonarLintFile, IDocument> docPerFiles,
-    Map<String, String> extraProps, long startTime) {
-    var fileUris = docPerFiles.keySet().stream().map(file -> file.getResource().getLocationURI()).collect(Collectors.toList());
-    return getBackend().getAnalysisService().analyzeFiles(new AnalyzeFilesParams(ConfigScopeSynchronizer.getConfigScopeId(project), analysisId, fileUris, extraProps, startTime));
+  public CompletableFuture<AnalyzeFilesResponse> analyzeFilesAndTrack(ISonarLintProject project, UUID analysisId, List<URI> fileURIs,
+    Map<String, String> extraProps, boolean shouldFetchServerIssues, long startTime) {
+    return getBackend().getAnalysisService().analyzeFilesAndTrack(
+      new AnalyzeFilesAndTrackParams(ConfigScopeSynchronizer.getConfigScopeId(project), analysisId, fileURIs, extraProps, shouldFetchServerIssues, startTime));
   }
 }

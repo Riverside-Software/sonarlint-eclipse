@@ -29,6 +29,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.apache.commons.io.FileUtils;
+import org.assertj.core.groups.Tuple;
+import org.awaitility.Awaitility;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.IJobChangeListener;
@@ -46,6 +48,7 @@ import org.eclipse.reddeer.eclipse.condition.ConsoleHasText;
 import org.eclipse.reddeer.eclipse.condition.ProjectExists;
 import org.eclipse.reddeer.eclipse.core.resources.Project;
 import org.eclipse.reddeer.eclipse.core.resources.Resource;
+import org.eclipse.reddeer.eclipse.selectionwizard.ImportMenuWizard;
 import org.eclipse.reddeer.eclipse.ui.navigator.resources.ProjectExplorer;
 import org.eclipse.reddeer.eclipse.ui.wizards.datatransfer.ExternalProjectImportWizardDialog;
 import org.eclipse.reddeer.eclipse.ui.wizards.datatransfer.WizardProjectsImportPage;
@@ -59,6 +62,8 @@ import org.eclipse.reddeer.swt.impl.button.FinishButton;
 import org.eclipse.reddeer.swt.impl.button.PushButton;
 import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
+import org.eclipse.reddeer.workbench.impl.editor.AbstractEditor;
+import org.eclipse.reddeer.workbench.impl.editor.Marker;
 import org.eclipse.reddeer.workbench.impl.shell.WorkbenchShell;
 import org.eclipse.reddeer.workbench.ui.dialogs.WorkbenchPreferenceDialog;
 import org.junit.After;
@@ -75,10 +80,12 @@ import org.sonarlint.eclipse.its.reddeer.conditions.AnalysisReady;
 import org.sonarlint.eclipse.its.reddeer.preferences.FileAssociationsPreferences;
 import org.sonarlint.eclipse.its.reddeer.preferences.RuleConfigurationPreferences;
 import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences;
-import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences.IssueFilter;
-import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences.IssuePeriod;
+import org.sonarlint.eclipse.its.reddeer.views.OnTheFlyView;
 import org.sonarlint.eclipse.its.reddeer.views.SonarLintConsole;
 import org.sonarlint.eclipse.its.reddeer.views.SonarLintConsole.ShowConsoleOption;
+import org.sonarlint.eclipse.its.reddeer.views.SonarLintIssueMarker;
+import org.sonarlint.eclipse.its.reddeer.wizards.GradleProjectImportWizardDialog;
+import org.sonarlint.eclipse.its.reddeer.wizards.WizardGradleProjectsImportPage;
 import org.sonarqube.ws.client.HttpConnector;
 import org.sonarqube.ws.client.WsClient;
 import org.sonarqube.ws.client.WsClientFactories;
@@ -151,26 +158,26 @@ public abstract class AbstractSonarLintTest {
 
     restoreDefaultRulesConfiguration();
 
-    setNewCodePreference(IssuePeriod.ALL_TIME);
+    setFocusOnNewCode(false);
 
     ROOT_UI.remove(PREF_SECRETS_EVER_DETECTED);
   }
 
-  protected static void setNewCodePreference(IssuePeriod period) {
+  protected static void setFocusOnNewCode(boolean focusOnNewCode) {
     var preferenceDialog = new WorkbenchPreferenceDialog();
     preferenceDialog.open();
     var preferences = new SonarLintPreferences(preferenceDialog);
     preferenceDialog.select(preferences);
-    preferences.setNewCodePreference(period);
+    preferences.setFocusOnNewCode(focusOnNewCode);
     preferenceDialog.ok();
   }
 
-  protected static void setIssueFilterPreference(IssueFilter filter) {
+  protected static void setShowAllMarkers(boolean showAllMarkers) {
     var preferenceDialog = new WorkbenchPreferenceDialog();
     preferenceDialog.open();
     var preferences = new SonarLintPreferences(preferenceDialog);
     preferenceDialog.select(preferences);
-    preferences.setIssueFilterPreference(filter);
+    preferences.setShowAllMarkers(showAllMarkers);
     preferenceDialog.ok();
   }
 
@@ -261,7 +268,58 @@ public abstract class AbstractSonarLintTest {
     shellByName("SonarLint - New Eclipse user survey").ifPresent(DefaultShell::close);
   }
 
-  protected static final void importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder) {
+  /** Waiting for markers to disappear in the editor */
+  protected void waitForNoMarkers(AbstractEditor editor) {
+    var markerType = "org.sonarlint.eclipse.onTheFlyIssueAnnotationType";
+
+    Awaitility.await()
+      .atMost(20, TimeUnit.SECONDS)
+      .untilAsserted(() -> {
+        assertThat(editor.getMarkers())
+          .filteredOn(marker -> marker.getType().equals(markerType))
+          .isEmpty();
+      });
+  }
+
+  /** Waiting for markers to appear in the editor */
+  protected void waitForMarkers(AbstractEditor editor, Tuple... markers) {
+    var markerType = "org.sonarlint.eclipse.onTheFlyIssueAnnotationType";
+
+    Awaitility.await()
+      .atMost(20, TimeUnit.SECONDS)
+      .untilAsserted(() -> {
+        assertThat(editor.getMarkers())
+          .filteredOn(marker -> marker.getType().equals(markerType))
+          .hasSize(markers.length);
+        assertThat(editor.getMarkers())
+          .filteredOn(marker -> marker.getType().equals(markerType))
+          .extracting(Marker::getText, Marker::getLineNumber)
+          .containsOnly(markers);
+      });
+  }
+
+  /** Waiting for markers to disappear in the SonarLint On-The-Fly view */
+  protected void waitForNoSonarLintMarkers(OnTheFlyView view) {
+    Awaitility.await()
+      .atMost(20, TimeUnit.SECONDS)
+      .untilAsserted(() -> {
+        assertThat(view.getIssues()).isEmpty();
+      });
+  }
+
+  /** Waiting for markers to appear in the SonarLint On-The-Fly view */
+  protected void waitForSonarLintMarkers(OnTheFlyView view, Tuple... markers) {
+    Awaitility.await()
+      .atMost(20, TimeUnit.SECONDS)
+      .untilAsserted(() -> {
+        assertThat(view.getIssues()).hasSize(markers.length);
+        assertThat(view.getIssues())
+          .extracting(SonarLintIssueMarker::getDescription, SonarLintIssueMarker::getResource, SonarLintIssueMarker::getCreationDate)
+          .containsOnly(markers);
+      });
+  }
+
+  protected static final void importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder, boolean isGradle) {
     var projectFolder = new File(projectsFolder, relativePathFromProjectsFolder);
     try {
       FileUtils.copyDirectory(new File("projects", relativePathFromProjectsFolder), projectFolder);
@@ -272,13 +330,22 @@ public abstract class AbstractSonarLintTest {
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
-    var dialog = new ExternalProjectImportWizardDialog();
-    dialog.open();
-    var importPage = new WizardProjectsImportPage(dialog);
-    importPage.copyProjectsIntoWorkspace(false);
-    importPage.setRootDirectory(projectFolder.getAbsolutePath());
-    var projects = importPage.getProjects();
-    assertThat(projects).hasSize(1);
+
+    ImportMenuWizard dialog;
+    if (isGradle) {
+      dialog = new GradleProjectImportWizardDialog();
+      dialog.open();
+      var importPage = new WizardGradleProjectsImportPage(dialog);
+      importPage.setRootDirectory(projectFolder.getAbsolutePath());
+    } else {
+      dialog = new ExternalProjectImportWizardDialog();
+      dialog.open();
+      var importPage = new WizardProjectsImportPage(dialog);
+      importPage.copyProjectsIntoWorkspace(false);
+      importPage.setRootDirectory(projectFolder.getAbsolutePath());
+      var projects = importPage.getProjects();
+      assertThat(projects).hasSize(1);
+    }
 
     // Don't use dialog.finish() as in PyDev there is an extra step before waiting for the windows to be closed
     Button button = new FinishButton(dialog);
@@ -297,7 +364,7 @@ public abstract class AbstractSonarLintTest {
    * @param title
    * @return
    */
-  private static Optional<DefaultShell> shellByName(String title) {
+  protected static Optional<DefaultShell> shellByName(String title) {
     try {
       return Optional.of(new DefaultShell(ShellLookup.getInstance().getShell(title, TimePeriod.SHORT)));
     } catch (Exception e) {
@@ -306,7 +373,15 @@ public abstract class AbstractSonarLintTest {
   }
 
   protected static final Project importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder, String projectName) {
-    importExistingProjectIntoWorkspace(relativePathFromProjectsFolder);
+    return importExistingProjectIntoWorkspace(relativePathFromProjectsFolder, projectName, false);
+  }
+
+  protected static final Project importExistingGradleProjectIntoWorkspace(String relativePathFromProjectsFolder, String projectName) {
+    return importExistingProjectIntoWorkspace(relativePathFromProjectsFolder, projectName, true);
+  }
+
+  protected static final Project importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder, String projectName, boolean isGradle) {
+    importExistingProjectIntoWorkspace(relativePathFromProjectsFolder, isGradle);
     var projectExplorer = new ProjectExplorer();
     new WaitUntil(new ProjectExists(projectName, projectExplorer));
     new WaitUntil(new AnalysisReady(projectName), TimePeriod.getCustom(30));

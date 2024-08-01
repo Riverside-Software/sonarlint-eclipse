@@ -6,9 +6,6 @@ env:
   ARTIFACTORY_PRIVATE_USERNAME: vault-${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader
   ARTIFACTORY_PRIVATE_PASSWORD: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader access_token]
   ARTIFACTORY_ACCESS_TOKEN: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-private-reader access_token]
-  BURGR_URL: VAULT[development/kv/data/burgr data.url]
-  BURGR_USERNAME: VAULT[development/kv/data/burgr data.cirrus_username]
-  BURGR_PASSWORD: VAULT[development/kv/data/burgr data.cirrus_password]
   SONAR_HOST_URL: VAULT[development/kv/data/next data.url]
   SONAR_TOKEN: VAULT[development/kv/data/next data.token]
   SLACK_TOKEN: VAULT[development/kv/data/slack data.token]
@@ -65,6 +62,19 @@ maven_cache_qa: &SETUP_MAVEN_CACHE_QA
       - echo $TARGET_PLATFORM
       - /usr/bin/find . -name pom.xml -not -path './its/*' -exec cat {} \+
       - cat target-platforms/commons.target its/target-platforms/*.target
+
+orchestrator_cache_qa: &SETUP_ORCHESTRATOR_CACHE
+  set_orchestrator_home_script: |
+    export THIS_MONTH=$(date '+%Y-%m')
+    echo "THIS_MONTH=${THIS_MONTH}" >> $CIRRUS_ENV
+    echo "ORCHESTRATOR_HOME=${CIRRUS_WORKING_DIR}/orchestrator/${THIS_MONTH}" >> $CIRRUS_ENV
+  mkdir_orchestrator_home_script: |
+    echo "Create dir ${ORCHESTRATOR_HOME} if needed"
+    mkdir -p ${ORCHESTRATOR_HOME}
+  orchestrator_cache:
+    folder: ${ORCHESTRATOR_HOME}
+    fingerprint_script: echo ${THIS_MONTH}
+    reupload_on_changes: 'true'
 
 build_task:
   # name: "Build and stage to repox"
@@ -124,11 +134,17 @@ validate_task:
     metacity --sm-disable --replace &
     sleep 10 # give metacity some time to start
     source cirrus-env QA
-    mvn -B -e -V verify -P-deploy-sonarsource,-release,-sign
+    mvn -B -e -V org.jacoco:jacoco-maven-plugin:prepare-agent verify -Pcoverage \
+      -Djacoco.append=true -Djacoco.destFile=${CIRRUS_WORKING_DIR}/ut-coverage.exec
     /etc/init.d/xvfb stop
   cleanup_before_cache_script: cleanup_maven_repository
+  always:
+    jacoco_ut_artifacts:
+      path: "${CIRRUS_WORKING_DIR}/ut-coverage*.exec"
   on_failure:
-    mvn_log_artifacts:
+    mvn_startTestLog_artifacts:
+      path: "${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/work/configuration/*.log"
+    mvn_runTestLog_artifacts:
       path: "${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/work/data/.metadata/.log"
     xvfb_log_artifacts:
       path: "${CIRRUS_WORKING_DIR}/Xvfb.out"
@@ -157,17 +173,22 @@ qa_task:
   matrix:
     - env:
         TARGET_PLATFORM: 'oldest'
-        SQ_VERSION: 'LATEST_RELEASE[8.9]'
-        QA_CATEGORY: 'Oldest'
+        SQ_VERSION: 'LATEST_RELEASE[9.9]'
+        QA_CATEGORY: 'oldest-LATEST_RELEASE_99'
     - env:
         TARGET_PLATFORM: 'latest'
         SQ_VERSION: 'LATEST_RELEASE[9.9]'
-        QA_CATEGORY: 'Latest-LTS'
+        QA_CATEGORY: 'latest-LATEST_RELEASE_99'
+    - env:
+        TARGET_PLATFORM: 'latest'
+        SQ_VERSION: 'LATEST_RELEASE'
+        QA_CATEGORY: 'latest-LATEST_RELEASE'
     - env:
         TARGET_PLATFORM: 'latest'
         SQ_VERSION: 'DEV'
-        QA_CATEGORY: 'Latest'
+        QA_CATEGORY: 'latest-DEV'
   <<: *SETUP_MAVEN_CACHE_QA
+  <<: *SETUP_ORCHESTRATOR_CACHE
   download_staged_update_site_script: |
     set -euo pipefail
     source cirrus-env QA
@@ -194,9 +215,7 @@ qa_task:
       /etc/init.d/xvfb stop
     test_recording_artifacts:
       path: "${CIRRUS_WORKING_DIR}/recording_${QA_CATEGORY}.mp4"
-    log_artifacts:
-      path: "its/build/idea-sandbox/system/log"
-    jacoco_artifacts:
+    jacoco_it_artifacts:
       path: "${CIRRUS_WORKING_DIR}/it-coverage*.exec"
   on_failure:
     xvfb_log_artifacts:
@@ -211,9 +230,25 @@ qa_task:
     slack_notification_script: |
       .cirrus/slack-notification.sh
 
+inspect_orchestrator_cache_task:
+  <<: *ONLY_IF
+  depends_on: qa
+  eks_container:
+    <<: *CONTAINER_DEFINITION
+    cpu: 4
+    memory: 8G
+  <<: *SETUP_ORCHESTRATOR_CACHE
+  inspect_cache_script: |
+    echo "Inspecting cache ${ORCHESTRATOR_HOME}..."
+    cd "${ORCHESTRATOR_HOME}"
+    ls -l
+    find .
+    echo "Inspecting cache done."
+
 sonarqube_task:
   # name: "Run SonarQube analysis"
   depends_on:
+    - validate
     - qa
   <<: *ONLY_IF_EXCEPT_NIGHTLY
   eks_container:
@@ -233,11 +268,13 @@ sonarqube_task:
   sonarqube_script: |
     set -euo pipefail
     mkdir ${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/
-    curl --no-progress-meter https://api.cirrus-ci.com/v1/artifact/build/$CIRRUS_BUILD_ID/jacoco.zip -o jacoco.zip
-    unzip jacoco.zip -d ${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/
+    curl --no-progress-meter https://api.cirrus-ci.com/v1/artifact/build/$CIRRUS_BUILD_ID/jacoco_ut.zip -o jacoco_ut.zip
+    curl --no-progress-meter https://api.cirrus-ci.com/v1/artifact/build/$CIRRUS_BUILD_ID/jacoco_it.zip -o jacoco_it.zip
+    unzip jacoco_ut.zip -d ${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/
+    unzip jacoco_it.zip -d ${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/
     source cirrus-env QA
     .cirrus/regular_mvn_build_deploy_analyze \
-      -P-deploy-sonarsource,-release,-sign -Dmaven.install.skip=true -Dmaven.deploy.skip=true \
+      -P-deploy-sonarsource,-release,-sign -Dmaven.install.skip=true -DskipTests -Dmaven.deploy.skip=true \
       -Pcoverage -Djacoco.append=true -Dsonar.coverage.jacoco.xmlReportPaths=${CIRRUS_WORKING_DIR}/org.sonarlint.eclipse.core.tests/target/site/jacoco-aggregate/jacoco.xml
     /etc/init.d/xvfb stop
   cleanup_before_cache_script: cleanup_maven_repository
@@ -288,7 +325,6 @@ promote_task:
   env:
     ARTIFACTORY_PROMOTE_ACCESS_TOKEN: VAULT[development/artifactory/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-promoter access_token]
     GITHUB_TOKEN: VAULT[development/github/token/${CIRRUS_REPO_OWNER}-${CIRRUS_REPO_NAME}-promotion token]
-    # artifacts which will have downloadable links in burgr
     ARTIFACTS: org.sonarsource.sonarlint.eclipse:org.sonarlint.eclipse.site:zip,org.sonarsource.sonarlint.eclipse:sonarlint-eclipse-parent:json:cyclonedx
   <<: *SETUP_MAVEN_CACHE
   promote_script: |

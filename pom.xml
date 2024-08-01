@@ -6,13 +6,13 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>73.0.0.1710</version>
+    <version>74.0.0.1768</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>10.2.3116</version>
+  <version>10.4.3200</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -43,8 +43,8 @@
     <module>org.sonarlint.eclipse.feature</module>
 
     <module>org.sonarlint.eclipse.m2e</module>
+    <module>org.sonarlint.eclipse.buildship</module>
     <module>org.sonarlint.eclipse.jdt</module>
-
     <module>org.sonarlint.eclipse.cdt</module>
     <module>org.sonarlint.eclipse.pdt</module>
     <module>org.sonarlint.eclipse.pydev</module>
@@ -76,19 +76,18 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <tycho.version>4.0.6</tycho.version>
     <jdk.min.version>11</jdk.min.version>
-    <!-- Same protobuf version than the one in SonarLint Core-->
-    <protobuf.version>3.25.1</protobuf.version>
     <jacoco.version>0.8.8</jacoco.version>
     <jarsigner.version>3.0.0</jarsigner.version>
 
     <!-- Sloop embedded CLI version for fragment projects -->
-    <sloop.version>10.2.99008</sloop.version>
+    <sloop.version>10.3.99000</sloop.version>
 
     <!-- ================== -->
     <!-- For SonarQube analysis -->
     <!-- ================== -->
     <sonar.java.source>11</sonar.java.source>
     <sonar.java.target>11</sonar.java.target>
+    <sonar.exclusions>**/.tycho-consumer-pom.xml</sonar.exclusions>
     <jarsigner.skip>true</jarsigner.skip>
 
     <gitRepositoryName>sonarlint-eclipse</gitRepositoryName>

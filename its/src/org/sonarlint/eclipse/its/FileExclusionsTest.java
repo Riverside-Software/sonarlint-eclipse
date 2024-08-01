@@ -27,13 +27,11 @@ import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
 import org.eclipse.reddeer.swt.impl.button.OkButton;
 import org.eclipse.reddeer.swt.impl.menu.ContextMenu;
 import org.eclipse.reddeer.swt.impl.menu.ContextMenuItem;
-import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.workbench.ui.dialogs.WorkbenchPreferenceDialog;
 import org.junit.Test;
 import org.sonarlint.eclipse.its.reddeer.conditions.OnTheFlyViewIsEmpty;
 import org.sonarlint.eclipse.its.reddeer.preferences.FileExclusionsPreferences;
 import org.sonarlint.eclipse.its.reddeer.views.OnTheFlyView;
-import org.sonarlint.eclipse.its.reddeer.views.SonarLintIssueMarker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -51,10 +49,8 @@ public class FileExclusionsTest extends AbstractSonarLintTest {
     var helloFile = rootProject.getResource("src", "hello", "Hello.java");
     openFileAndWaitForAnalysisCompletion(helloFile);
 
-    var sonarlintIssues = issuesView.getIssues();
-
-    assertThat(sonarlintIssues).extracting(SonarLintIssueMarker::getResource, SonarLintIssueMarker::getDescription)
-      .containsOnly(tuple("Hello.java", "Replace this use of System.out by a logger."));
+    waitForSonarLintMarkers(issuesView,
+      tuple("Replace this use of System.out by a logger.", "Hello.java", "few seconds ago"));
 
     new JavaEditor("Hello.java").close();
 
@@ -64,7 +60,7 @@ public class FileExclusionsTest extends AbstractSonarLintTest {
 
     // ensure issues markers are cleared even before the next analysis
     new WaitUntil(new OnTheFlyViewIsEmpty(issuesView), TimePeriod.DEFAULT);
-    assertThat(issuesView.getIssues()).isEmpty();
+    waitForNoSonarLintMarkers(issuesView);
 
     helloFile.select();
     assertThat(new ContextMenuItem("SonarLint", "Exclude").isEnabled()).isFalse();
@@ -72,23 +68,22 @@ public class FileExclusionsTest extends AbstractSonarLintTest {
 
     // reopen the file to ensure issue doesn't come back
     openFileAndWaitForAnalysisCompletion(helloFile);
-
-    assertThat(issuesView.getIssues()).isEmpty();
+    waitForNoSonarLintMarkers(issuesView);
 
     var javaEditor = new JavaEditor("Hello.java");
     javaEditor.insertText(8, 29, "2");
-    doAndWaitForSonarLintAnalysisJob(() -> javaEditor.save());
 
-    assertThat(issuesView.getIssues()).isEmpty();
+    doAndWaitForSonarLintAnalysisJob(() -> javaEditor.save());
+    waitForNoSonarLintMarkers(issuesView);
 
     // Trigger manual analysis of the project
     // Clear the preference when running tests locally in developper env
     ConfigurationScope.INSTANCE.getNode(UI_PLUGIN_ID).remove(PREF_SKIP_CONFIRM_ANALYZE_MULTIPLE_FILES);
     rootProject.select();
     new ContextMenu(rootProject.getTreeItem()).getItem("SonarLint", "Analyze").select();
-    doAndWaitForSonarLintAnalysisJob(() -> new OkButton(new DefaultShell("Confirmation")).click());
 
-    assertThat(issuesView.getIssues()).isEmpty();
+    doAndWaitForSonarLintAnalysisJob(() -> new OkButton(shellByName("Confirmation").get()).click());
+    waitForNoSonarLintMarkers(issuesView);
   }
 
   @Test

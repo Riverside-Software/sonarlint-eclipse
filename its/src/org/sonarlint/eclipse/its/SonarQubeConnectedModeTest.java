@@ -30,6 +30,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.eclipse.reddeer.common.wait.TimePeriod;
 import org.eclipse.reddeer.common.wait.WaitUntil;
 import org.eclipse.reddeer.common.wait.WaitWhile;
@@ -40,7 +41,6 @@ import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
 import org.eclipse.reddeer.swt.impl.button.PushButton;
 import org.eclipse.reddeer.swt.impl.link.DefaultLink;
 import org.eclipse.reddeer.swt.impl.menu.ContextMenuItem;
-import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
 import org.eclipse.reddeer.workbench.impl.editor.DefaultEditor;
 import org.eclipse.reddeer.workbench.impl.editor.Marker;
@@ -56,7 +56,6 @@ import org.junit.Test;
 import org.sonarlint.eclipse.its.reddeer.conditions.DialogMessageIsExpected;
 import org.sonarlint.eclipse.its.reddeer.conditions.RuleDescriptionViewIsLoaded;
 import org.sonarlint.eclipse.its.reddeer.dialogs.MarkIssueAsDialog;
-import org.sonarlint.eclipse.its.reddeer.preferences.SonarLintPreferences.IssuePeriod;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView;
 import org.sonarlint.eclipse.its.reddeer.views.BindingsView.Binding;
 import org.sonarlint.eclipse.its.reddeer.views.OnTheFlyView;
@@ -178,13 +177,10 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     connectionNamePage.setConnectionName("test");
     wizard.next();
 
-    if (orchestrator.getServer().version().isGreaterThanOrEquals(8, 7)) {
-      // SONAR-14306 Starting from 8.7, dev notifications are available even in community edition
-      var notificationsPage = new ServerConnectionWizard.NotificationsPage(wizard);
-      assertThat(notificationsPage.areNotificationsEnabled()).isTrue();
-      assertThat(wizard.isNextEnabled()).isTrue();
-      wizard.next();
-    }
+    var notificationsPage = new ServerConnectionWizard.NotificationsPage(wizard);
+    assertThat(notificationsPage.areNotificationsEnabled()).isTrue();
+    assertThat(wizard.isNextEnabled()).isTrue();
+    wizard.next();
 
     assertThat(wizard.isNextEnabled()).isFalse();
     wizard.finish();
@@ -230,61 +226,64 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     createConnectionAndBindProject(orchestrator, SECRET_JAVA_PROJECT_NAME);
 
     // Remove binding suggestion notification
-    var bindingSuggestionNotificationShell = new DefaultShell("SonarLint Binding Suggestion");
-    new DefaultLink(bindingSuggestionNotificationShell, "Don't ask again").click();
+    new DefaultLink(shellByName("SonarLint Binding Suggestion").get(), "Don't ask again").click();
 
     waitForAnalysisReady(SECRET_JAVA_PROJECT_NAME);
 
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("src", "sec", "Secret.java"));
+    waitForMarkers(new DefaultEditor(),
+      tuple("Make sure this AWS Secret Access Key gets revoked, changed, and removed from the code.", 4));
 
-    var defaultEditor = new DefaultEditor();
-    assertThat(defaultEditor.getMarkers())
-      .extracting(Marker::getText, Marker::getLineNumber)
-      .containsOnly(
-        tuple("Make sure this AWS Secret Access Key gets revoked, changed, and removed from the code.", 4));
-
-    var notificationShell = new DefaultShell("SonarLint - Secret(s) detected");
-    new DefaultLink(notificationShell, "Dismiss").click();
+    new DefaultLink(shellByName("SonarLint - Secret(s) detected").get(), "Dismiss").click();
   }
 
   @Test
   public void shouldAutomaticallyUpdateRuleSetWhenChangedOnServer() throws Exception {
-    Assume.assumeTrue(orchestrator.getServer().version().isGreaterThanOrEquals(9, 4));
-
     new JavaPerspective().open();
     var rootProject = importExistingProjectIntoWorkspace("java/java-simple", JAVA_SIMPLE_PROJECT_KEY);
 
     createConnectionAndBindProject(orchestrator, JAVA_SIMPLE_PROJECT_KEY);
 
     // Remove binding suggestion notification
-    var bindingSuggestionNotificationShell = new DefaultShell("SonarLint Binding Suggestion");
-    new DefaultLink(bindingSuggestionNotificationShell, "Don't ask again").click();
+    new DefaultLink(shellByName("SonarLint Binding Suggestion").get(), "Don't ask again").click();
 
     waitForAnalysisReady(JAVA_SIMPLE_PROJECT_KEY);
 
     var file = rootProject.getResource("src", "hello", "Hello.java");
     openFileAndWaitForAnalysisCompletion(file);
 
+    // INFO: This is a corner case where we cannot use AbstractSonarLintTest#waitForMarkers!
     var defaultEditor = new TextEditor();
-    assertThat(defaultEditor.getMarkers())
-      .satisfiesAnyOf(
-        list -> assertThat(list)
-          .extracting(Marker::getText, Marker::getLineNumber)
-          .containsOnly(tuple("Replace this use of System.out by a logger.", 9)),
-        list -> assertThat(list)
-          .extracting(Marker::getText, Marker::getLineNumber)
-          .containsOnly(tuple("Replace this use of System.out or System.err by a logger.", 9)));
+    await().untilAsserted(() -> {
+      assertThat(defaultEditor.getMarkers())
+        .filteredOn(marker -> marker.getType().equals("org.sonarlint.eclipse.onTheFlyIssueAnnotationType"))
+        .hasSize(1);
+      assertThat(defaultEditor.getMarkers())
+        .filteredOn(marker -> marker.getType().equals("org.sonarlint.eclipse.onTheFlyIssueAnnotationType"))
+        .satisfiesAnyOf(
+          list -> assertThat(list)
+            .extracting(Marker::getText, Marker::getLineNumber)
+            .containsOnly(tuple("Replace this use of System.out by a logger.", 9)),
+          list -> assertThat(list)
+            .extracting(Marker::getText, Marker::getLineNumber)
+            .containsOnly(tuple("Replace this use of System.out or System.err by a logger.", 9)));
+    });
 
     var qualityProfile = getQualityProfile(JAVA_SIMPLE_PROJECT_KEY, "SonarLint IT Java");
     deactivateRule(qualityProfile, S106);
-    Thread.sleep(5000);
 
-    doAndWaitForSonarLintAnalysisJob(() -> {
-      defaultEditor.insertText(0, " ");
-      defaultEditor.save();
+    await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
+      Thread.sleep(5000);
+
+      doAndWaitForSonarLintAnalysisJob(() -> {
+        defaultEditor.insertText(0, " ");
+        defaultEditor.save();
+      });
+
+      assertThat(defaultEditor.getMarkers())
+        .filteredOn(marker -> marker.getType().equals("org.sonarlint.eclipse.onTheFlyIssueAnnotationType"))
+        .isEmpty();
     });
-
-    assertThat(defaultEditor.getMarkers()).isEmpty();
   }
 
   /**
@@ -304,22 +303,25 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     createConnectionAndBindProject(orchestrator, JAVA_SIMPLE_PROJECT_KEY);
 
     // Remove binding suggestion notification
-    var bindingSuggestionNotificationShell = new DefaultShell("SonarLint Binding Suggestion");
-    new DefaultLink(bindingSuggestionNotificationShell, "Don't ask again").click();
+    new DefaultLink(shellByName("SonarLint Binding Suggestion").get(), "Don't ask again").click();
 
     waitForAnalysisReady(JAVA_SIMPLE_PROJECT_KEY);
 
     var file = rootProject.getResource("src", "hello", "Hello.java");
     openFileAndWaitForAnalysisCompletion(file);
 
-    await().untilAsserted(() -> assertThat(
-      onTheFlyView.getIssues(ISSUE_MATCHER)).satisfiesAnyOf(
-        list -> assertThat(list)
-          .extracting(i -> i.getDescription())
-          .containsOnly("Replace this use of System.out by a logger."),
-        list -> assertThat(list)
-          .extracting(i -> i.getDescription())
-          .containsOnly("Replace this use of System.out or System.err by a logger.")));
+    // INFO: This is a corner case where we cannot use AbstractSonarLintTest#waitForSonarLintMarkers!
+    await().untilAsserted(() -> {
+      assertThat(onTheFlyView.getIssues(ISSUE_MATCHER)).hasSize(1);
+      assertThat(onTheFlyView.getIssues(ISSUE_MATCHER))
+        .satisfiesAnyOf(
+          list -> assertThat(list)
+            .extracting(SonarLintIssueMarker::getDescription, SonarLintIssueMarker::getResource)
+            .containsOnly(tuple("Replace this use of System.out by a logger.", "Hello.java")),
+          list -> assertThat(list)
+            .extracting(SonarLintIssueMarker::getDescription, SonarLintIssueMarker::getResource)
+            .containsOnly(tuple("Replace this use of System.out or System.err by a logger.", "Hello.java")));
+    });
 
     var emptyMatcher = new MarkerDescriptionMatcher(CoreMatchers.containsString(""));
 
@@ -378,8 +380,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
       INSUFFICIENT_PERMISSION_USER);
 
     // 7) Remove binding suggestion notification
-    var notificationShell = new DefaultShell("SonarLint Binding Suggestion");
-    new DefaultLink(notificationShell, "Don't ask again").click();
+    new DefaultLink(shellByName("SonarLint Binding Suggestion").get(), "Don't ask again").click();
 
     waitForAnalysisReady(MAVEN2_PROJECT_KEY);
 
@@ -390,8 +391,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     onTheFlyView.getIssues(ISSUE_MATCHER).get(0).select();
     new ContextMenuItem(onTheFlyView.getTree(), "Mark Issue as...").select();
 
-    var s = new DefaultShell("Mark Issue as Resolved on SonarQube");
-    new PushButton(s, "OK").click();
+    new PushButton(shellByName("Mark Issue as Resolved on SonarQube").get(), "OK").click();
 
     // 9) Assert marker is still available
     await().untilAsserted(() -> assertThat(onTheFlyView.getIssues(ISSUE_MATCHER)).satisfiesAnyOf(
@@ -423,8 +423,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     doAndWaitForSonarLintAnalysisJob(dialog::ok);
 
     // 12) Remove marked as resolved notification
-    var notificationShell2 = new DefaultShell("SonarLint - Issue marked as resolved");
-    new DefaultLink(notificationShell2, "Dismiss").click();
+    new DefaultLink(shellByName("SonarLint - Issue marked as resolved").get(), "Dismiss").click();
 
     // 13) Assert marker is gone
     await().until(() -> onTheFlyView.getIssues(ISSUE_MATCHER), List<SonarLintIssueMarker>::isEmpty);
@@ -458,27 +457,25 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
 
     await().untilAsserted(() -> assertThat(onTheFlyView.getItems()).hasSize(2));
 
-    setNewCodePreference(IssuePeriod.NEW_CODE);
+    setFocusOnNewCode(true);
 
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("src/main/java", "taint", "taint_issue.java"));
 
     await().untilAsserted(() -> assertThat(onTheFlyView.getItems()).hasSize(2));
 
-    setNewCodePreference(IssuePeriod.ALL_TIME);
+    setFocusOnNewCode(false);
 
     // 3) bind to project on SonarQube / check issues and taint vulnerabilities exist
     createConnectionAndBindProject(orchestrator, MAVEN_TAINT_PROJECT_KEY, Server.ADMIN_LOGIN, Server.ADMIN_PASSWORD);
 
-    var notificationShell = new DefaultShell("SonarLint Binding Suggestion");
-    new DefaultLink(notificationShell, "Don't ask again").click();
+    new DefaultLink(shellByName("SonarLint Binding Suggestion").get(), "Don't ask again").click();
 
     waitForAnalysisReady(MAVEN_TAINT_PROJECT_KEY);
 
     await().untilAsserted(() -> assertThat(onTheFlyView.getItems()).hasSize(2));
     await().untilAsserted(() -> assertThat(taintVulnerabilitiesView.getItems()).hasSize(1));
 
-    var newTaintShell = new DefaultShell("SonarLint - Taint vulnerability found");
-    new DefaultLink(newTaintShell, "Show in view").click();
+    new DefaultLink(shellByName("SonarLint - Taint vulnerability found").get(), "Show in view").click();
 
     // 4) unbind project / set new code period to "previous version" / run second analysis with a new version
     var bindingsView = new BindingsView();
@@ -503,7 +500,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
     await().untilAsserted(() -> assertThat(onTheFlyView.getItems()).hasSize(2));
     await().untilAsserted(() -> assertThat(taintVulnerabilitiesView.getItems()).hasSize(1));
 
-    setNewCodePreference(IssuePeriod.NEW_CODE);
+    setFocusOnNewCode(true);
 
     await().untilAsserted(() -> assertThat(onTheFlyView.getItems()).isEmpty());
     await().untilAsserted(() -> assertThat(taintVulnerabilitiesView.getItems()).isEmpty());
@@ -527,7 +524,7 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
   private static void deactivateRule(QualityProfile qualityProfile, String ruleKey) {
     var request = new PostRequest("/api/qualityprofiles/deactivate_rule")
       .setParam("key", qualityProfile.getKey())
-      .setParam("rule", javaRuleKey(ruleKey));
+      .setParam("rule", "java:" + ruleKey);
     try (var response = adminWsClient.wsConnector().call(request)) {
       assertTrue("Unable to deactivate rule " + ruleKey, response.isSuccessful());
     }
@@ -536,15 +533,10 @@ public class SonarQubeConnectedModeTest extends AbstractSonarQubeConnectedModeTe
   private static void activateRule(QualityProfile qualityProfile, String ruleKey) {
     var request = new PostRequest("/api/qualityprofiles/activate_rule")
       .setParam("key", qualityProfile.getKey())
-      .setParam("rule", javaRuleKey(ruleKey));
+      .setParam("rule", "java:" + ruleKey);
     try (var response = adminWsClient.wsConnector().call(request)) {
       assertTrue("Unable to activate rule " + ruleKey, response.isSuccessful());
     }
-  }
-
-  private static String javaRuleKey(String key) {
-    // Starting from SonarJava 6.0 (embedded in SQ 8.2), rule repository has been changed
-    return orchestrator.getServer().version().isGreaterThanOrEquals(8, 2) ? ("java:" + key) : ("squid:" + key);
   }
 
   private static void setNewCodePeriodToPreviousVersion(String projectKey) {

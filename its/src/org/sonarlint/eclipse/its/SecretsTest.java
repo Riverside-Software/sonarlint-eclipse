@@ -25,31 +25,22 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
 import org.eclipse.reddeer.swt.impl.link.DefaultLink;
-import org.eclipse.reddeer.swt.impl.shell.DefaultShell;
 import org.eclipse.reddeer.workbench.impl.editor.DefaultEditor;
-import org.eclipse.reddeer.workbench.impl.editor.Marker;
 import org.junit.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 public class SecretsTest extends AbstractSonarLintTest {
-
   @Test
   public void shouldFindSecretsInTextFiles() {
     new JavaPerspective().open();
     var rootProject = importExistingProjectIntoWorkspace("secrets/secret-in-text-file", "secret-in-text-file");
 
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("secret"));
+    waitForMarkers(new DefaultEditor(),
+      tuple("Make sure this AWS Secret Access Key gets revoked, changed, and removed from the code.", 3));
 
-    var defaultEditor = new DefaultEditor();
-    assertThat(defaultEditor.getMarkers())
-      .extracting(Marker::getText, Marker::getLineNumber)
-      .containsOnly(
-        tuple("Make sure this AWS Secret Access Key gets revoked, changed, and removed from the code.", 3));
-
-    var notificationShell = new DefaultShell("SonarLint - Secret(s) detected");
-    new DefaultLink(notificationShell, "Dismiss").click();
+    new DefaultLink(shellByName("SonarLint - Secret(s) detected").get(), "Dismiss").click();
   }
 
   @Test
@@ -58,15 +49,10 @@ public class SecretsTest extends AbstractSonarLintTest {
     var rootProject = importExistingProjectIntoWorkspace("secrets/secret-java", "secret-java");
 
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("src", "sec", "Secret.java"));
+    waitForMarkers(new DefaultEditor(),
+      tuple("Make sure this AWS Secret Access Key gets revoked, changed, and removed from the code.", 4));
 
-    var defaultEditor = new DefaultEditor();
-    assertThat(defaultEditor.getMarkers())
-      .extracting(Marker::getText, Marker::getLineNumber)
-      .containsOnly(
-        tuple("Make sure this AWS Secret Access Key gets revoked, changed, and removed from the code.", 4));
-
-    var notificationShell = new DefaultShell("SonarLint - Secret(s) detected");
-    new DefaultLink(notificationShell, "Dismiss").click();
+    new DefaultLink(shellByName("SonarLint - Secret(s) detected").get(), "Dismiss").click();
   }
 
   @Test
@@ -81,11 +67,6 @@ public class SecretsTest extends AbstractSonarLintTest {
     file.create(new ByteArrayInputStream("AWS_SECRET_KEY: h1ByXvzhN6O8/UQACtwMuSkjE5/oHmWG1MJziTDw".getBytes()), true, null);
 
     openFileAndWaitForAnalysisCompletion(rootProject.getResource("secret.txt"));
-
-    var defaultEditor = new DefaultEditor();
-    assertThat(defaultEditor.getMarkers())
-      .extracting(Marker::getText, Marker::getLineNumber)
-      .isEmpty();
+    waitForNoMarkers(new DefaultEditor());
   }
-
 }

@@ -74,6 +74,33 @@ public abstract class SonarTestCase {
     return getProject(projectName, destDir);
   }
 
+  /** Quick and dirty implementation to mimic the Awaitility library to wait for up to 10 seconds */
+  protected static void awaitAssertions(Runnable runner) {
+    Throwable actualError = null;
+
+    var failed = true;
+    for (int i = 0; i < 10; i++) {
+      System.err.println("awaitAssertions round " + i + " started");
+      try {
+        runner.run();
+        failed = false;
+        break;
+      } catch (Throwable error) {
+        System.err.println("awaitAssertions round " + i + ":\n" + error.getMessage());
+        actualError = error;
+      }
+
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException ignored) {
+      }
+    }
+
+    if (failed) {
+      throw new AssertionError("awaitAssertions failed after 10 seconds", actualError);
+    }
+  }
+
   /**
    * Installs specified project to specified directory.
    *
