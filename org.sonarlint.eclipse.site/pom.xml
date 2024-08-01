@@ -58,13 +58,14 @@
         </executions>
         <configuration>          
           <keystore>NONE</keystore>
-          <storetype>PKCS11</storetype>
-          <alias>${env.KEYSTORE_ALIAS}</alias>
-          <storepass>${env.KEYSTORE_PASS}</storepass>
+          <alias>key_525594307</alias>
+          <storepass>none</storepass>
           <providerClass>sun.security.pkcs11.SunPKCS11</providerClass>
-          <providerArg>${maven.multiModuleProjectDirectory}/eToken.cfg</providerArg>
+          <storetype>PKCS11</storetype>
+          <providerArg>/usr/local/share/smtools/pkcs11properties.cfg</providerArg>
           <tsa>http://timestamp.digicert.com</tsa>
-          <verbose>true</verbose>
+          <certs>true</certs>
+          <verbose>false</verbose>
           <skip>${jarsigner.skip}</skip>
           <archiveDirectory>${project.build.directory}/repository/</archiveDirectory>
           <includes>
