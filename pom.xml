@@ -349,6 +349,21 @@
       </properties>
       <build>
         <plugins>
+          <!--<plugin>
+            <groupId>org.simplify4u.plugins</groupId>
+            <artifactId>sign-maven-plugin</artifactId>
+            <version>1.0.1</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+                <configuration>
+                  <serverId>gpg-key</serverId>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>-->
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-jarsigner-plugin</artifactId>
@@ -363,12 +378,13 @@
             </executions>
             <configuration>
               <keystore>NONE</keystore>
-              <alias>key_525594307</alias>
-              <storepass>none</storepass>
-              <providerClass>sun.security.pkcs11.SunPKCS11</providerClass>
               <storetype>PKCS11</storetype>
-              <providerArg>/usr/local/share/smtools/pkcs11properties.cfg</providerArg>
+              <alias>${env.KEYSTORE_ALIAS}</alias>
+              <storepass>${env.KEYSTORE_PASS}</storepass>
+              <providerClass>sun.security.pkcs11.SunPKCS11</providerClass>
+              <providerArg>${maven.multiModuleProjectDirectory}/eToken.cfg</providerArg>
               <tsa>http://timestamp.digicert.com</tsa>
+              <verbose>true</verbose>
             </configuration>
           </plugin>
         </plugins>
