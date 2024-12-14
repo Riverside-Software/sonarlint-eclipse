@@ -2,6 +2,9 @@
 <?eclipse version="3.0"?>
 <plugin>
   <extension-point id="markerResolutionEnhancer" name="SonarLint Marker Resolution Enhancer" schema="schema/markerResolutionEnhancer.exsd"/>
+  <extension-point id="syntaxHighlightingProvider"
+   					name="SonarLint Syntax Highlighting Provider"
+   					schema="schema/syntaxHighlightingProvider.exsd"/>
 
 <!-- Extensions -->
 
@@ -40,6 +43,27 @@
           name="Miscellaneous">
           <keywordReference id="org.sonarlint.eclipse.ui.SonarLintKeyword"/>
     </page>
+    <page
+          category="org.sonarlint.eclipse.ui.preferences.SonarLintPreferencePage"
+          class="org.sonarlint.eclipse.ui.internal.properties.ReleaseNotesPage"
+          id="org.sonarlint.eclipse.ui.properties.ReleaseNotesPage"
+          name="Release Notes">
+          <keywordReference id="org.sonarlint.eclipse.ui.SonarLintKeyword"/>
+    </page>
+  </extension>
+  
+  <extension point="org.eclipse.ui.intro.configExtension">
+    <configExtension
+      configId="org.eclipse.ui.intro.universalConfig"
+      content="/intro/whatsNewExtensionContent.xml" />
+    
+    <configExtension
+      configId="org.eclipse.ui.intro.universalConfig"
+      content="/intro/overviewExtensionContent.xml" />
+    
+    <configExtension
+      configId="org.eclipse.ui.intro.universalConfig"
+      content="/intro/tutorialsExtensionContent.xml" />
   </extension>
 
   <extension
@@ -57,11 +81,11 @@
 	
 	  <wizard
 	      id="org.sonarlint.eclipse.ui.new.server"
-	      name="New SonarQube/SonarCloud Connection"
+	      name="New SonarQube (Server, Cloud) Connection"
 	      class="org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionWizard"
 	      category="org.sonarlint.eclipse"
 	      icon="icons/full/eview16/bindings.png">
-	    <description>Configure a connection with a SonarQube or SonarCloud server</description>
+	    <description>Configure a connection with SonarQube (Server, Cloud)</description>
 	  </wizard>
 	</extension>
 	
@@ -129,7 +153,7 @@
           class="org.sonarlint.eclipse.ui.internal.views.RuleDescriptionWebView"
           icon="icons/full/eview16/rule.png"
           id="org.sonarlint.eclipse.ui.views.RuleDescriptionWebView"
-          name="SonarLint Rule Description">
+          name="SonarQube Rule Description">
     </view>
     <view
 	        allowMultiple="false"
@@ -137,7 +161,7 @@
           class="org.sonarlint.eclipse.ui.internal.views.locations.IssueLocationsView"
           icon="icons/full/eview16/locations.png"
           id="org.sonarlint.eclipse.ui.views.IssueLocationsView"
-          name="SonarLint Issue Locations">
+          name="SonarQube Issue Locations">
     </view>
     <view
 	        allowMultiple="false"
@@ -145,7 +169,7 @@
 	        class="org.sonarlint.eclipse.ui.internal.binding.BindingsView"
 	        icon="icons/full/eview16/bindings.png"
 	        id="org.sonarlint.eclipse.ui.ServersView"
-	        name="SonarLint Bindings">
+	        name="SonarQube Bindings">
 	  </view>
     <view
 	        allowMultiple="false"
@@ -153,7 +177,7 @@
 	        class="org.sonarlint.eclipse.ui.internal.hotspots.HotspotsView"
 	        icon="icons/full/eview16/hotspots.png"
 	        id="org.sonarlint.eclipse.ui.views.HotspotsView"
-	        name="SonarLint Security Hotspots">
+	        name="SonarQube Security Hotspots">
 	  </view>
     <view
         allowMultiple="false"
@@ -161,15 +185,15 @@
         class="org.sonarlint.eclipse.ui.internal.views.issues.TaintVulnerabilitiesView"
         icon="icons/full/eview16/vulnerabilities.png"
         id="org.sonarlint.eclipse.ui.views.issues.TaintVulnerabilitiesView"
-        name="SonarLint Taint Vulnerabilities">
+        name="SonarQube Taint Vulnerabilities">
     </view>
   </extension>
   
   <extension point="org.eclipse.ui.contexts">
 	  <context
 	    id="org.eclipse.ui.sonarlintServerViewScope"
-	    name="In SonarLint Servers View"
-	    description="In SonarLint Servers View"
+	    name="In SonarQube Bindings View"
+	    description="In SonarQube Bindings View"
 	    parentId="org.eclipse.ui.contexts.window">
 	  </context>
 	</extension>
@@ -289,20 +313,32 @@
             id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
             label="Impact">
          <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.blocker"
+               label="Blocker Impact"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="6">
+         </markerGroupingEntry>
+         <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
-               label="High"
+               label="High Impact"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="5">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+               label="Medium Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="4">
          </markerGroupingEntry>
          <markerGroupingEntry
-               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
-               label="Medium"
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+               label="Low Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="3">
          </markerGroupingEntry>
          <markerGroupingEntry
-               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
-               label="Low"
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.info"
+               label="Info Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="2">
          </markerGroupingEntry>
@@ -317,6 +353,10 @@
                markerType="org.sonarlint.eclipse.core.sonarlintOnTheFlyProblem"
                defaultGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable">
             <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.blocker"
+                  value="BLOCKER">
+            </markerAttributeMapping>
+            <markerAttributeMapping
                   markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
                   value="HIGH">
             </markerAttributeMapping>
@@ -327,6 +367,10 @@
             <markerAttributeMapping
                   markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
                   value="LOW">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.info"
+                  value="INFO">
             </markerAttributeMapping>
          </markerAttributeGrouping>
       </markerGrouping>
@@ -432,20 +476,32 @@
             id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
             label="Impact">
          <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.blocker"
+               label="Blocker Impact"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="6">
+         </markerGroupingEntry>
+         <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
-               label="High"
+               label="High Impact"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="5">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+               label="Medium Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="4">
          </markerGroupingEntry>
          <markerGroupingEntry
-               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
-               label="Medium"
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+               label="Low Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="3">
          </markerGroupingEntry>
          <markerGroupingEntry
-               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
-               label="Low"
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.info"
+               label="Info Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="2">
          </markerGroupingEntry>
@@ -460,6 +516,10 @@
                markerType="org.sonarlint.eclipse.core.sonarlintReportProblem"
                defaultGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable">
             <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.blocker"
+                  value="BLOCKER">
+            </markerAttributeMapping>
+            <markerAttributeMapping
                   markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
                   value="HIGH">
             </markerAttributeMapping>
@@ -470,6 +530,10 @@
             <markerAttributeMapping
                   markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
                   value="LOW">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.info"
+                  value="INFO">
             </markerAttributeMapping>
          </markerAttributeGrouping>
       </markerGrouping>
@@ -575,20 +639,32 @@
             id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
             label="Impact">
          <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.blocker"
+               label="Blocker Impact"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="6">
+         </markerGroupingEntry>
+         <markerGroupingEntry
                id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
-               label="High"
+               label="High Impact"
+               markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
+               priority="5">
+         </markerGroupingEntry>
+         <markerGroupingEntry
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
+               label="Medium Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="4">
          </markerGroupingEntry>
          <markerGroupingEntry
-               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.medium"
-               label="Medium"
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
+               label="Low Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="3">
          </markerGroupingEntry>
          <markerGroupingEntry
-               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
-               label="Low"
+               id="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.info"
+               label="Info Impact"
                markerGrouping="org.sonarlint.eclipse.ui.issues.highestImpactGrouping"
                priority="2">
          </markerGroupingEntry>
@@ -603,6 +679,10 @@
                markerType="org.sonarlint.eclipse.core.sonarlintTaintVulnerability"
                defaultGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.noImpactAvailable">
             <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.blocker"
+                  value="BLOCKER">
+            </markerAttributeMapping>
+            <markerAttributeMapping
                   markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.high"
                   value="HIGH">
             </markerAttributeMapping>
@@ -613,6 +693,10 @@
             <markerAttributeMapping
                   markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.low"
                   value="LOW">
+            </markerAttributeMapping>
+            <markerAttributeMapping
+                  markerGroupingEntry="org.sonarlint.eclipse.ui.issues.highestImpactGrouping.info"
+                  value="INFO">
             </markerAttributeMapping>
          </markerAttributeGrouping>
       </markerGrouping>
@@ -782,7 +866,7 @@
             locationURI="popup:org.sonarlint.eclipse.ui.views.issues.IssuesView">
            <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.ShowRuleDescriptionCommand"
-                 icon="icons/full/marker_resolution16/showrule.png"
+                 icon="icons/full/eview16/rule.png"
                  style="push"
                  mnemonic="R">
                  <visibleWhen
@@ -891,7 +975,7 @@
             locationURI="popup:org.sonarlint.eclipse.ui.views.issues.ChangeSetIssuesView">
            <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.ShowRuleDescriptionCommand"
-                 icon="icons/full/marker_resolution16/showrule.png"
+                 icon="icons/full/eview16/rule.png"
                  style="push"
                  mnemonic="R">
                  <visibleWhen
@@ -943,6 +1027,7 @@
 							    <adapt type="org.sonarlint.eclipse.core.resource.ISonarLintProject">
 				  					<test property="org.sonarlint.eclipse.core.open"/>
 					  				<test property="org.sonarlint.eclipse.core.supportsFullAnalysis"/>
+					  				<test property="org.sonarlint.eclipse.core.inRepository"/>
 						  		</adapt>
 							    <adapt type="org.sonarlint.eclipse.core.resource.ISonarLintProjectContainer"/>
 				  			</or>
@@ -1078,7 +1163,7 @@
             locationURI="popup:org.sonarlint.eclipse.ui.views.issues.TaintVulnerabilitiesView">
            <command
                  commandId="org.sonarlint.eclipse.ui.internal.command.ShowRuleDescriptionCommand"
-                 icon="icons/full/marker_resolution16/showrule.png"
+                 icon="icons/full/eview16/rule.png"
                  style="push"
                  mnemonic="R">
                  <visibleWhen
@@ -1152,19 +1237,19 @@
           categoryId="org.sonarlint.eclipse.ui.command.category">
     </command>
     <command
-          description="Bind to a project analyzed on SonarQube or SonarCloud"
+          description="Bind to a project analyzed on SonarQube (Server, Cloud)"
           id="org.sonarlint.eclipse.ui.internal.command.BindProjectsCommand"
-          name="Bind to SonarQube or SonarCloud..."
+          name="Bind to SonarQube (Server, Cloud)..."
           categoryId="org.sonarlint.eclipse.ui.command.category">
     </command>
     <command
-          description="Share the binding information to SonarQube or SonarCloud"
+          description="Share the binding information to SonarQube (Server, Cloud)"
           id="org.sonarlint.eclipse.ui.internal.command.ShareBindingCommand"
           name="Share Binding..."
           categoryId="org.sonarlint.eclipse.ui.command.category">
     </command>
     <command
-          description="Bind to a project analyzed on SonarQube or SonarCloud"
+          description="Bind to a project analyzed on SonarQube (Server, Cloud)"
           id="org.sonarlint.eclipse.ui.internal.command.ChangeProjectsBindingCommand"
           name="Change Binding..."
           categoryId="org.sonarlint.eclipse.ui.command.category">

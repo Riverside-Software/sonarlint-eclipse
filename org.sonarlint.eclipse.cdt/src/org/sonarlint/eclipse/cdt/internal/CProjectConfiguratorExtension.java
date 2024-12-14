@@ -23,28 +23,31 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
-import org.eclipse.cdt.core.CCProjectNature;
-import org.eclipse.cdt.core.CProjectNature;
+import org.eclipse.compare.CompareConfiguration;
+import org.eclipse.compare.contentmergeviewer.TextMergeViewer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
-import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jface.text.IDocumentPartitioner;
 import org.eclipse.jface.text.source.SourceViewerConfiguration;
-import org.sonarlint.eclipse.core.SonarLintLogger;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.ui.IEditorPart;
 import org.sonarlint.eclipse.core.analysis.IAnalysisConfigurator;
 import org.sonarlint.eclipse.core.analysis.IFileLanguageProvider;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.analysis.SonarLintLanguage;
+import org.sonarlint.eclipse.core.resource.IProjectScopeProvider;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
-import org.sonarlint.eclipse.core.rule.ISyntaxHighlightingProvider;
+import org.sonarlint.eclipse.ui.rule.ISyntaxHighlightingProvider;
 
 /**
  * Responsible for checking at runtime if CDT plugin is installed.
  */
-public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider, ISyntaxHighlightingProvider {
+public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFileLanguageProvider,
+  IProjectScopeProvider, ISyntaxHighlightingProvider {
 
   private static final String CPP_LANGUAGE_KEY = "cpp";
   private static final String C_LANGUAGE_KEY = "c";
@@ -64,6 +67,15 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
     }
   }
 
+  private static boolean isCdtUiPresent() {
+    try {
+      Class.forName("org.eclipse.cdt.ui.CUIPlugin");
+      return true;
+    } catch (ClassNotFoundException e) {
+      return false;
+    }
+  }
+
   @Override
   public Set<SonarLintLanguage> enableLanguages() {
     // Objective-C is not supported by CDT!
@@ -72,16 +84,8 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
 
   @Override
   public boolean canConfigure(ISonarLintProject project) {
-    try {
-      var underlyingProject = project.getResource() instanceof IProject ? (IProject) project.getResource() : null;
-      // Constants are inlined so this should not cause ClassNotFound
-      return cdtUtils != null &&
-        underlyingProject != null &&
-        (underlyingProject.hasNature(CProjectNature.C_NATURE_ID) || underlyingProject.hasNature(CCProjectNature.CC_NATURE_ID));
-    } catch (CoreException e) {
-      SonarLintLogger.get().error(e.getMessage(), e);
-      return false;
-    }
+    var iProject = project.getResource() instanceof IProject ? (IProject) project.getResource() : null;
+    return cdtUtils != null && iProject != null && cdtUtils.hasCOrCppNature(iProject);
   }
 
   @Override
@@ -101,19 +105,49 @@ public class CProjectConfiguratorExtension implements IAnalysisConfigurator, IFi
     return null;
   }
 
+  /**
+   *  We can only provide UI elements if the language matches C/C++ and the CDT UI plug-in is available as in some
+   *  cases there might only be the core bundles present. This might be the case for thrid-party plug-ins that make
+   *  use of the CDT core in order to work with C/C++ but provide their own "frontend".
+   */
+  private static boolean canProvideUiElements(String ruleLanguage) {
+    return isCdtUiPresent() && (ruleLanguage.equals(C_LANGUAGE_KEY) || ruleLanguage.equals(CPP_LANGUAGE_KEY));
+  }
+
   @Override
   public Optional<SourceViewerConfiguration> sourceViewerConfiguration(String ruleLanguage) {
-    if (isCdtPresent() && (ruleLanguage.equals(C_LANGUAGE_KEY) || ruleLanguage.equals(CPP_LANGUAGE_KEY))) {
-      return Optional.of(CdtUiUtils.sourceViewerConfiguration());
-    }
-    return Optional.empty();
+    return canProvideUiElements(ruleLanguage)
+      ? Optional.of(CdtUiUtils.sourceViewerConfiguration())
+      : Optional.empty();
   }
 
   @Override
   public Optional<IDocumentPartitioner> documentPartitioner(String ruleLanguage) {
-    if (isCdtPresent() && (ruleLanguage.equals(C_LANGUAGE_KEY) || ruleLanguage.equals(CPP_LANGUAGE_KEY))) {
-      return Optional.of(CdtUiUtils.documentPartitioner());
-    }
-    return Optional.empty();
+    return canProvideUiElements(ruleLanguage)
+      ? Optional.of(CdtUiUtils.documentPartitioner())
+      : Optional.empty();
+  }
+
+  @Nullable
+  @Override
+  public SonarLintLanguage getEditorLanguage(IEditorPart editor) {
+    return isCdtUiPresent() && CdtUiUtils.isCEditor(editor)
+      ? SonarLintLanguage.C
+      : null;
+  }
+
+  @Nullable
+  @Override
+  public TextMergeViewer getTextMergeViewer(String ruleLanguage, Composite parent, CompareConfiguration mp) {
+    return canProvideUiElements(ruleLanguage)
+      ? CdtUiUtils.getTextMergeViewer(parent, mp)
+      : null;
+  }
+
+  @Override
+  public Set<IPath> getExclusions(IProject project) {
+    return cdtUtils != null && cdtUtils.hasCOrCppNature(project)
+      ? cdtUtils.getExcludedPaths(project)
+      : Collections.emptySet();
   }
 }

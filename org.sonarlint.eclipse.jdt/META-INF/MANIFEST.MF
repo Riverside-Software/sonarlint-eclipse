@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.jdt;singleton:=true
-Bundle-Version: 10.4.3202
+Bundle-Version: 10.10.3800
 Bundle-Vendor: %bundle_vendor
 Bundle-ClassPath: .
 Require-Bundle: org.eclipse.core.runtime,
@@ -15,6 +15,8 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.jdt.ui;resolution:=optional,
  org.sonarlint.eclipse.ui,
  org.eclipse.ui.ide,
+ org.eclipse.ui,
+ org.eclipse.compare,
  org.eclipse.swt
 Import-Package: org.eclipse.ui.texteditor,
  org.eclipse.jface.preference

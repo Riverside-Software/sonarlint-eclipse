@@ -19,11 +19,17 @@
  */
 package org.sonarlint.eclipse.cdt.internal;
 
+import org.eclipse.cdt.internal.ui.compare.CMergeViewer;
+import org.eclipse.cdt.internal.ui.editor.CEditor;
 import org.eclipse.cdt.internal.ui.text.doctools.DocCommentOwnerManager;
 import org.eclipse.cdt.ui.CUIPlugin;
 import org.eclipse.cdt.ui.text.CSourceViewerConfiguration;
+import org.eclipse.compare.CompareConfiguration;
+import org.eclipse.compare.contentmergeviewer.TextMergeViewer;
 import org.eclipse.jface.text.IDocumentPartitioner;
 import org.eclipse.jface.text.source.SourceViewerConfiguration;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.ui.IEditorPart;
 
 public class CdtUiUtils {
 
@@ -41,5 +47,13 @@ public class CdtUiUtils {
     // use workspace default for highlighting doc comments in compare viewer
     var owner = DocCommentOwnerManager.getInstance().getWorkspaceCommentOwner();
     return CUIPlugin.getDefault().getTextTools().createDocumentPartitioner(owner);
+  }
+
+  public static boolean isCEditor(IEditorPart editor) {
+    return editor instanceof CEditor;
+  }
+
+  public static TextMergeViewer getTextMergeViewer(Composite parent, CompareConfiguration mp) {
+    return new CMergeViewer(parent, 0, mp);
   }
 }

@@ -4,6 +4,7 @@ target/
 # Eclipse
 .classpath
 .project
+.cproject
 .settings
 
 # IntelliJ
@@ -31,3 +32,6 @@ org.sonarlint.eclipse.pdt/lib/*
 
 # Integration tests
 !/its/projects/connected/.project
+
+# Visual Studio
+.vs

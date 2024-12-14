@@ -65,6 +65,9 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
   private Link newCodeInformation;
   private Link newCodeProjectStatus;
 
+  // Information displayed regarding index exclusions coming from sub-plug-ins (e.g. JDT/CDT/M2e/Buildship)
+  private Button indexExclusionEnabledBtn;
+
   public SonarLintProjectPropertyPage() {
     setTitle(Messages.SonarProjectPropertyPage_title);
   }
@@ -96,7 +99,7 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
 
     // Binding information and settings
     enabledBtn = new Button(container, SWT.CHECK);
-    enabledBtn.setText("Run SonarLint automatically");
+    enabledBtn.setText("Run SonarQube automatically");
     enabledBtn.setSelection(getProjectConfig().isAutoEnabled());
     var layoutData = new GridData();
     layoutData.horizontalSpan = 2;
@@ -149,6 +152,49 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
       }
     });
 
+    // Indexing opt-out
+    var indexExclusionsHeader = new Label(container, SWT.NONE);
+    indexExclusionsHeader.setLayoutData(gd);
+    indexExclusionsHeader.setFont(font);
+    indexExclusionsHeader.setText("Project indexing based on other Eclipse plug-ins");
+
+    var indexExclusionsInformation = new Link(container, SWT.NONE);
+    indexExclusionsInformation.setLayoutData(new GridData(SWT.LEFT, SWT.DOWN, true, false, 2, 1));
+    indexExclusionsInformation.setText("SonarQube for Eclipse uses some Eclipse plugins to index your project. "
+      + "Depending on the configuration, it relies\non the Eclipse <a>JDT</a>, <a>CDT</a>, <a>M2E</a> (Maven), or "
+      + "<a>Buildship</a> (Gradle) plugins to exclude certain files and folders in your\ncompilation or build output "
+      + "directories. This improves overall performance and lowers the memory footprint.\n\nOpting out of these "
+      + "exclusions may impact performance but can be beneficial in certain cases. Each project\nshould be assessed "
+      + "individually.");
+    indexExclusionsInformation.addSelectionListener(new SelectionAdapter() {
+      @Override
+      public void widgetSelected(SelectionEvent e) {
+        switch (e.text) {
+          case "JDT":
+            BrowserUtils.openExternalBrowser(SonarLintDocumentation.ECLIPSE_JDT, container.getDisplay());
+            break;
+          case "CDT":
+            BrowserUtils.openExternalBrowser(SonarLintDocumentation.ECLIPSE_CDT, container.getDisplay());
+            break;
+          case "M2E":
+            BrowserUtils.openExternalBrowser(SonarLintDocumentation.ECLIPSE_M2E, container.getDisplay());
+            break;
+          case "Buildship":
+            BrowserUtils.openExternalBrowser(SonarLintDocumentation.ECLIPSE_BUILDSHIP, container.getDisplay());
+            break;
+          default:
+            break;
+        }
+      }
+    });
+
+    // Binding information and settings
+    indexExclusionEnabledBtn = new Button(container, SWT.CHECK);
+    indexExclusionEnabledBtn.setText("Rely on Eclipse plugins for indexing and exclusions (changing requires a "
+      + "restart of the IDE)");
+    indexExclusionEnabledBtn.setSelection(getProjectConfig().isIndexingBasedOnEclipsePlugIns());
+    enabledBtn.setLayoutData(layoutData);
+
     updateConnectionState();
     updateNewCodeState();
     container.requestLayout();
@@ -165,14 +211,15 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
       }
 
       boundDetails
-        .setText("Bound to the project '" + projectBinding.get().getProjectKey() + "' to "
-          + (connectionOpt.get().getOrganization() == null ? "SonarQube" : "SonarCloud")
+        .setText("Bound to the project '" + projectBinding.get().getProjectKey() + "' to SonarQube "
+          + (connectionOpt.get().getOrganization() == null ? "Server" : "Cloud")
           + " on connection '" + serverName(projectBinding.get().getConnectionId()) + "'.");
       bindLink.setText("<a>Change Binding...</a>");
       bindLink.setVisible(true);
     } else {
-      boundDetails.setText("Using SonarLint in Connected Mode with SonarQube/SonarCloud will offer you a lot of benefits. <a>Learn more</a>");
-      bindLink.setText("<a>Bind this Eclipse project to SonarQube/SonarCloud...</a>");
+      boundDetails.setText("Using SonarQube for Eclipse in Connected Mode with SonarQube (Server, Cloud) will offer "
+        + "you a lot of benefits. <a>Learn more</a>");
+      bindLink.setText("<a>Bind this Eclipse project to SonarQube (Server, Cloud)...</a>");
       bindLink.setVisible(true);
     }
   }
@@ -181,7 +228,8 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
     var projectBinding = getProjectConfig().getProjectBinding();
     if (SonarLintGlobalConfiguration.issuesOnlyNewCode()) {
       newCodeHeader.setText("Focus on New Code is enabled");
-      newCodeInformation.setText("Only SonarLint markers in new code are shown. Go to the <a>SonarLint preferences</a> to change this setting.");
+      newCodeInformation.setText("Only SonarQube markers in new code are shown. Go to the "
+        + "<a>SonarQube preferences</a> to change this setting.");
 
       newCodeProjectStatus.setVisible(true);
 
@@ -207,7 +255,8 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
       }
     } else {
       newCodeHeader.setText("Focus on New Code is disabled");
-      newCodeInformation.setText("SonarLint markers in overall code are shown. Go to the <a>SonarLint preferences</a> to change this setting.");
+      newCodeInformation.setText("SonarQube markers in overall code are shown. Go to the <a>SonarQube preferences</a> "
+        + "to change this setting.");
 
       newCodeProjectStatus.setVisible(false);
     }
@@ -224,6 +273,7 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
   @Override
   protected void performDefaults() {
     enabledBtn.setEnabled(true);
+    indexExclusionEnabledBtn.setEnabled(true);
     super.performDefaults();
   }
 
@@ -231,6 +281,7 @@ public class SonarLintProjectPropertyPage extends PropertyPage {
   public boolean performOk() {
     var projectConfig = getProjectConfig();
     projectConfig.setAutoEnabled(enabledBtn.getSelection());
+    projectConfig.setIndexingBasedOnEclipsePlugIns(indexExclusionEnabledBtn.getSelection());
     SonarLintCorePlugin.saveConfig(getProject(), projectConfig);
     return super.performOk();
   }

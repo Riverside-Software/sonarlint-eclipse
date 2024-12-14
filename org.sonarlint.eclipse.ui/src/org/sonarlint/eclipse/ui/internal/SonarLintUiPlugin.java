@@ -40,21 +40,27 @@ import org.osgi.framework.BundleContext;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.SonarLintNotifications;
 import org.sonarlint.eclipse.core.SonarLintNotifications.Notification;
+import org.sonarlint.eclipse.core.documentation.SonarLintDocumentation;
 import org.sonarlint.eclipse.core.internal.LogListener;
 import org.sonarlint.eclipse.core.internal.NotificationListener;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintBackendService;
 import org.sonarlint.eclipse.core.internal.backend.SonarLintRpcClientSupportSynchronizer;
+import org.sonarlint.eclipse.core.internal.http.EclipseUpdateSite;
 import org.sonarlint.eclipse.core.internal.jobs.SonarLintMarkerUpdater;
 import org.sonarlint.eclipse.core.internal.markers.MarkerUtils;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
+import org.sonarlint.eclipse.core.internal.utils.BundleUtils;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.ui.internal.backend.SonarLintEclipseRpcClient;
 import org.sonarlint.eclipse.ui.internal.console.SonarLintConsole;
 import org.sonarlint.eclipse.ui.internal.extension.SonarLintUiExtensionTracker;
 import org.sonarlint.eclipse.ui.internal.flowlocations.SonarLintFlowLocationsService;
 import org.sonarlint.eclipse.ui.internal.popup.GenericNotificationPopup;
+import org.sonarlint.eclipse.ui.internal.popup.NewerVersionAvailablePopup;
+import org.sonarlint.eclipse.ui.internal.popup.ReleaseNotesPopup;
 import org.sonarlint.eclipse.ui.internal.popup.TaintVulnerabilityAvailablePopup;
+import org.sonarlint.eclipse.ui.internal.util.PlatformUtils;
 
 public class SonarLintUiPlugin extends AbstractUIPlugin {
 
@@ -77,6 +83,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   private static final SonarLintFlowLocationsService SONARLINT_FLOW_LOCATION_SERVICE = new SonarLintFlowLocationsService();
   private static final SonarLintNoAutomaticBuildWarningService SONARLINT_AUTOMATIC_BUILD_SERVICE = new SonarLintNoAutomaticBuildWarningService();
   private static final SonarLintRpcClientSupportService SONARLINT_RPC_CLIENT_SUPPORT_SERVICE = new SonarLintRpcClientSupportService();
+  private static final ConfigScopeIdCacheCleaner CONFIG_SCOPE_ID_CACHE_CLEANER = new ConfigScopeIdCacheCleaner();
 
   public SonarLintUiPlugin() {
     plugin = this;
@@ -154,6 +161,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
 
     addPostBuildListener();
     ResourcesPlugin.getWorkspace().addResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
+    ResourcesPlugin.getWorkspace().addResourceChangeListener(CONFIG_SCOPE_ID_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_FLOW_LOCATION_SERVICE);
     SonarLintCorePlugin.getAnalysisListenerManager().addListener(SONARLINT_AUTOMATIC_BUILD_SERVICE);
     SonarLintRpcClientSupportSynchronizer.addListener(SONARLINT_RPC_CLIENT_SUPPORT_SERVICE);
@@ -190,6 +198,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
   public void stop(final BundleContext context) throws Exception {
     removePostBuildListener();
     ResourcesPlugin.getWorkspace().removeResourceChangeListener(SONARLINT_VCS_CACHE_CLEANER);
+    ResourcesPlugin.getWorkspace().removeResourceChangeListener(CONFIG_SCOPE_ID_CACHE_CLEANER);
     SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_FLOW_LOCATION_SERVICE);
     SonarLintCorePlugin.getAnalysisListenerManager().removeListener(SONARLINT_AUTOMATIC_BUILD_SERVICE);
     SonarLintRpcClientSupportSynchronizer.removeListener(SONARLINT_RPC_CLIENT_SUPPORT_SERVICE);
@@ -259,7 +268,37 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
         for (var window : PlatformUI.getWorkbench().getWorkbenchWindows()) {
           WindowOpenCloseListener.addListenerToAllPages(window);
         }
+
+        // Check if updated or freshly installed and then show a notification raising awareness about the release notes
+        // -> also open the "Welcome" view for users to get started
+        if (!SonarLintGlobalConfiguration.sonarLintVersionHintHidden() && BundleUtils.bundleUpdatedOrInstalled()) {
+          ReleaseNotesPopup.displayPopupIfNotAlreadyShown();
+          PlatformUtils.openWelcomePage();
+        }
+
+        // Check if newer version is available and then show a notification raising awareness about it. The
+        // notification will only be displayed once a day in order to not annoy the user!
+        if (!SonarLintGlobalConfiguration.sonarLintVersionHintHidden()
+          && !SonarLintGlobalConfiguration.isSonarLintVersionHintDateToday()) {
+          var newestSonarLintVersion = EclipseUpdateSite.getNewestVersion();
+          var currentSonarLintVersion = BundleUtils.getBundleVersion();
+          SonarLintLogger.get().debug("Current version (" + currentSonarLintVersion + "), newest version ("
+            + newestSonarLintVersion + ")");
+
+          if (newestSonarLintVersion == null) {
+            SonarLintLogger.get().debug("Cannot check for newer SonarLint versions via the SonarLint for Eclipse "
+              + "Update Site. In this case, please check the Sonar Community Forum ("
+              + SonarLintDocumentation.COMMUNITY_FORUM_ECLIPSE_RELEASES + ") or the GitHub releases page ("
+              + SonarLintDocumentation.GITHUB_RELEASES + ")!");
+          } else if (newestSonarLintVersion.isNewerThan(currentSonarLintVersion)) {
+            NewerVersionAvailablePopup.displayPopupIfNotAlreadyShown(newestSonarLintVersion.toString());
+          }
+        }
       }
+
+      // We want to update the locally saved SonarLint version reference once everything is done!
+      SonarLintGlobalConfiguration.setSonarLintVersion();
+      SonarLintGlobalConfiguration.setSonarLintVersionHintDate();
 
       // Display user survey pop-up (comment out if not needed, comment in again if needed and replace link)
       // Display.getDefault().syncExec(() -> SurveyPopup.displaySurveyPopupIfNotAlreadyAccessed(""));

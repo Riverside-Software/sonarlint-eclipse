@@ -23,8 +23,13 @@ import java.util.Optional;
 import org.eclipse.core.runtime.Platform;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
+import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 
 public class BundleUtils {
+  private BundleUtils() {
+    // utility class
+  }
 
   public static boolean isBundleInstalled(String name) {
     return getInstalledBundle(name).isPresent();
@@ -48,7 +53,12 @@ public class BundleUtils {
     return Optional.empty();
   }
 
-  private BundleUtils() {
-    // utility class
+  public static SonarLintVersion getBundleVersion() {
+    return new SonarLintVersion(SonarLintCorePlugin.getInstance().getBundle().getVersion());
+  }
+
+  public static boolean bundleUpdatedOrInstalled() {
+    var savedVersion = new SonarLintVersion(SonarLintGlobalConfiguration.getSonarLintVersion());
+    return getBundleVersion().isNewerThan(savedVersion);
   }
 }

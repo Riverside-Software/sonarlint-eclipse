@@ -8,12 +8,12 @@
    <extension-point id="analysisConfigurator" name="SonarLint Analysis Configurator" schema="schema/analysisConfigurator.exsd"/>
    <extension-point id="languageProvider" name="SonarLint File Language Provider" schema="schema/languageProvider.exsd"/>
    <extension-point id="typeProvider" name="SonarLint File Type Provider" schema="schema/typeProvider.exsd"/>
-   <extension-point id="syntaxHighlightingProvider"
-   					name="SonarLint Syntax Highlighting Provider"
-   					schema="schema/syntaxHighlightingProvider.exsd"/>
    <extension-point id="projectHierarchyProvider"
    					name="SonarLint Project Hierarchy Provider"
    					schema="schema/projectHierarchyProvider.exsd" />
+   <extension-point id="projectScopeProvider"
+   					name="SonarLint Project Scope Provider"
+   					schema="schema/projectScopeProvider.exsd" />
 
 
    <extension
@@ -145,7 +145,7 @@
            class="org.sonarlint.eclipse.core.internal.resources.SonarLintPropertyTester"
            id="org.sonarlint.eclipse.core.internal.resources.SonarLintProjectTester"
            namespace="org.sonarlint.eclipse.core"
-           properties="bound,autoAnalysisEnabled,open,excluded,supportsFullAnalysis"
+           properties="bound,autoAnalysisEnabled,open,excluded,supportsFullAnalysis,inRepository"
            type="org.sonarlint.eclipse.core.resource.ISonarLintProject">
      </propertyTester>
      <propertyTester

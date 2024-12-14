@@ -6,18 +6,18 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>74.0.0.1768</version>
+    <version>82.0.0.2314</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>10.4.3202</version>
+  <version>10.10.3800</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
   <description></description>
-  <url>https://docs.sonarsource.com/sonarlint/eclipse</url>
+  <url>https://docs.sonarsource.com/sonarqube-for-ide/eclipse</url>
   <inceptionYear>2015</inceptionYear>
   <organization>
     <name>SonarSource</name>
@@ -47,7 +47,6 @@
     <module>org.sonarlint.eclipse.jdt</module>
     <module>org.sonarlint.eclipse.cdt</module>
     <module>org.sonarlint.eclipse.pdt</module>
-    <module>org.sonarlint.eclipse.pydev</module>
 
     <module>org.sonarlint.eclipse.sloop.windows.x64</module>
     <module>org.sonarlint.eclipse.sloop.no-arch</module>
@@ -71,23 +70,31 @@
 
 
   <properties>
+    <license.name>GNU LGPL v3</license.name>
     <license.title>SonarLint for Eclipse</license.title>
     <license.mailto>sonarlint@sonarsource.com</license.mailto>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <tycho.version>4.0.6</tycho.version>
+
+    <!-- We build everything with Java 11 in order to support more targets -->
     <jdk.min.version>11</jdk.min.version>
-    <jacoco.version>0.8.8</jacoco.version>
+
+    <!-- Maven plug-ins -->
     <jarsigner.version>3.0.0</jarsigner.version>
+    <toolchains.version>3.2.0</toolchains.version>
+    <os.version>1.7.1</os.version>
+
+    <!-- Tycho plug-ins -->
+    <tycho.version>4.0.8</tycho.version>
 
     <!-- Sloop embedded CLI version for fragment projects -->
-    <sloop.version>10.3.99000</sloop.version>
-
-    <!-- ================== -->
-    <!-- For SonarQube analysis -->
-    <!-- ================== -->
+    <sloop.version>10.11.99001</sloop.version>
+    
+    <!-- SonarQube analysis -->
     <sonar.java.source>11</sonar.java.source>
     <sonar.java.target>11</sonar.java.target>
     <sonar.exclusions>**/.tycho-consumer-pom.xml</sonar.exclusions>
+
+    <!-- Global properties -->
     <jarsigner.skip>true</jarsigner.skip>
 
     <gitRepositoryName>sonarlint-eclipse</gitRepositoryName>
@@ -186,11 +193,6 @@
             <source>8</source>
           </configuration>
         </plugin>
-        <plugin>
-          <groupId>org.jacoco</groupId>
-          <artifactId>jacoco-maven-plugin</artifactId>
-          <version>${jacoco.version}</version>
-        </plugin>
       </plugins>
     </pluginManagement>
 
@@ -223,7 +225,7 @@
         <artifactId>target-platform-configuration</artifactId>
         <configuration>
           <target>
-            <file>../target-platforms/build.target</file>
+            <file>../target-platforms/latest-java-11_e424.target</file>
           </target>
           <environments>
             <environment>
@@ -298,7 +300,6 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.9</version>
         <executions>
           <execution>
             <phase>package</phase>

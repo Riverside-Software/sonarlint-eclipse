@@ -61,6 +61,18 @@ public final class PlatformUtils {
   private PlatformUtils() {
   }
 
+  /** To open the "Welcome" view, which is actually an Eclipse E4 part and not a Eclipse 3.x view! */
+  public static void openWelcomePage() {
+    Display.getDefault().asyncExec(() -> {
+      try {
+        // INFO: This information cannot be accessed from any constant, can be seen via "Plug-in Selection Spy"!
+        showView("org.eclipse.ui.internal.introview");
+      } catch (PartInitException err) {
+        SonarLintLogger.get().error("Cannot open the 'Welcome' view, make sure Eclipse is properly installed!", err);
+      }
+    });
+  }
+
   /** Show a specific view (open it if not already in the workspace, otherwise bring to front) */
   public static IViewPart showView(String id) throws PartInitException {
     return PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(id);
@@ -74,13 +86,16 @@ public final class PlatformUtils {
   /**
    * Opens editor for given file.
    */
-  public static void openEditor(IFile file) {
+  @Nullable
+  public static IEditorPart openEditor(IFile file) {
+    IEditorPart part = null;
     var page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
     try {
-      IDE.openEditor(page, file);
+      part = IDE.openEditor(page, file);
     } catch (PartInitException e) {
       SonarLintLogger.get().error(e.getMessage(), e);
     }
+    return part;
   }
 
   /**
@@ -252,7 +267,7 @@ public final class PlatformUtils {
   }
 
   /**
-   * This is a copy of {@link org.eclipse.debug.internal.ui.SWTFactory} in order to crate a separator
+   * This is a copy of {@link org.eclipse.debug.internal.ui.SWTFactory} in order to create a separator
    * between two UI elements, mostly to be used in preference pages.
    */
   public static void createHorizontalSpacer(Composite comp, int numlines) {

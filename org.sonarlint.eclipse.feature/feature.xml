@@ -2,15 +2,15 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="10.4.3202"
+      version="10.10.3800"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
-   <description url="https://docs.sonarsource.com/sonarlint/eclipse/">
+   <description url="https://docs.sonarsource.com/sonarqube-for-ide/eclipse/">
       %description
    </description>
 
-   <copyright url="https://docs.sonarsource.com/sonarlint/eclipse/license/">
+   <copyright url="https://docs.sonarsource.com/sonarqube-for-ide/eclipse/license/">
       %copyright
    </copyright>
 
@@ -63,10 +63,6 @@
 
    <plugin
          id="org.sonarlint.eclipse.buildship"
-         version="0.0.0"/>
-   
-   <plugin
-         id="org.sonarlint.eclipse.pydev"
          version="0.0.0"/>
 
    <plugin

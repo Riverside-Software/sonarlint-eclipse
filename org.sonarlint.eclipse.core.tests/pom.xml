@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>10.4.3202</version>
+    <version>10.10.3800</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -20,14 +20,18 @@
     <sonar.sources></sonar.sources>
     <sonar.tests>src</sonar.tests>
     <tycho.testArgLine>"-Djava.io.tmpdir=${project.build.directory}/work"</tycho.testArgLine>
+    <maven.build.timestamp.format>yyyy-MM-dd_HH-mm</maven.build.timestamp.format>
   </properties>
 
   <build>
-    <plugins>
+    <plugins>      
       <plugin>
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>tycho-surefire-plugin</artifactId>
         <configuration>
+          <!-- We cannot have it in target/work as well due to Git ignored files not being analyzed! -->
+          <osgiDataDirectory>${java.io.tmpdir}/SLE-${maven.build.timestamp}</osgiDataDirectory>
+          
           <trimStackTrace>false</trimStackTrace>
           <appArgLine>-eclipse.keyring target/keyring 
             -eclipse.password src/test/resources/secure-storage-password.txt
@@ -101,6 +105,26 @@
         </plugins>
       </build>
     </profile>
-  </profiles>
 
+    <!-- Used on macOS in order to be able to run UTs when Maven invoked from terminal -->
+    <profile>
+      <id>macOS-uts</id>
+      <activation>
+        <os>
+          <family>mac</family>
+        </os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.eclipse.tycho</groupId>
+            <artifactId>tycho-surefire-plugin</artifactId>
+            <configuration>
+              <argLine>-XstartOnFirstThread</argLine>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

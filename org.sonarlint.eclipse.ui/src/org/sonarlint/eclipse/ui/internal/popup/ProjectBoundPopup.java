@@ -42,13 +42,13 @@ public class ProjectBoundPopup extends AbstractSonarLintToastPopup {
   protected String getMessage() {
     var message = projects.size() == 1
       ? ("The project '" + projects.get(0) + "' is bound to '")
-      : ("The projecs " + String.join(",", projects) + " are bound to '");
+      : ("The projects " + String.join(",", projects) + " are bound to '");
     return message + projectKey + "'.";
   }
 
   @Override
   protected String getPopupShellTitle() {
-    return "Project(s) bound to " + (isSonarCloud ? "SonarCloud" : "SonarQube");
+    return "Project(s) bound to SonarQube " + (isSonarCloud ? "Cloud" : "Server");
   }
 
   @Override

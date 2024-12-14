@@ -20,8 +20,11 @@
 package org.sonarlint.eclipse.jdt.internal;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -43,6 +46,7 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.IFileTypeProvider.ISonarLintFileType;
 import org.sonarlint.eclipse.core.analysis.IPreAnalysisContext;
 import org.sonarlint.eclipse.core.internal.utils.BundleUtils;
+import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
 import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 
 public class JdtUtils {
@@ -65,7 +69,7 @@ public class JdtUtils {
   }
 
   /**
-   * SLE-34 Remove Java files that are not compiled.This should automatically exclude files that are excluded / unparseable.
+   * SLE-34 Remove Java files that are not compiled. This should automatically exclude files that are excluded / unparsable.
    */
   public static boolean shouldExclude(IFile file) {
     var javaElt = JavaCore.create(file);
@@ -357,4 +361,39 @@ public class JdtUtils {
     return ISonarLintFileType.UNKNOWN;
   }
 
+  public static Set<IPath> getExcludedPaths(IProject project) {
+    var exclusions = new HashSet<IPath>();
+
+    var javaProject = JavaCore.create(project);
+    if (javaProject == null) {
+      return exclusions;
+    }
+
+    try {
+      // Get the main output location of the project, can differ from the source entries in the classpath tho!
+      var outputLocation = javaProject.getOutputLocation();
+      if (outputLocation != null) {
+        exclusions.add(outputLocation);
+      }
+
+      for (var entry : javaProject.getResolvedClasspath(true)) {
+        // We don't check for the libraries here as it will always contain ALL of them including JDK, etc.
+        if (entry.getEntryKind() == IClasspathEntry.CPE_SOURCE) {
+          var output = entry.getOutputLocation();
+          if (output != null && (outputLocation == null || !SonarLintUtils.isChild(output, outputLocation))) {
+            exclusions.add(output);
+          }
+        }
+      }
+    } catch (JavaModelException err) {
+      SonarLintLogger.get().traceIdeMessage("Cannot get outputs for exclusions of project '"
+        + project.getName() + "' based on JDT!", err);
+    }
+
+    SonarLintLogger.get().traceIdeMessage("[JdtUtils#getExcludedPaths] The following paths have been excluded from "
+      + "indexing for the project at '" + project.getFullPath().makeAbsolute().toOSString() + "': "
+      + String.join(", ", exclusions.stream().map(Object::toString).collect(Collectors.toList())));
+
+    return exclusions;
+  }
 }

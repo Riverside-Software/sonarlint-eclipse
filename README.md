@@ -1,19 +1,19 @@
-SonarLint for Eclipse
-=====================
+SonarQube for IDE: Eclipse
+==========================
 
-SonarLint helps you deliver [Clean Code](https://www.sonarsource.com/solutions/clean-code/?utm_medium=referral&utm_source=github&utm_campaign=clean-code&utm_content=sonarlint-eclipse) in your IDE.
+SonarQube for IDE: Eclipse helps you deliver [Clean Code](https://www.sonarsource.com/solutions/clean-code/?utm_medium=referral&utm_source=github&utm_campaign=clean-code&utm_content=sonarlint-eclipse) in your IDE.
 
 Installing and using
 --------------------
 
-See https://docs.sonarsource.com/sonarlint/eclipse/getting-started/installation/ and https://marketplace.eclipse.org/content/sonarlint
+See https://docs.sonarsource.com/sonarqube-for-ide/eclipse/getting-started/installation/ and https://marketplace.eclipse.org/content/sonarlint
 
 For offline installation and older versions see the update site archive at https://binaries.sonarsource.com/?prefix=SonarLint-for-Eclipse/releases/
 
 Have Questions or Feedback?
 --------------------------
 
-For SonarLint support questions ("How do I?", "I got this error, why?", ...), please first read the [FAQ](https://community.sonarsource.com/t/frequently-asked-questions/7204) and then head to the [SonarSource forum](https://community.sonarsource.com/c/help/sl). There are chances that a question similar to yours has already been answered. 
+For SonarQube for IDE support questions ("How do I?", "I got this error, why?", ...), please first read the [FAQ](https://community.sonarsource.com/t/frequently-asked-questions/7204) and then head to the [SonarSource forum](https://community.sonarsource.com/c/help/sl). There are chances that a question similar to yours has already been answered. 
 
 Be aware that this forum is a community, so the standard pleasantries ("Hi", "Thanks", ...) are expected. And if you don't get an answer to your thread, you should sit on your hands for at least three days before bumping it. Operators are not standing by. :-)
 
@@ -32,29 +32,21 @@ Make sure that you follow our [code style](https://github.com/SonarSource/sonar-
 Development setup in Eclipse
 ----------------------------
 
-We assume basic knowledge of Eclipse PDE and Tycho. 
+There are a few requirements for developing next to basic knowledge of Maven, Tycho and Eclipse plug-in development:
+- Eclipse IDE for RCP and RAP Developers (includes m2e, PDE)
+- RedDeer to run ITs
 
-You need to have a few Eclipse plugins:
-* Eclipse RCP
-* Eclipse Plug-in development environment
-* m2e
-* RedDeer to run ITs
+Normally, m2e will automatically suggest to install missing connectors (Tycho configurators, ...) or wants to configure
+missing lifecycle mappings. This can all be done later.
 
-Normally, m2e will automatically suggest to install missing connectors (Tycho configurators, ...)
-
-1. Run `mvn verify` on the command line to fetch artifacts referenced in the parent pom
+1. Run `mvn clean verify -DskipTests` on the command line to fetch artifacts referenced in the parent pom
 2. In Eclipse, import the project root as a Maven project
-3. (Optional) In Eclipse, import the `its/` folder as a Maven project
+3. In Eclipse, import the project root of the ITs as a Maven project and add them to the main project
 4. Open `target-platforms/dev.target` with the target platform editor
     - Click **Set as Target Platform** (or **Reload Target Platform**) in the top-right corner
 
 At this point you should be all set.
 Following the explanations [here](https://github.com/trustin/os-maven-plugin) may help.
-
-In some (older?) flavors of Eclipse, you may need to install `m2eclipse` and then Tycho extension to `m2eclipse`:
-
-1. Window -> Preferences -> Maven -> Discovery -> Open Catalog
-2. Install **Tycho Configurator**
 
 Running
 -------
@@ -80,21 +72,7 @@ With Maven:
 Running ITs
 -----------
 
-To run ITs for the default target platform and SonarQube version you can use a helper script:
-
-    ./scripts/run-its.sh
-
-This assumes that the project was already `mvn` installed. You may want to run a specific test to avoid running everything:
-
-    ./scripts/run-its.sh -Dtest=SimpleNameOfClass
-
-Run with `-h` or `--help` to see other options.
-
-The script uses Xephyr and assumes the `metacity` window manager is present.
-The purpose of this is to open windows in an isolated X server to avoid interference with your desktop.
-
-If you get some error when opening the JS Editor, read:
-http://stackoverflow.com/questions/36317684/eclipse-jsdt-internal-error-noclassdeffounderror-jdk-nashorn-internal-runtime
+Please see the **README.md** inside the *its* folder!
 
 Adding a dependency
 -------------------

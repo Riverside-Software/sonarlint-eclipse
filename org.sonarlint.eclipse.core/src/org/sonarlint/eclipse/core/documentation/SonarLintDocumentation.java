@@ -21,7 +21,7 @@ package org.sonarlint.eclipse.core.documentation;
 
 public class SonarLintDocumentation {
 
-  private static final String BASE_DOCS_URL = "https://docs.sonarsource.com/sonarlint/eclipse";
+  private static final String BASE_DOCS_URL = "https://docs.sonarsource.com/sonarqube-for-ide/eclipse";
   public static final String CLEAN_AS_YOU_CODE = BASE_DOCS_URL + "/clean-as-you-code-in-the-ide";
   public static final String CONNECTED_MODE_LINK = BASE_DOCS_URL + "/team-features/connected-mode/";
   public static final String CONNECTED_MODE_BENEFITS = CONNECTED_MODE_LINK + "#benefits";
@@ -49,7 +49,19 @@ public class SonarLintDocumentation {
   public static final String SONARCLOUD_PRODUCT_LINK = BASE_MARKETING_URL + "/products/sonarcloud";
   public static final String SONARCLOUD_SIGNUP_LINK = SONARCLOUD_PRODUCT_LINK + "/signup";
 
+  public static final String SONARQUBE_SMART_NOTIFICATIONS = "https://docs.sonarsource.com/sonarqube/latest/user-guide/sonarlint-connected-mode/#smart-notifications";
+  public static final String SONARCLOUD_SMART_NOTIFICATIONS = "https://docs.sonarsource.com/sonarcloud/improving/sonarlint/#smart-notifications";
+
   public static final String COMMUNITY_FORUM = "https://community.sonarsource.com/c/sl/11";
+  public static final String COMMUNITY_FORUM_ECLIPSE_RELEASES = "https://community.sonarsource.com/tags/c/sl/sonarlint-releases/37/eclipse";
+
+  public static final String GITHUB_RELEASES = "https://github.com/SonarSource/sonarlint-eclipse/releases";
+
+  // Links to Eclipse plug-ins that are used and have sub-plug-ins
+  public static final String ECLIPSE_JDT = "https://projects.eclipse.org/projects/eclipse.jdt";
+  public static final String ECLIPSE_CDT = "https://projects.eclipse.org/projects/tools.cdt";
+  public static final String ECLIPSE_M2E = "https://projects.eclipse.org/projects/technology.m2e";
+  public static final String ECLIPSE_BUILDSHIP = "https://projects.eclipse.org/projects/tools.buildship";
 
   private SonarLintDocumentation() {
     // utility class

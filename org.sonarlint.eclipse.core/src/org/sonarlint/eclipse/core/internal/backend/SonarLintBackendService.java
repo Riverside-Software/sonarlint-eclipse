@@ -62,8 +62,6 @@ import org.sonarsource.sonarlint.core.rpc.protocol.backend.analysis.AnalyzeFiles
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.binding.GetSharedConnectedModeConfigFileParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.binding.GetSharedConnectedModeConfigFileResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.branch.DidVcsRepositoryChangeParams;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.branch.GetMatchedSonarProjectBranchParams;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.branch.GetMatchedSonarProjectBranchResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.config.DidChangeCredentialsParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.projects.GetAllProjectsParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.projects.SonarProjectDto;
@@ -79,13 +77,13 @@ import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.AddIssueComment
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.ChangeIssueStatusParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.CheckAnticipatedStatusChangeSupportedParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.CheckAnticipatedStatusChangeSupportedResponse;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.GetEffectiveIssueDetailsParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.GetEffectiveIssueDetailsResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.ReopenIssueParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.ReopenIssueResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.issue.ResolutionStatus;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.newcode.GetNewCodeDefinitionParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.newcode.GetNewCodeDefinitionResponse;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.GetEffectiveRuleDetailsParams;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.GetEffectiveRuleDetailsResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.GetStandaloneRuleDescriptionParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.GetStandaloneRuleDescriptionResponse;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.rules.ListAllStandaloneRulesDefinitionsResponse;
@@ -97,8 +95,12 @@ import static java.util.Objects.requireNonNull;
 import static org.sonarlint.eclipse.core.internal.utils.StringUtils.defaultString;
 
 public class SonarLintBackendService {
-
   private static final SonarLintBackendService INSTANCE = new SonarLintBackendService();
+
+  // Properties / options passed to SonarLint Core
+  private static final String SONARLINT_DEBUG_RPC = "sonarlint.debug.rpc";
+  private static final String SONARLINT_DEBUG_ACTIVE_RULES = "sonarlint.debug.active.rules";
+  private static final String SONARLINT_JVM_OPTS = "SONARLINT_JVM_OPTS";
 
   @Nullable
   private static ConfigScopeSynchronizer configScopeSynchronizer;
@@ -112,6 +114,7 @@ public class SonarLintBackendService {
   private Job initJob;
 
   private SloopLauncher sloopLauncher;
+  private HttpConfigurationDto httpConfiguration;
 
   public static SonarLintBackendService get() {
     return INSTANCE;
@@ -123,8 +126,19 @@ public class SonarLintBackendService {
     }
     sloopLauncher = new SloopLauncher(client);
 
-    initJob = new Job("Backend initialization") {
+    httpConfiguration = new HttpConfigurationDto(
+      new SslConfigurationDto(getPathProperty("sonarlint.ssl.trustStorePath"),
+        System.getProperty("sonarlint.ssl.trustStorePassword"),
+        System.getProperty("sonarlint.ssl.trustStoreType"),
+        getPathProperty("sonarlint.ssl.keyStorePath"),
+        System.getProperty("sonarlint.ssl.keyStorePassword"),
+        System.getProperty("sonarlint.ssl.keyStoreType")),
+      DurationUtils.getTimeoutProperty("sonarlint.http.connectTimeout"),
+      DurationUtils.getTimeoutProperty("sonarlint.http.socketTimeout"),
+      DurationUtils.getTimeoutProperty("sonarlint.http.connectionRequestTimeout"),
+      DurationUtils.getTimeoutProperty("sonarlint.http.responseTimeout"));
 
+    initJob = new Job("Backend initialization") {
       @Override
       protected IStatus run(IProgressMonitor monitor) {
         SonarLintLogger.get().debug("Initializing SonarLint backend...");
@@ -153,7 +167,7 @@ public class SonarLintBackendService {
               SonarLintLogger.get().info("Using Java installation of SonarLint");
           }
 
-          var sloop = sloopLauncher.start(sloopBasedir, javaRuntimePath);
+          var sloop = sloopLauncher.start(sloopBasedir, javaRuntimePath, passSloopJvmOpts());
           sloop.onExit().thenAccept(SonarLintBackendService::onSloopExit);
           backend = sloop.getRpcServer();
 
@@ -176,9 +190,9 @@ public class SonarLintBackendService {
             new ClientConstantInfoDto(getIdeName(), "CABL - SonarLint Eclipse " + SonarLintUtils.getPluginVersion()),
             new TelemetryClientConstantAttributesDto("eclipse-cabl", "CABL - SonarLint Eclipse", SonarLintUtils.getPluginVersion(), SonarLintTelemetry.ideVersionForTelemetry(),
               Map.of()),
-            getHttpConfiguration(),
+            httpConfiguration,
             getSonarCloudAlternativeEnvironment(),
-            new FeatureFlagsDto(true, true, true, true, false, true, false, true, telemetryEnabled),
+            new FeatureFlagsDto(true, true, true, true, false, true, true, true, telemetryEnabled, true),
             StoragePathManager.getStorageDir(),
             StoragePathManager.getDefaultWorkDir(),
             Set.copyOf(embeddedPluginPaths),
@@ -191,7 +205,9 @@ public class SonarLintBackendService {
             null,
             SonarLintGlobalConfiguration.buildStandaloneRulesConfigDto(),
             SonarLintGlobalConfiguration.issuesOnlyNewCode(),
-            new LanguageSpecificRequirements(SonarLintGlobalConfiguration.getNodejsPath(), null))).join();
+            new LanguageSpecificRequirements(SonarLintGlobalConfiguration.getNodejsPath(), null),
+            false,
+            null)).join();
         } catch (IOException e) {
           throw new IllegalStateException("Unable to initialize the SonarLint Backend", e);
         }
@@ -239,18 +255,36 @@ public class SonarLintBackendService {
 
   }
 
-  private static HttpConfigurationDto getHttpConfiguration() {
-    return new HttpConfigurationDto(
-      new SslConfigurationDto(getPathProperty("sonarlint.ssl.trustStorePath"),
-        System.getProperty("sonarlint.ssl.trustStorePassword"),
-        System.getProperty("sonarlint.ssl.trustStoreType"),
-        getPathProperty("sonarlint.ssl.keyStorePath"),
-        System.getProperty("sonarlint.ssl.keyStorePassword"),
-        System.getProperty("sonarlint.ssl.keyStoreType")),
-      DurationUtils.getTimeoutProperty("sonarlint.http.connectTimeout"),
-      DurationUtils.getTimeoutProperty("sonarlint.http.socketTimeout"),
-      DurationUtils.getTimeoutProperty("sonarlint.http.connectionRequestTimeout"),
-      DurationUtils.getTimeoutProperty("sonarlint.http.responseTimeout"));
+  /**
+   *  This handles system properties that are used inside Sloop by passing them as JVM options. In addition to debug
+   *  properties there is a environment variable "SONARLINT_JVM_OPTS" that could also be provided as a system property
+   *  for easier configuration of the IDE.
+   */
+  @Nullable
+  private static String passSloopJvmOpts() {
+    var properties = "";
+
+    // i) To debug the JSON RPC connection
+    var debugRpc = System.getProperty(SONARLINT_DEBUG_RPC);
+    if (debugRpc != null) {
+      properties += "-D" + SONARLINT_DEBUG_RPC + "=" + debugRpc;
+    }
+
+    // ii) To debug the active rules
+    var debugActiveRules = System.getProperty(SONARLINT_DEBUG_ACTIVE_RULES);
+    if (debugActiveRules != null) {
+      properties += " -D" + SONARLINT_DEBUG_ACTIVE_RULES + "=" + debugActiveRules;
+    }
+
+    // iii) JVM options that are already checked by "SloopLauncher#createCommand(...)" when coming from environment
+    // variables. But it is easier to pass system properties to the IDE and therefore they are checked here as well
+    var jvmOpts = System.getProperty(SONARLINT_JVM_OPTS);
+    if (jvmOpts != null) {
+      properties += " " + jvmOpts;
+    }
+
+    properties = properties.trim();
+    return properties.isEmpty() ? null : properties;
   }
 
   @Nullable
@@ -278,6 +312,11 @@ public class SonarLintBackendService {
     }
   }
 
+  /** This way the HTTP configuration regarding SSL can also be used inside the plug-in and not only in SLCORE */
+  public HttpConfigurationDto getHttpConfiguration() {
+    return requireNonNull(httpConfiguration, "SonarLint backend service needs to be initialized first");
+  }
+
   /**
    * Inform the backend that VCS changed in a way that may affect the matched SonarProject branch
    */
@@ -285,14 +324,6 @@ public class SonarLintBackendService {
     getBackend()
       .getSonarProjectBranchService()
       .didVcsRepositoryChange(new DidVcsRepositoryChangeParams(ConfigScopeSynchronizer.getConfigScopeId(project)));
-  }
-
-  public GetMatchedSonarProjectBranchResponse getMatchedSonarProjectBranch(ISonarLintProject project)
-    throws InterruptedException, ExecutionException {
-    return getBackend()
-      .getSonarProjectBranchService()
-      .getMatchedSonarProjectBranch(new GetMatchedSonarProjectBranchParams(ConfigScopeSynchronizer.getConfigScopeId(project)))
-      .get();
   }
 
   public void credentialsChanged(ConnectionFacade connection) {
@@ -331,12 +362,12 @@ public class SonarLintBackendService {
       .get();
   }
 
-  /** Get the rules details (project configuration, maybe connected mode) */
-  public GetEffectiveRuleDetailsResponse getEffectiveRuleDetails(ISonarLintProject project, String ruleKey, @Nullable String contextKey)
+  /** Get the issue details (project configuration, maybe connected mode) */
+  public GetEffectiveIssueDetailsResponse getEffectiveIssueDetails(ISonarLintProject project, UUID issueId)
     throws InterruptedException, ExecutionException {
     return getBackend()
-      .getRulesService()
-      .getEffectiveRuleDetails(new GetEffectiveRuleDetailsParams(ConfigScopeSynchronizer.getConfigScopeId(project), ruleKey, contextKey))
+      .getIssueService()
+      .getEffectiveIssueDetails(new GetEffectiveIssueDetailsParams(ConfigScopeSynchronizer.getConfigScopeId(project), issueId))
       .get();
   }
 

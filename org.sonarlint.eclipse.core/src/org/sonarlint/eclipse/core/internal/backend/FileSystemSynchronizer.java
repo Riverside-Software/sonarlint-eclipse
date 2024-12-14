@@ -27,12 +27,16 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.eclipse.core.filesystem.EFS;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IResourceDelta;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
@@ -40,6 +44,10 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.SonarLintLanguage;
+import org.sonarlint.eclipse.core.documentation.SonarLintDocumentation;
+import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.cache.DefaultSonarLintProjectAdapterCache;
+import org.sonarlint.eclipse.core.internal.cache.IProjectScopeProviderCache;
 import org.sonarlint.eclipse.core.internal.extension.SonarLintExtensionTracker;
 import org.sonarlint.eclipse.core.internal.jobs.TestFileClassifier;
 import org.sonarlint.eclipse.core.internal.utils.SonarLintUtils;
@@ -68,12 +76,41 @@ public class FileSystemSynchronizer implements IResourceChangeListener {
 
   @Override
   public void resourceChanged(IResourceChangeEvent event) {
-    var changedOrAddedFiles = new ArrayList<ISonarLintFile>();
+    var addedFiles = new ArrayList<ISonarLintFile>();
+    var changedFiles = new ArrayList<ISonarLintFile>();
     var removedFiles = new ArrayList<URI>();
     try {
-      event.getDelta().accept(delta -> visitDeltaPostChange(delta, changedOrAddedFiles, removedFiles));
+      event.getDelta().accept(delta -> visitDeltaPostChange(delta, addedFiles, changedFiles, removedFiles));
     } catch (CoreException e) {
       SonarLintLogger.get().error(e.getMessage(), e);
+    }
+
+    // When there was no valuable resource changed, then we don't have to do anything else!
+    if (addedFiles.isEmpty() && changedFiles.isEmpty() && removedFiles.isEmpty()) {
+      return;
+    }
+
+    // In order to not intervene with the DefaultSonarLintProjectAdapter we have to invalidate the cache as early as
+    // possible! Otherwise "importing a project", then "analyzing whole project" wouldn't work because the initial
+    // "DefaultSonarLintProjectAdapter#files()" call will always include no files after an import, they have to be
+    // "added" first and that is done the first time this is called!
+    final ISonarLintProject project;
+    if (!addedFiles.isEmpty()) {
+      project = addedFiles.get(0).getProject();
+    } else if (!changedFiles.isEmpty()) {
+      project = changedFiles.get(0).getProject();
+    } else {
+      // The variable has to be "final" to be usable in the thread spawned by the job, therefore we set it here
+      // to null in order to not have it in a "uninitialized" state as it doesn't default to "null"!
+      project = null;
+    }
+
+    if (project != null) {
+      // Invalidate cache if files were added, or changed as otherwise importing another related hierarchical project
+      // as well as manually selecting multiple projects for analysis would be affected and could potentially lead to
+      // incorrect results!
+      DefaultSonarLintProjectAdapterCache.INSTANCE.removeEntry(
+        ConfigScopeSynchronizer.getConfigScopeId(project));
     }
 
     var job = new Job("SonarLint - Propagate FileSystem changes") {
@@ -82,38 +119,43 @@ public class FileSystemSynchronizer implements IResourceChangeListener {
         // For added files this won't include SonarLint configuration files in order to not suggest connections twice
         // after a project import (everything after an import is also considered "added"). In case of changes done
         // either inside or outside the IDE, the files will be included.
-        var changedOrAddedDto = changedOrAddedFiles.stream()
+        var addedDto = addedFiles.stream()
           .map(f -> FileSystemSynchronizer.toFileDto(f, monitor))
+          .filter(Objects::nonNull)
+          .collect(toList());
+        var changedDto = changedFiles.stream()
+          .map(f -> FileSystemSynchronizer.toFileDto(f, monitor))
+          .filter(Objects::nonNull)
           .collect(toList());
 
-        // In order to add additional "changes" for informing the sub-projects we have to make the list modifiable!
-        var allChangedOrAddedDtos = new ArrayList<>(changedOrAddedDto);
+        // In order to add additional "changes" for informing the sub-projects we have to make the lists modifiable!
+        var allAddedDtos = new ArrayList<>(addedDto);
+        var allChangedDtos = new ArrayList<>(changedDto);
 
-        var changedOrAddedSonarLintDto = allChangedOrAddedDtos.stream()
+        var addedSonarLintDto = allAddedDtos.stream()
+          .filter(dto -> SONARLINT_JSON_REGEX.matcher(dto.getIdeRelativePath().toString()).find())
+          .collect(toList());
+        var changedSonarLintDto = allChangedDtos.stream()
           .filter(dto -> SONARLINT_JSON_REGEX.matcher(dto.getIdeRelativePath().toString()).find())
           .collect(toList());
 
         // Only if there were actual changes to SonarLint configuration files we want to do the hussle and check for
         // sub-projects and inform them as well!
-        if (!changedOrAddedSonarLintDto.isEmpty()) {
-          var projectOpt = SonarLintUtils.tryResolveProject(allChangedOrAddedDtos.get(0).getConfigScopeId());
-          if (projectOpt.isEmpty()) {
-            // If we cannot get the project anymore of the initial changes (e.g. project deleted), then we don't have
-            // to send anything to SLCORE anymore as well, it would be either discarded on SLOCRE anyway or cause some
-            // exceptions that are silently discarded (maybe a log).
-            return Status.OK_STATUS;
-          }
-          var project = projectOpt.get();
-
+        if (!addedSonarLintDto.isEmpty() || !changedSonarLintDto.isEmpty()) {
+          // INFO: "project" cannot be null in this case!
           for (var subProject : getSubProjects(project)) {
-            var changedOrAddedSubProjectDto = changedOrAddedSonarLintDto.stream()
+            var addedSubProjectDto = addedSonarLintDto.stream()
               .map(dto -> toSubProjectFileDto(subProject, dto))
               .collect(toList());
-            allChangedOrAddedDtos.addAll(changedOrAddedSubProjectDto);
+            var changedSubProjectDto = changedSonarLintDto.stream()
+              .map(dto -> toSubProjectFileDto(subProject, dto))
+              .collect(toList());
+            allAddedDtos.addAll(addedSubProjectDto);
+            allChangedDtos.addAll(changedSubProjectDto);
           }
         }
 
-        backend.getFileService().didUpdateFileSystem(new DidUpdateFileSystemParams(removedFiles, allChangedOrAddedDtos));
+        backend.getFileService().didUpdateFileSystem(new DidUpdateFileSystemParams(allAddedDtos, allChangedDtos, removedFiles));
         return Status.OK_STATUS;
       }
     };
@@ -122,66 +164,118 @@ public class FileSystemSynchronizer implements IResourceChangeListener {
     job.schedule();
   }
 
-  private static boolean visitDeltaPostChange(IResourceDelta delta, List<ISonarLintFile> changedOrAddedFiles, List<URI> removedFiles) {
+  private static boolean visitDeltaPostChange(IResourceDelta delta, List<ISonarLintFile> addedFiles,
+    List<ISonarLintFile> changedFiles, List<URI> removedFiles) {
     var res = delta.getResource();
-    switch (delta.getKind()) {
-      case IResourceDelta.ADDED:
-        var slFile = SonarLintUtils.adapt(res, ISonarLintFile.class,
-          "[FileSystemSynchronizer#visitDeltaPostChange] Try get file from event '" + res + "' (added)");
+    var fullPath = res.getFullPath();
 
-        // INFO: When importing projects all files are considered to be "added", so don't suggest connections twice by
-        // providing SLCORE with the "added" SonarLint configuration files besides the
-        // SonarLintEclipseRpcClient.listFiles(...)!
-        if (slFile != null && !matchesSonarLintConfigurationFiles(slFile)) {
-          SonarLintLogger.get().debug("File added: " + slFile.getName());
-          changedOrAddedFiles.add(slFile);
-        }
-        break;
-      case IResourceDelta.REMOVED:
-        var fileUri = res.getLocationURI();
-        if (fileUri != null) {
-          removedFiles.add(fileUri);
-          SonarLintLogger.get().debug("File removed: " + fileUri);
-        }
-        break;
-      case IResourceDelta.CHANGED:
-        var changedSlFile = SonarLintUtils.adapt(res, ISonarLintFile.class,
-          "[FileSystemSynchronizer#visitDeltaPostChange] Try get file from event '" + res + "' (changed)");
-        if (changedSlFile != null) {
-          var interestingChangeForSlBackend = false;
-          var flags = delta.getFlags();
-          if ((flags & IResourceDelta.CONTENT) != 0) {
-            interestingChangeForSlBackend = true;
-            SonarLintLogger.get().debug("File content changed: " + changedSlFile.getName());
-          }
-          if ((flags & IResourceDelta.REPLACED) != 0) {
-            interestingChangeForSlBackend = true;
-            SonarLintLogger.get().debug("File content replaced: " + changedSlFile.getName());
-          }
-          if ((flags & IResourceDelta.ENCODING) != 0) {
-            interestingChangeForSlBackend = true;
-            SonarLintLogger.get().debug("File encoding changed: " + changedSlFile.getName());
-          }
-          if (interestingChangeForSlBackend) {
-            changedOrAddedFiles.add(changedSlFile);
-          }
-        }
-        break;
-      default:
-        break;
+    // Immediately rule out files in the VCS and files related to Node.js "metadata" / storage or Python virtual
+    // environments. We don't care for these ones no matter if removed, changed, or added!
+    if (SonarLintUtils.insideVCSFolder(fullPath)
+      || SonarLintUtils.isNodeJsRelated(fullPath)
+      || SonarLintUtils.isPythonRelated(fullPath)) {
+      return false;
     }
+
+    if (delta.getKind() == IResourceDelta.REMOVED) {
+      // When something got removed, we don't care for exclusions and the adaption to ISonarLintFile. This happens not
+      // as often as adding or changing files to we will just let SLCORE handle it and don't "care" anymore about it.
+      var fileUri = res.getLocationURI();
+      if (fileUri != null) {
+        removedFiles.add(fileUri);
+        SonarLintLogger.get().debug("File removed: " + fileUri);
+      }
+      return true;
+    }
+
+    var slFile = SonarLintUtils.adapt(res, ISonarLintFile.class,
+      "[FileSystemSynchronizer#visitDeltaPostChange] Try get file from event '" + res + "' (added/changed)");
+    if (slFile == null) {
+      // Whatever happened here, try to dig deeper. If nothing is there, then okey - if there is, we can check anyway
+      // and care in the next iteration of this method with the child element.
+      // This must be kept as "true" as for projects imported (not when already present in the workspace and workspace
+      // then opened) it would stop otherwise at "/" which is the first resource listed for a file -> the root from
+      // which all resources, including the project "directory" itself, are derived!
+      return true;
+    }
+
+    var project = slFile.getProject();
+    Set<IPath> exclusions;
+    if (SonarLintCorePlugin.loadConfig(project).isIndexingBasedOnEclipsePlugIns()) {
+      var configScopeId = ConfigScopeSynchronizer.getConfigScopeId(project);
+      exclusions = IProjectScopeProviderCache.INSTANCE.getEntry(configScopeId);
+      if (exclusions == null) {
+        exclusions = getExclusions((IProject) project.getResource());
+        IProjectScopeProviderCache.INSTANCE.putEntry(configScopeId, exclusions);
+      }
+    } else {
+      SonarLintLogger.get().traceIdeMessage("[FileSystemSynchronizer#visitDeltaPostChange] No exclusions calculated "
+        + "as '" + project.getName() + "' opted out of indexing based on other Eclipse plug-ins!");
+      exclusions = new HashSet<>();
+    }
+
+    // Compared to "DefaultSonarLintProjectAdapter#files" this is only on a resource delta, therefore we won't visit
+    // the folders containing the files that were added / changed. And therefore we have to iterate over the exclusions
+    // instead of just checking whether the "whole" path is in there (as it would be the case for a folder).
+    for (var exclusion : exclusions) {
+      if (SonarLintUtils.isChild(fullPath, exclusion)) {
+        return false;
+      }
+    }
+
+    if (delta.getKind() == IResourceDelta.ADDED) {
+      SonarLintLogger.get().debug("File added: " + slFile.getName());
+      addedFiles.add(slFile);
+    } else if (delta.getKind() == IResourceDelta.CHANGED) {
+      var interestingChangeForSlBackend = false;
+      var flags = delta.getFlags();
+      if ((flags & IResourceDelta.CONTENT) != 0) {
+        interestingChangeForSlBackend = true;
+        SonarLintLogger.get().debug("File content changed: " + slFile.getName());
+      }
+      if ((flags & IResourceDelta.REPLACED) != 0) {
+        interestingChangeForSlBackend = true;
+        SonarLintLogger.get().debug("File content replaced: " + slFile.getName());
+      }
+      if ((flags & IResourceDelta.ENCODING) != 0) {
+        interestingChangeForSlBackend = true;
+        SonarLintLogger.get().debug("File encoding changed: " + slFile.getName());
+      }
+      if (interestingChangeForSlBackend) {
+        changedFiles.add(slFile);
+      }
+    }
+
     return true;
   }
 
+  /**
+   *  The Eclipse Buildship plug-in for Gradle will create "fake" projects first when importing, therefore they are
+   *  more or less "virtual" and don't have a location URI that is used to determine the configuration scope id!
+   *
+   *  By default, the "fake" projects should already be gone once SonarLint starts to run but in case it is not, don't
+   *  fail on the files of this project as they will be added "again" anyway.
+   */
+  @Nullable
   static ClientFileDto toFileDto(ISonarLintFile slFile, IProgressMonitor monitor) {
-    var configScopeId = ConfigScopeSynchronizer.getConfigScopeId(slFile.getProject());
+    String configScopeId = null;
+    try {
+      configScopeId = ConfigScopeSynchronizer.getConfigScopeId(slFile.getProject());
+    } catch (NullPointerException err) {
+      SonarLintLogger.get().error("Cannot get the configuration scope id for the project '"
+        + slFile.getProject().getName() + "' of file '" + slFile.getProjectRelativePath() + "'. This can happen when "
+        + "importing a Gradle project due to the internal logic of the Eclipse Buildship plug-in. If this does not "
+        + "happen on Gradle projects, then please reach out to us at: " + SonarLintDocumentation.COMMUNITY_FORUM);
+      return null;
+    }
+
     Path fsPath;
     File localFile;
     try {
       var fileStore = EFS.getStore(slFile.getResource().getLocationURI());
       localFile = fileStore.toLocalFile(EFS.NONE, monitor);
       if (localFile != null) {
-        fsPath = localFile.toPath().toAbsolutePath();
+        fsPath = localFile.toPath().toRealPath();
       } else {
         fsPath = null;
       }
@@ -198,7 +292,7 @@ public class FileSystemSynchronizer implements IResourceChangeListener {
     }
 
     return new ClientFileDto(slFile.uri(), Paths.get(slFile.getProjectRelativePath()), configScopeId, TestFileClassifier.get().isTest(slFile),
-      slFile.getCharset().name(), fsPath, fileContent, tryDetectLanguage(slFile));
+      slFile.getCharset().name(), fsPath, fileContent, tryDetectLanguage(slFile), true);
   }
 
   /**
@@ -215,7 +309,7 @@ public class FileSystemSynchronizer implements IResourceChangeListener {
     var relativePath = projectUri.relativize(currentDtoUri);
 
     return new ClientFileDto(dto.getUri(), relativePath, ConfigScopeSynchronizer.getConfigScopeId(project),
-      dto.isTest(), dto.getCharset(), dto.getFsPath(), dto.getContent(), dto.getDetectedLanguage());
+      dto.isTest(), dto.getCharset(), dto.getFsPath(), dto.getContent(), dto.getDetectedLanguage(), true);
   }
 
   /** This only gets the SonarLint configuration files for a specific project, instead of all of them! */
@@ -255,5 +349,13 @@ public class FileSystemSynchronizer implements IResourceChangeListener {
       }
     }
     return language != null ? Language.valueOf(language.name()) : null;
+  }
+
+  private static Set<IPath> getExclusions(IProject project) {
+    var exclusions = new HashSet<IPath>();
+    for (var projectScopeProvider : SonarLintExtensionTracker.getInstance().getProjectScopeProviders()) {
+      exclusions.addAll(projectScopeProvider.getExclusions(project));
+    }
+    return exclusions;
   }
 }

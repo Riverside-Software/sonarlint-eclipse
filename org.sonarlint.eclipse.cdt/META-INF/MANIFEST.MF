@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.cdt;singleton:=true
-Bundle-Version: 10.4.3202
+Bundle-Version: 10.10.3800
 Bundle-Vendor: %bundle_vendor
 Bundle-ClassPath: .
 Require-Bundle: org.eclipse.core.runtime,
@@ -12,9 +12,13 @@ Require-Bundle: org.eclipse.core.runtime,
  org.eclipse.cdt.core;resolution:=optional,
  org.eclipse.cdt.ui;resolution:=optional,
  org.sonarlint.eclipse.core,
+ org.sonarlint.eclipse.ui,
  org.eclipse.core.filesystem,
  org.eclipse.jdt.annotation;resolution:=optional,
- org.eclipse.text
+ org.eclipse.text,
+ org.eclipse.ui,
+ org.eclipse.compare,
+ org.eclipse.swt
 Import-Package:  org.eclipse.ui.texteditor,
  org.eclipse.jface.preference
 Export-Package: org.sonarlint.eclipse.cdt.internal;x-friends:="org.sonarlint.eclipse.core.tests"

@@ -28,9 +28,11 @@ import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.Adapters;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.jdt.annotation.Nullable;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.analysis.SonarLintLanguage;
@@ -246,5 +248,63 @@ public class SonarLintUtils {
       .map(ISonarLintProjectsProvider::get)
       .flatMap(Collection::stream)
       .collect(Collectors.toSet());
+  }
+
+  /**
+   *  Checks whether one relative path inside the Eclipse workspace is a child of another path. This doesn't have to be
+   *  a child denoted by a separator like in a file system (with slashes for example).
+   */
+  public static boolean isChild(IPath possibleChild, IPath possibleParent) {
+    var possibleChildPath = possibleChild.makeAbsolute().toOSString();
+    var possibleParentPath = possibleParent.makeAbsolute().toOSString();
+    return possibleChildPath.startsWith(possibleParentPath);
+  }
+
+  /**
+   *  This was not moved to a sub-plugin implementing the "IProjectScopeProvider" as it would be a bit too costly and
+   *  also might have blown up the list of exclusions. It also wouldn't have made sense to rely (optionally) on Eclipse
+   *  plug-ins providing VCS support just to read the name of their "specific" directory.
+   *
+   *  Here we catch Git, Mercurial, and Apache Subversion as they're the most common ones.
+   */
+  public static boolean insideVCSFolder(IPath path) {
+    var osString = path.makeAbsolute().toOSString();
+    var satisfiesCheck = osString.contains(".git");
+    satisfiesCheck = satisfiesCheck || osString.contains(".hg");
+    satisfiesCheck = satisfiesCheck || osString.contains(".svn");
+    return satisfiesCheck;
+  }
+
+  /**
+   *  This was not moved to a sub-plugin implementing the "IProjectScopeProvider" as it would be a bit too costly and
+   *  also might have blown up the list of exclusions. It also wouldn't have made sense as there is no direct Eclipse
+   *  plug-in to rely on for getting these values.
+   */
+  public static boolean isNodeJsRelated(IPath path) {
+    var osString = path.makeAbsolute().toOSString();
+    var satisfiesCheck = osString.contains("node_modules");
+    satisfiesCheck = satisfiesCheck || osString.contains("package-lock.json");
+    return satisfiesCheck;
+  }
+
+  /**
+   *  This was not moved to a sub-plugin implementing the "IProjectScopeProvider" as it would be a bit too costly and
+   *  also might have blown up the list of exclusions. It also wouldn't have made sense to rely (optionally) on the
+   *  Eclipse PyDev plug-in.
+   *
+   *  Here we catch the most common Python virtual environment names.
+   */
+  public static boolean isPythonRelated(IPath path) {
+    var osString = path.makeAbsolute().toOSString();
+    var satisfiesCheck = osString.contains("venv");
+    satisfiesCheck = satisfiesCheck || osString.contains("pyenv");
+    satisfiesCheck = satisfiesCheck || osString.contains("pyvenv");
+    satisfiesCheck = satisfiesCheck || osString.contains("virtualenv");
+    return satisfiesCheck;
+  }
+
+  // This can also be used in sub-plug-ins!
+  public static String getConfigScopeId(IProject project) {
+    return project.getLocationURI().toString();
   }
 }
