@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>10.10.3801</version>
+    <version>10.11.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -87,7 +87,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>10.18.0.28572</version>
+                  <version>10.19.0.29100</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -99,7 +99,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.python</groupId>
                   <artifactId>sonar-python-plugin</artifactId>
-                  <version>4.24.0.18631</version>
+                  <version>4.25.0.19056</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -142,4 +142,49 @@
       </plugin>
     </plugins>
   </build>
+
+  <!--
+    Since the CFamily plug-in is not uploaded to Maven Central as it is not Open Source, this is not vailable to forks.
+    Forks must use "-Dskip-sonarsource-repo" when building the plug-in!
+  -->
+  <profiles>
+    <profile>
+      <id>cfamily-analyzer</id>
+      <activation>
+        <property>
+          <name>!skip-sonarsource-repo</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>copy-cfamily-analyzer</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <artifactItems>
+                    <artifactItem>
+                      <groupId>com.sonarsource.cpp</groupId>
+                      <artifactId>sonar-cfamily-plugin</artifactId>
+                      <version>6.61.0.77816</version>
+                      <type>jar</type>
+                    </artifactItem>
+                  </artifactItems>
+                  <outputDirectory>${project.basedir}/plugins</outputDirectory>
+                  <overWriteReleases>false</overWriteReleases>
+                  <overWriteSnapshots>true</overWriteSnapshots>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

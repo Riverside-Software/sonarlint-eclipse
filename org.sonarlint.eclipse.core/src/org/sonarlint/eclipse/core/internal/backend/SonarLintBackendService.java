@@ -69,6 +69,7 @@ import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.ClientCons
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.FeatureFlagsDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.HttpConfigurationDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.InitializeParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.JsTsRequirementsDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.LanguageSpecificRequirements;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.SonarCloudAlternativeEnvironmentDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.initialize.SslConfigurationDto;
@@ -179,6 +180,7 @@ public class SonarLintBackendService {
           embeddedPlugins.put("web", requireNonNull(PluginPathHelper.findEmbeddedHtmlPlugin(), "HTML plugin not found"));
           embeddedPlugins.put("xml", requireNonNull(PluginPathHelper.findEmbeddedXmlPlugin(), "XML plugin not found"));
           embeddedPlugins.put("text", requireNonNull(PluginPathHelper.findEmbeddedSecretsPlugin(), "Secrets plugin not found"));
+          embeddedPlugins.put("cpp", requireNonNull(PluginPathHelper.findEmbeddedCFamilyPlugin(), "CFamily plugin not found"));
 
           var sqConnections = ConnectionSynchronizer.buildSqConnectionDtos();
           var scConnections = ConnectionSynchronizer.buildScConnectionDtos();
@@ -205,7 +207,7 @@ public class SonarLintBackendService {
             null,
             SonarLintGlobalConfiguration.buildStandaloneRulesConfigDto(),
             SonarLintGlobalConfiguration.issuesOnlyNewCode(),
-            new LanguageSpecificRequirements(SonarLintGlobalConfiguration.getNodejsPath(), null),
+            new LanguageSpecificRequirements(new JsTsRequirementsDto(SonarLintGlobalConfiguration.getNodejsPath(), null), null),
             false,
             null)).join();
         } catch (IOException e) {
