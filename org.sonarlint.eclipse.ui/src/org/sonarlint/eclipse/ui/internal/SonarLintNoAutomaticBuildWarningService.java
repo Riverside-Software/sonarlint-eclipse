@@ -27,6 +27,6 @@ import org.sonarlint.eclipse.ui.internal.popup.NoAutomaticBuildWarningPopup;
 public class SonarLintNoAutomaticBuildWarningService implements AnalysisListener {
   @Override
   public void usedAnalysis(AnalysisEvent event) {
-    NoAutomaticBuildWarningPopup.displayPopupIfNotIgnored();
+    // NoAutomaticBuildWarningPopup.displayPopupIfNotIgnored();
   }
 }
