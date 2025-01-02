@@ -273,8 +273,8 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
         // Check if updated or freshly installed and then show a notification raising awareness about the release notes
         // -> also open the "Welcome" view for users to get started
         if (!SonarLintGlobalConfiguration.sonarLintVersionHintHidden() && BundleUtils.bundleUpdatedOrInstalled()) {
-          ReleaseNotesPopup.displayPopupIfNotAlreadyShown();
-          PlatformUtils.openWelcomePage();
+          // ReleaseNotesPopup.displayPopupIfNotAlreadyShown();
+          // PlatformUtils.openWelcomePage();
         }
 
         // Check if newer version is available and then show a notification raising awareness about it. The
@@ -292,7 +292,7 @@ public class SonarLintUiPlugin extends AbstractUIPlugin {
               + SonarLintDocumentation.COMMUNITY_FORUM_ECLIPSE_RELEASES + ") or the GitHub releases page ("
               + SonarLintDocumentation.GITHUB_RELEASES + ")!");
           } else if (newestSonarLintVersion.isNewerThan(currentSonarLintVersion)) {
-            NewerVersionAvailablePopup.displayPopupIfNotAlreadyShown(newestSonarLintVersion.toString());
+            // NewerVersionAvailablePopup.displayPopupIfNotAlreadyShown(newestSonarLintVersion.toString());
           }
         }
       }
