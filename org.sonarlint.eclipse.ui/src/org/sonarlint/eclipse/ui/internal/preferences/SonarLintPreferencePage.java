@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2024 SonarSource SA
+ * Copyright (C) 2015-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -142,9 +142,9 @@ public class SonarLintPreferencePage extends FieldEditorPreferencePage implement
 
       String detectedNodeJs;
       try {
-        var nodeJs = SonarLintBackendService.get().getBackend().getAnalysisService().getAutoDetectedNodeJs()
+        var nodeJs = SonarLintBackendService.get().getBackend().getAnalysisService().getGlobalStandaloneConfiguration()
           .join()
-          .getDetails();
+          .getNodeJsDetails();
         if (nodeJs != null) {
           detectedNodeJs = nodeJs.getPath().toString();
         } else {

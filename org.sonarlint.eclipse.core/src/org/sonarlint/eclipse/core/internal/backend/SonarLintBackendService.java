@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2024 SonarSource SA
+ * Copyright (C) 2015-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -47,6 +47,7 @@ import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
 import org.sonarlint.eclipse.core.internal.StoragePathManager;
 import org.sonarlint.eclipse.core.internal.engine.connected.ConnectionFacade;
+import org.sonarlint.eclipse.core.internal.nodejs.NodeJsService;
 import org.sonarlint.eclipse.core.internal.preferences.SonarLintGlobalConfiguration;
 import org.sonarlint.eclipse.core.internal.telemetry.SonarLintTelemetry;
 import org.sonarlint.eclipse.core.internal.utils.DurationUtils;
@@ -194,7 +195,7 @@ public class SonarLintBackendService {
               Map.of()),
             httpConfiguration,
             getSonarCloudAlternativeEnvironment(),
-            new FeatureFlagsDto(true, true, true, true, false, true, true, true, telemetryEnabled, true),
+            new FeatureFlagsDto(true, true, true, true, false, true, true, true, telemetryEnabled, true, false),
             StoragePathManager.getStorageDir(),
             StoragePathManager.getDefaultWorkDir(),
             Set.copyOf(embeddedPluginPaths),
@@ -207,7 +208,7 @@ public class SonarLintBackendService {
             null,
             SonarLintGlobalConfiguration.buildStandaloneRulesConfigDto(),
             SonarLintGlobalConfiguration.issuesOnlyNewCode(),
-            new LanguageSpecificRequirements(new JsTsRequirementsDto(SonarLintGlobalConfiguration.getNodejsPath(), null), null),
+            new LanguageSpecificRequirements(new JsTsRequirementsDto(NodeJsService.getNodeJsPath(), null), null),
             false,
             null)).join();
         } catch (IOException e) {

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2024 SonarSource SA
+ * Copyright (C) 2015-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -78,7 +78,7 @@ public class MessageDialogUtils {
     if (result == 0) {
       BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.CONNECTED_MODE_DOCS, shell.getDisplay());
     } else if (result == 1) {
-      BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.SONARCLOUD_SIGNUP_PAGE, shell.getDisplay());
+      BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.SONARCLOUD_FREE_SIGNUP_PAGE, shell.getDisplay());
     } else if (result == 2) {
       SonarLintGlobalConfiguration.setIgnoreEnhancedFeatureNotifications();
     }

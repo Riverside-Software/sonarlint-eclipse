@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2024 SonarSource SA
+ * Copyright (C) 2015-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -27,10 +27,7 @@ public enum LinkTelemetry {
 
   RULES_SELECTION_DOCS("rulesSelectionDocs", SonarLintDocumentation.RULES_SELECTION),
   CONNECTED_MODE_DOCS("connectedModeDocs", SonarLintDocumentation.CONNECTED_MODE_LINK),
-  COMPARE_SERVER_PRODUCTS("compareServerProducts", SonarLintDocumentation.COMPARE_SERVER_PRODUCTS_LINK),
-  SONARQUBE_EDITIONS_DOWNLOADS("sonarQubeEditionsDownloads", SonarLintDocumentation.SONARQUBE_EDITIONS_LINK),
-  SONARCLOUD_PRODUCT_PAGE("sonarCloudProductPage", SonarLintDocumentation.SONARCLOUD_PRODUCT_LINK),
-  SONARCLOUD_SIGNUP_PAGE("sonarCloudSignUpPage", SonarLintDocumentation.SONARCLOUD_SIGNUP_LINK);
+  SONARCLOUD_FREE_SIGNUP_PAGE("sonarqubeCloudFreeSignUp", SonarLintDocumentation.SONARCLOUD_FREE_SIGNUP_LINK);
 
   private final String linkId;
   private final URL url;

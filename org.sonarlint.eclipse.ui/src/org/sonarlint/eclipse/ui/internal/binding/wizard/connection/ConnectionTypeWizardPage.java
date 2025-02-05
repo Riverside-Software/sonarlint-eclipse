@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2024 SonarSource SA
+ * Copyright (C) 2015-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -77,19 +77,9 @@ public class ConnectionTypeWizardPage extends WizardPage {
       + "CI/CD pipeline and DevOps platform to systematically help developers and organizations deliver Clean Code.");
     sonarQubeLabel.setLayoutData(gd);
 
-    var sonarCloudFreeLabel = new Link(radioButtonGroupContainer, SWT.WRAP);
-    sonarCloudFreeLabel.setText("<a>SonarQube Cloud</a> is entirely free for open source projects");
-    sonarCloudFreeLabel.setLayoutData(gd);
-    sonarCloudFreeLabel.addListener(SWT.Selection, e -> BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.SONARCLOUD_PRODUCT_PAGE, e.display));
-
-    var sonarQubeFreeLabel = new Link(radioButtonGroupContainer, SWT.WRAP);
-    sonarQubeFreeLabel.setText("SonarQube Server offers a free <a>Community Build</a>");
-    sonarQubeFreeLabel.setLayoutData(gd);
-    sonarQubeFreeLabel.addListener(SWT.Selection, e -> BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.SONARQUBE_EDITIONS_DOWNLOADS, e.display));
-
     var comparisonLabel = new Link(radioButtonGroupContainer, SWT.WRAP);
-    comparisonLabel.setText("Discover which option is the best for your team <a>here</a>");
-    comparisonLabel.addListener(SWT.Selection, e -> BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.COMPARE_SERVER_PRODUCTS, e.display));
+    comparisonLabel.setText("Explore SonarQube Cloud with our <a>free tier</a>.");
+    comparisonLabel.addListener(SWT.Selection, e -> BrowserUtils.openExternalBrowserWithTelemetry(LinkTelemetry.SONARCLOUD_FREE_SIGNUP_PAGE, e.display));
     comparisonLabel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
     var sonarCloudSelection = WidgetPropertiesCompat.buttonSelection().observe(sonarCloudButton);

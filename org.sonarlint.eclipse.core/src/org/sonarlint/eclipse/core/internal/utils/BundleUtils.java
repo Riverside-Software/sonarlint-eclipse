@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2024 SonarSource SA
+ * Copyright (C) 2015-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -36,8 +36,12 @@ public class BundleUtils {
   }
 
   public static boolean isBundleInstalledWithMinVersion(String name, int majorVersion, int minorVersion) {
+    return isBundleInstalledWithMinVersion(name, majorVersion, minorVersion, 0);
+  }
+
+  public static boolean isBundleInstalledWithMinVersion(String name, int majorVersion, int minorVersion, int microVersion) {
     return getInstalledBundle(name)
-      .map(bundle -> bundle.getVersion().compareTo(new Version(majorVersion, minorVersion, 0)) >= 0)
+      .map(bundle -> bundle.getVersion().compareTo(new Version(majorVersion, minorVersion, microVersion)) >= 0)
       .orElse(false);
   }
 

@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse ITs
- * Copyright (C) 2009-2024 SonarSource SA
+ * Copyright (C) 2009-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -36,6 +36,10 @@ public class SonarLintPreferences extends PropertyPage {
 
   public void setTestFileRegularExpressions(String regex) {
     new DefaultText(this, 1).setText(regex);
+  }
+
+  public String getNodeJsPath() {
+    return new DefaultText(this, 2).getMessage();
   }
 
   public void setMarkersSeverity(MarkerSeverity severity) {

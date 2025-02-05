@@ -1,6 +1,6 @@
 /*
  * SonarLint for Eclipse
- * Copyright (C) 2015-2024 SonarSource SA
+ * Copyright (C) 2015-2025 SonarSource SA
  * sonarlint@sonarsource.com
  *
  * This program is free software; you can redistribute it and/or
@@ -44,10 +44,7 @@ public class SonarLintDocumentation {
   public static final String PROVIDE_JAVA_RUNTIME_LINK = ADVANCED_CONFIGURATION + "#providing-a-java-runtime";
 
   private static final String BASE_MARKETING_URL = "https://www.sonarsource.com";
-  public static final String COMPARE_SERVER_PRODUCTS_LINK = BASE_MARKETING_URL + "/open-source-editions";
-  public static final String SONARQUBE_EDITIONS_LINK = COMPARE_SERVER_PRODUCTS_LINK + "/sonarqube-community-edition";
-  public static final String SONARCLOUD_PRODUCT_LINK = BASE_MARKETING_URL + "/products/sonarcloud";
-  public static final String SONARCLOUD_SIGNUP_LINK = SONARCLOUD_PRODUCT_LINK + "/signup";
+  public static final String SONARCLOUD_FREE_SIGNUP_LINK = BASE_MARKETING_URL + "/products/sonarcloud/signup-free/";
 
   public static final String SONARQUBE_SMART_NOTIFICATIONS = "https://docs.sonarsource.com/sonarqube/latest/user-guide/sonarlint-connected-mode/#smart-notifications";
   public static final String SONARCLOUD_SMART_NOTIFICATIONS = "https://docs.sonarsource.com/sonarcloud/improving/sonarlint/#smart-notifications";
