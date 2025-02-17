@@ -117,13 +117,13 @@
                 <artifactItem>
                   <groupId>eu.rssw.sonar.openedge</groupId>
                   <artifactId>sonar-openedge-plugin</artifactId>
-                  <version>2.30.1</version>
+                  <version>3.0.0</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>eu.rssw.sonar.openedge</groupId>
                   <artifactId>progress-rules-plugin</artifactId>
-                  <version>2.30.0</version>
+                  <version>3.0.0</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
