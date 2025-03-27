@@ -38,8 +38,6 @@ public class EditNotificationsWizard extends Wizard implements INewWizard {
   private EditNotificationsWizard(String title, ServerConnectionModel model, ConnectionFacade editedServer) {
     super();
     this.model = model;
-    // Assume that if we open this wizard, notifications are supported
-    model.setNotificationsSupported(true);
     this.editedServer = editedServer;
     setNeedsProgressMonitor(true);
     setWindowTitle(title);
@@ -75,7 +73,7 @@ public class EditNotificationsWizard extends Wizard implements INewWizard {
 
   @Override
   public boolean performFinish() {
-    editedServer.updateConfig(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(), model.getNotificationsDisabled());
+    editedServer.updateConfig(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getNotificationsDisabled());
     return true;
   }
 

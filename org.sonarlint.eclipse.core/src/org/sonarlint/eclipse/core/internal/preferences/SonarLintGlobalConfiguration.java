@@ -77,6 +77,7 @@ public class SonarLintGlobalConfiguration {
   public static final int PREF_MARKER_SEVERITY_DEFAULT = IMarker.SEVERITY_INFO;
   public static final String PREF_ISSUE_INCLUDE_RESOLVED = "allIssuesIncludingResolved"; //$NON-NLS-1$
   public static final String PREF_ISSUE_ONLY_NEW_CODE = "onlyIssuesNewCode"; //$NON-NLS-1$
+  public static final String PREF_SHOW_REGION_SELECTOR = "showRegionSelector"; //$NON-NLS-1S
   public static final String PREF_EXTRA_ARGS = "extraArgs"; //$NON-NLS-1$
   public static final String PREF_FILE_EXCLUSIONS = "fileExclusions"; //$NON-NLS-1$
   public static final String PREF_RULES_CONFIG = "rulesConfig"; //$NON-NLS-1$
@@ -92,6 +93,7 @@ public class SonarLintGlobalConfiguration {
   private static final String PREF_SOON_UNSUPPORTED_CONNECTIONS = "soonUnsupportedSonarQubeConnections"; //$NON-NLS-1$
   private static final String PREF_NO_AUTOMATIC_BUILD_WARNING = "noAutomaticBuildWarning"; //$NON-NLS-1$
   private static final String PREF_NO_CONNECTION_SUGGESTIONS = "NoConnectionSuggestions"; //$NON-NLS-1$
+  private static final String PREF_NO_ERROR_NOTIFICATION = "noErrorNotification"; //$NON-NLS-1$
 
   // When SonarLint is updated (or installed), we inform the user by opening the "Welcome" page and show a notification
   // about the new Release Notes. When a new version is available, we will inform the user as well (but only once a
@@ -155,6 +157,10 @@ public class SonarLintGlobalConfiguration {
 
   public static int getMarkerSeverity() {
     return Platform.getPreferencesService().getInt(SonarLintCorePlugin.UI_PLUGIN_ID, PREF_MARKER_SEVERITY, PREF_MARKER_SEVERITY_DEFAULT, null);
+  }
+  
+  public static boolean shouldShowRegionSelection() {
+    return getPreferenceBoolean(PREF_SHOW_REGION_SELECTOR);
   }
 
   public static List<SonarLintProperty> getExtraPropertiesForLocalAnalysis(ISonarLintProject project) {
@@ -448,6 +454,18 @@ public class SonarLintGlobalConfiguration {
 
   public static void setNoAutomaticBuildWarning() {
     setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_NO_AUTOMATIC_BUILD_WARNING, true);
+  }
+
+  public static boolean noErrorNotifcation() {
+    // For integration tests we need to disable the notifications
+    var property = System.getProperty("sonarlint.internal.noErrorNotification");
+    return property == null || property.isBlank()
+      ? getPreferenceBoolean(PREF_NO_ERROR_NOTIFICATION)
+      : Boolean.parseBoolean(property);
+  }
+
+  public static void setNoErrorNotification() {
+    setPreferenceBoolean(getWorkspaceLevelPreferenceNode(), PREF_NO_ERROR_NOTIFICATION, true);
   }
 
   public static boolean noConnectionSuggestions() {

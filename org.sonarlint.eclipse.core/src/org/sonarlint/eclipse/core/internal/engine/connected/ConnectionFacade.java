@@ -42,8 +42,8 @@ import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.common.Tra
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.common.TransientSonarQubeConnectionDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.projects.SonarProjectDto;
 import org.sonarsource.sonarlint.core.rpc.protocol.common.Either;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.SonarCloudRegion;
 import org.sonarsource.sonarlint.core.rpc.protocol.common.TokenDto;
-import org.sonarsource.sonarlint.core.rpc.protocol.common.UsernamePasswordDto;
 
 import static java.util.stream.Collectors.toList;
 
@@ -59,6 +59,8 @@ public class ConnectionFacade {
   private final List<IConnectionStateListener> facadeListeners = new ArrayList<>();
   private boolean notificationsDisabled;
   private final Map<String, SonarProjectDto> cachedSonarProjectsByKey = new ConcurrentHashMap<>();
+  @Nullable
+  private String sonarCloudRegion;
 
   ConnectionFacade(String id) {
     this.id = id;
@@ -79,6 +81,16 @@ public class ConnectionFacade {
    */
   public String getId() {
     return id;
+  }
+  
+  @Nullable
+  public String getSonarCloudRegion() {
+    return sonarCloudRegion;
+  }
+  
+  public ConnectionFacade setSonarCloudRegion(@Nullable String region) {
+    this.sonarCloudRegion = region;
+    return this;
   }
 
   /**
@@ -118,26 +130,19 @@ public class ConnectionFacade {
   }
 
   @Nullable
-  public Either<TokenDto, UsernamePasswordDto> getCredentials() {
+  public TokenDto getCredentials() {
     if (!hasAuth()) {
       return null;
     }
     @Nullable
-    String username;
-    @Nullable
-    String password;
+    String token;
     try {
-      username = ConnectionManager.getUsername(this);
-      password = ConnectionManager.getPassword(this);
+      token = ConnectionManager.getToken(this);
     } catch (StorageException e) {
       SonarLintLogger.get().error("Unable to resolve credentials for connection: " + getId());
       return null;
     }
-    if (StringUtils.isNotBlank(password)) {
-      return Either.forRight(new UsernamePasswordDto(username, password));
-    } else {
-      return Either.forLeft(new TokenDto(username));
-    }
+    return new TokenDto(token);
   }
 
   public synchronized void delete() {
@@ -157,12 +162,12 @@ public class ConnectionFacade {
     project.deleteAllMarkers(SonarLintCorePlugin.MARKER_REPORT_FLOW_ID);
   }
 
-  public void updateConfig(String url, @Nullable String organization, String username, String password, boolean notificationsDisabled) {
+  public void updateConfig(String url, @Nullable String organization, String token, boolean notificationsDisabled) {
     this.host = url;
     this.organization = organization;
-    this.hasAuth = StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password);
+    this.hasAuth = StringUtils.isNotBlank(token);
     this.notificationsDisabled = notificationsDisabled;
-    SonarLintCorePlugin.getConnectionManager().updateConnection(this, username, password);
+    SonarLintCorePlugin.getConnectionManager().updateConnection(this, token);
   }
 
   private static Stream<ISonarLintProject> getOpenedProjects() {
@@ -260,7 +265,7 @@ public class ConnectionFacade {
   }
 
   public boolean isSonarCloud() {
-    return SonarLintUtils.getSonarCloudUrl().equals(this.host);
+    return SonarLintUtils.getSonarCloudUrl(getSonarCloudRegion()).equals(this.host);
   }
 
   public boolean areNotificationsDisabled() {
@@ -274,9 +279,10 @@ public class ConnectionFacade {
 
   public Either<TransientSonarQubeConnectionDto, TransientSonarCloudConnectionDto> toTransientDto() {
     if (isSonarCloud()) {
-      return Either.forRight(new TransientSonarCloudConnectionDto(getOrganization(), getCredentials()));
+      return Either.forRight(new TransientSonarCloudConnectionDto(getOrganization(), Either.forLeft(getCredentials()),
+        getSonarCloudRegion() != null ? SonarCloudRegion.valueOf(getSonarCloudRegion()) : SonarCloudRegion.EU));
     } else {
-      return Either.forLeft(new TransientSonarQubeConnectionDto(getHost(), getCredentials()));
+      return Either.forLeft(new TransientSonarQubeConnectionDto(getHost(), Either.forLeft(getCredentials())));
     }
   }
 

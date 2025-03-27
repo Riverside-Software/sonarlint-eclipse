@@ -19,8 +19,11 @@
  */
 package org.sonarlint.eclipse.core.internal.preferences;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import org.eclipse.core.runtime.preferences.IEclipsePreferences.IPreferenceChangeListener;
 import org.eclipse.core.runtime.preferences.IScopeContext;
 import org.osgi.service.prefs.BackingStoreException;
 import org.sonarlint.eclipse.core.SonarLintLogger;
@@ -29,7 +32,6 @@ import org.sonarlint.eclipse.core.internal.preferences.SonarLintProjectConfigura
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 
 import static java.util.Optional.ofNullable;
-import static org.sonarlint.eclipse.core.internal.utils.StringUtils.isBlank;
 import static org.sonarlint.eclipse.core.internal.utils.StringUtils.isNotBlank;
 
 public class SonarLintProjectConfigurationManager {
@@ -49,29 +51,36 @@ public class SonarLintProjectConfigurationManager {
    */
   @Deprecated(since = "10.0")
   private static final String P_IDE_PREFIX_KEY = "idePrefixKey";
-  /**
-   * @deprecated since 3.7
-   */
-  @Deprecated(since = "3.7")
-  private static final String P_MODULE_KEY = "moduleKey";
   private static final String P_AUTO_ENABLED_KEY = "autoEnabled";
   public static final String P_BINDING_SUGGESTIONS_DISABLED_KEY = "bindingSuggestionsDisabled";
   public static final String P_INDEXING_BASED_ON_ECLIPSE_PLUGINS = "indexingBasedOnEclipsePlugIns";
 
   private static final Set<String> BINDING_RELATED_PROPERTIES = Set.of(P_PROJECT_KEY, P_CONNECTION_ID, P_BINDING_SUGGESTIONS_DISABLED_KEY);
 
+  private static final Map<ISonarLintProject, IPreferenceChangeListener> projectBindingPropertiesListener = new HashMap<>();
+
   public static void registerPreferenceChangeListenerForBindingProperties(ISonarLintProject project, Consumer<ISonarLintProject> listener) {
+    projectBindingPropertiesListener.put(project, event -> {
+      if (BINDING_RELATED_PROPERTIES.contains(event.getKey())) {
+        listener.accept(project);
+      }
+    });
+
+    ofNullable(project.getScopeContext().getNode(SonarLintCorePlugin.PLUGIN_ID))
+      .ifPresent(node -> node.addPreferenceChangeListener(projectBindingPropertiesListener.get(project)));
+  }
+
+  public static void removePreferenceChangeListenerForBindingProperties(ISonarLintProject project) {
     ofNullable(project.getScopeContext().getNode(SonarLintCorePlugin.PLUGIN_ID))
       .ifPresent(node -> {
-        node.addPreferenceChangeListener(event -> {
-          if (BINDING_RELATED_PROPERTIES.contains(event.getKey())) {
-            listener.accept(project);
-          }
-        });
+        var listener = projectBindingPropertiesListener.remove(project);
+        if (listener != null) {
+          node.removePreferenceChangeListener(listener);
+        }
       });
   }
 
-  public SonarLintProjectConfiguration load(IScopeContext projectScope, String projectName) {
+  public SonarLintProjectConfiguration load(IScopeContext projectScope) {
     var projectNode = projectScope.getNode(SonarLintCorePlugin.PLUGIN_ID);
     var projectConfig = new SonarLintProjectConfiguration();
     if (projectNode == null) {
@@ -86,11 +95,6 @@ public class SonarLintProjectConfigurationManager {
     projectConfig.getExtraProperties().addAll(sonarProperties);
     projectConfig.getFileExclusions().addAll(fileExclusions);
     var projectKey = projectNode.get(P_PROJECT_KEY, "");
-    var moduleKey = projectNode.get(P_MODULE_KEY, "");
-    if (isBlank(projectKey) && isNotBlank(moduleKey)) {
-      SonarLintLogger.get().info("Binding configuration of project '" + projectName + "' is outdated. Please rebind this project.");
-    }
-    projectNode.remove(P_MODULE_KEY);
     var connectionId = projectNode.get(P_CONNECTION_ID, "");
     if (isNotBlank(connectionId) && isNotBlank(projectKey)) {
       projectConfig.setProjectBinding(new EclipseProjectBinding(connectionId, projectKey));

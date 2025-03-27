@@ -17,14 +17,26 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonarlint.eclipse.its.shared.reddeer.perspectives;
+package org.sonarlint.eclipse.its.shared.reddeer.conditions;
 
-import org.eclipse.reddeer.eclipse.ui.perspectives.AbstractPerspective;
+import org.eclipse.reddeer.common.condition.AbstractWaitCondition;
+import org.sonarlint.eclipse.its.shared.reddeer.views.SonarLintConsole;
 
-public class PhpPerspective extends AbstractPerspective {
+/**
+ *  Rely on the SonarQube Console that there is no issue found on the project, will always appear
+ *  on bound projects that have no issue directly after the connection is fully synchronized.
+ */
+public class ZeroIssuesOnProject extends AbstractWaitCondition {
+  private final String projectName;
 
-  public PhpPerspective() {
-    super("PHP");
+  public ZeroIssuesOnProject(String projectName) {
+    this.projectName = projectName;
   }
 
+  @Override
+  public boolean test() {
+    var index = new SonarLintConsole().getConsoleView().getConsoleText()
+      .lastIndexOf("Found 0 issue(s) on project '" + projectName + "'");
+    return index > -1;
+  }
 }

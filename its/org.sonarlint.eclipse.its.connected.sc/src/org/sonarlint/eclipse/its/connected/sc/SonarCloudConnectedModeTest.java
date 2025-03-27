@@ -34,11 +34,13 @@ import org.assertj.core.groups.Tuple;
 import org.eclipse.reddeer.common.wait.TimePeriod;
 import org.eclipse.reddeer.common.wait.WaitUntil;
 import org.eclipse.reddeer.common.wait.WaitWhile;
-import org.eclipse.reddeer.eclipse.ui.perspectives.JavaPerspective;
+import org.eclipse.reddeer.core.exception.CoreLayerException;
 import org.eclipse.reddeer.swt.impl.link.DefaultLink;
 import org.eclipse.reddeer.workbench.core.condition.JobIsRunning;
 import org.eclipse.reddeer.workbench.ui.dialogs.WorkbenchPreferenceDialog;
+import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -49,12 +51,14 @@ import org.sonarlint.eclipse.its.shared.reddeer.conditions.FixSuggestionAvailabl
 import org.sonarlint.eclipse.its.shared.reddeer.conditions.FixSuggestionUnavailableDialogOpened;
 import org.sonarlint.eclipse.its.shared.reddeer.conditions.ProjectBindingWizardIsOpened;
 import org.sonarlint.eclipse.its.shared.reddeer.conditions.ProjectSelectionDialogOpened;
+import org.sonarlint.eclipse.its.shared.reddeer.conditions.ZeroIssuesOnProject;
 import org.sonarlint.eclipse.its.shared.reddeer.dialogs.ConfirmConnectionCreationDialog;
 import org.sonarlint.eclipse.its.shared.reddeer.dialogs.FixSuggestionAvailableDialog;
 import org.sonarlint.eclipse.its.shared.reddeer.dialogs.FixSuggestionUnavailableDialog;
 import org.sonarlint.eclipse.its.shared.reddeer.dialogs.ProjectSelectionDialog;
 import org.sonarlint.eclipse.its.shared.reddeer.preferences.SonarLintPreferences;
 import org.sonarlint.eclipse.its.shared.reddeer.views.BindingsView;
+import org.sonarlint.eclipse.its.shared.reddeer.views.SonarLintConsole;
 import org.sonarlint.eclipse.its.shared.reddeer.wizards.ProjectBindingWizard;
 import org.sonarlint.eclipse.its.shared.reddeer.wizards.ServerConnectionWizard;
 import org.sonarqube.ws.ProjectBranches.Branch;
@@ -68,15 +72,19 @@ import org.sonarqube.ws.client.usertokens.RevokeRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertThrows;
 
 public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
   private static final String TIMESTAMP = Long.toString(Instant.now().toEpochMilli());
-  private static final String SONARCLOUD_STAGING_URL = "https://sc-staging.io";
   private static final String SONARCLOUD_ORGANIZATION_KEY = "sonarlint-it";
-  private static final String SONARCLOUD_USER = "sonarlint-it";
-  private static final String SONARCLOUD_PASSWORD = System.getenv("SONARCLOUD_IT_PASSWORD");
+  private static final String SONARCLOUD_TOKEN = System.getenv("SONARCLOUD_IT_TOKEN");
+  private static final String SONARCLOUD_TOKEN_US = System.getenv("SONARCLOUD_IT_TOKEN_US");
   private static final String TOKEN_NAME = "SLE-IT-" + TIMESTAMP;
   private static final String SAMPLE_JAVA_ISSUES_PROJECT_KEY = "sonarlint-its-sample-java-issues";
+
+  // SonarQube Cloud Region set on the CI
+  private static final boolean SONARQUBE_CLOUD_REGION_IS_EU = "EU".equalsIgnoreCase(
+    System.getProperty("sonar.region", "EU"));
 
   private static HttpConnector connector;
   private static WsClient adminWsClient;
@@ -85,11 +93,17 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
   private static String firstSonarCloudIssueKey;
   private static String firstSonarCloudBranch;
 
+  private static String sonarqubeCloudStagingUrl;
+
   @BeforeClass
   public static void prepare() {
+    sonarqubeCloudStagingUrl = SONARQUBE_CLOUD_REGION_IS_EU
+      ? "https://sc-staging.io"
+      : "https://us-sc-staging.io";
+
     connector = HttpConnector.newBuilder()
-      .url(SONARCLOUD_STAGING_URL)
-      .credentials(SONARCLOUD_USER, SONARCLOUD_PASSWORD)
+      .url(sonarqubeCloudStagingUrl)
+      .token(SONARQUBE_CLOUD_REGION_IS_EU ? SONARCLOUD_TOKEN : SONARCLOUD_TOKEN_US)
       .build();
     adminWsClient = WsClientFactories.getDefault().newClient(connector);
 
@@ -97,25 +111,28 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
       .generate(new GenerateRequest().setName(TOKEN_NAME))
       .getToken();
 
-    try {
-      var sonarCloudProjectKeys = getProjectKeys();
-      var keyAndProject = getFirstProjectAndIssueKey(sonarCloudProjectKeys);
-      firstSonarCloudIssueKey = (String) keyAndProject.toList().get(0);
-      firstSonarCloudProjectKey = (String) keyAndProject.toList().get(1);
-    } catch (InterruptedException | IOException err) {
-      fail("Cannot query the project keys and / or first issue and project key from SonarCloud!", err);
+    if (SONARQUBE_CLOUD_REGION_IS_EU) {
+      try {
+        var sonarCloudProjectKeys = getProjectKeys();
+        var keyAndProject = getFirstProjectAndIssueKey(sonarCloudProjectKeys);
+        firstSonarCloudIssueKey = (String) keyAndProject.toList().get(0);
+        firstSonarCloudProjectKey = (String) keyAndProject.toList().get(1);
+        firstSonarCloudBranch = getFirstBranch(firstSonarCloudProjectKey).getName();
+      } catch (Exception err) {
+        fail("Cannot query the project keys and / or first issue and project key from SonarCloud!", err);
+      }
     }
-
-    firstSonarCloudBranch = getFirstBranch(firstSonarCloudProjectKey).getName();
   }
 
   @AfterClass
   public static void cleanupOrchestrator() {
     adminWsClient.userTokens()
       .revoke(new RevokeRequest().setName(TOKEN_NAME));
+  }
 
-    // Because we only use CDT in here, we switch back for other tests to not get confused!
-    new JavaPerspective().open();
+  @After
+  public void disableSonarQubeCloudRegionEA() {
+    changeSonarQubeCloudRegionEA(false);
   }
 
   @Before
@@ -129,7 +146,33 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
   public void configureServerWithTokenAndOrganization() throws InterruptedException {
     var wizard = new ServerConnectionWizard();
     wizard.open();
-    new ServerConnectionWizard.ServerTypePage(wizard).selectSonarCloud();
+    var serverTypePage = new ServerConnectionWizard.ServerTypePage(wizard);
+
+    // i) Try to select EU/US that is not yet available (we cannot query the UI text but just check for
+    serverTypePage.selectSonarCloud();
+    assertThrows(CoreLayerException.class, serverTypePage::selectSonarQubeCloudEuRegion);
+    assertThrows(CoreLayerException.class, serverTypePage::selectSonarQubeCloudUsRegion);
+    wizard.cancel();
+
+    // ii) Enable SonarQube Cloud Region (Early Access)
+    changeSonarQubeCloudRegionEA(true);
+    wizard = new ServerConnectionWizard();
+    wizard.open();
+    serverTypePage = new ServerConnectionWizard.ServerTypePage(wizard);
+
+    // iii) Check that region selectors are available, disabled when selecting SonarQube Server and
+    // then select the region based on the environment property.
+    serverTypePage.selectSonarQube();
+    assertThat(serverTypePage.isSonarQubeCloudEuRegionEnabled()).isFalse();
+    assertThat(serverTypePage.isSonarQubeCloudUsRegionEnabled()).isFalse();
+    serverTypePage.selectSonarCloud();
+    if (SONARQUBE_CLOUD_REGION_IS_EU) {
+      serverTypePage.selectSonarQubeCloudUsRegion();
+      serverTypePage.selectSonarQubeCloudEuRegion();
+    } else {
+      serverTypePage.selectSonarQubeCloudEuRegion();
+      serverTypePage.selectSonarQubeCloudUsRegion();
+    }
     wizard.next();
 
     assertThat(wizard.isNextEnabled()).isFalse();
@@ -188,6 +231,9 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
 
   @Test
   public void fixSuggestion_with_ConnectionSetup_noProject() throws InterruptedException, IOException {
+    // INFO: This one does not work yet on SonarQube Cloud US Region as no project is on it!
+    Assume.assumeTrue(SONARQUBE_CLOUD_REGION_IS_EU);
+
     triggerOpenFixSuggestionWithOneChange(firstSonarCloudProjectKey,
       firstSonarCloudIssueKey,
       "NotExisting.txt",
@@ -207,7 +253,12 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
 
   @Test
   public void fixSuggestion_with_ConnectionSetup_fileNotFound() throws InterruptedException, IOException {
-    importExistingProjectIntoWorkspace("connected-sc/" + SAMPLE_JAVA_ISSUES_PROJECT_KEY, SAMPLE_JAVA_ISSUES_PROJECT_KEY);
+    // INFO: This one does not work yet on SonarQube Cloud US Region as no project is on it!
+    Assume.assumeTrue(SONARQUBE_CLOUD_REGION_IS_EU);
+
+    new SonarLintConsole().clear();
+
+    var project = importExistingProjectIntoWorkspace("connected-sc/" + SAMPLE_JAVA_ISSUES_PROJECT_KEY, SAMPLE_JAVA_ISSUES_PROJECT_KEY);
 
     triggerOpenFixSuggestionWithOneChange(firstSonarCloudProjectKey,
       firstSonarCloudIssueKey,
@@ -223,20 +274,29 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     new WaitUntil(new ProjectSelectionDialogOpened());
     new ProjectSelectionDialog().ok();
 
-    // The error message from SLCORE is not denoted by a specific title.
+    // 1) The error message from SLCORE is not denoted by a specific title.
     var shellOpt = shellByName("SonarQube");
     assertThat(shellOpt).isNotEmpty();
     shellOpt.get().close();
+
+    // 2) Wait until the synchronization is completely done to mitigate possible issues!
+    openFileAndWaitForAnalysisCompletion(project.getResource("FileExists.txt"));
+    new WaitUntil(new ZeroIssuesOnProject(SAMPLE_JAVA_ISSUES_PROJECT_KEY), TimePeriod.getCustom(30));
   }
 
   @Test
   public void fixSuggestion_with_fix() throws InterruptedException, IOException {
+    // INFO: This one does not work yet on SonarQube Cloud US Region as no project is on it!
+    Assume.assumeTrue(SONARQUBE_CLOUD_REGION_IS_EU);
+
     final var file = "FileExists.txt";
     final var explanation = "This is common knowledge!";
     final var before = "Eclipse IDE is the best!";
     final var after = "IntelliJ IDEA is not the best!";
     final var startLine = 0;
     final var endLine = 1;
+
+    new SonarLintConsole().clear();
 
     importExistingProjectIntoWorkspace("connected-sc/" + SAMPLE_JAVA_ISSUES_PROJECT_KEY, SAMPLE_JAVA_ISSUES_PROJECT_KEY);
 
@@ -275,10 +335,16 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
 
     new WaitUntil(new FixSuggestionUnavailableDialogOpened(0, 1));
     new FixSuggestionUnavailableDialog(0, 1).proceed();
+
+    // 6) Wait until the synchronization is completely done to mitigate possible issues!
+    new WaitUntil(new ZeroIssuesOnProject(SAMPLE_JAVA_ISSUES_PROJECT_KEY), TimePeriod.getCustom(30));
   }
 
   @Test
   public void fixSuggestion_with_multipleFixes() throws InterruptedException, IOException {
+    // INFO: This one does not work yet on SonarQube Cloud US Region as no project is on it!
+    Assume.assumeTrue(SONARQUBE_CLOUD_REGION_IS_EU);
+
     final var file = "FileExists.txt";
     final var explanation = "We need to change this!";
     final var before = "Eclipse IDE is the best!";
@@ -288,6 +354,8 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     final var firstEndLine = 1;
     final var secondStartLine = 1107;
     final var secondEndLine = 1108;
+
+    new SonarLintConsole().clear();
 
     importExistingProjectIntoWorkspace("connected-sc/" + SAMPLE_JAVA_ISSUES_PROJECT_KEY, SAMPLE_JAVA_ISSUES_PROJECT_KEY);
 
@@ -312,6 +380,9 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     // 2) Proceed with second suggestion (way out of range of the file)
     new WaitUntil(new FixSuggestionUnavailableDialogOpened(1, 2));
     new FixSuggestionUnavailableDialog(1, 2).proceed();
+
+    // 3) Wait until the synchronization is completely done to mitigate possible issues!
+    new WaitUntil(new ZeroIssuesOnProject(SAMPLE_JAVA_ISSUES_PROJECT_KEY), TimePeriod.getCustom(30));
   }
 
   /**
@@ -340,7 +411,7 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     assertThat(hotspotServerPort).isNotEqualTo(-1);
 
     var request = HttpRequest.newBuilder()
-      .uri(URI.create(SONARCLOUD_STAGING_URL + "/api/projects/search?organization=" + SONARCLOUD_ORGANIZATION_KEY
+      .uri(URI.create(sonarqubeCloudStagingUrl + "/api/projects/search?organization=" + SONARCLOUD_ORGANIZATION_KEY
         + "&analyzedBefore=" + LocalDate.now()))
       .header("Authorization", "Bearer " + token)
       .GET()
@@ -366,7 +437,7 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     assertThat(hotspotServerPort).isNotEqualTo(-1);
 
     var request = HttpRequest.newBuilder()
-      .uri(URI.create(SONARCLOUD_STAGING_URL + "/api/issues/search?organization=" + SONARCLOUD_ORGANIZATION_KEY
+      .uri(URI.create(sonarqubeCloudStagingUrl + "/api/issues/search?organization=" + SONARCLOUD_ORGANIZATION_KEY
         + "&componentKeys=" + String.join(",", projectKeys)))
       .header("Authorization", "Bearer " + token)
       .GET()
@@ -464,7 +535,7 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
         + "&tokenValue=" + token
         + "&branch=" + firstSonarCloudBranch))
       .header("Content-Type", "application/json")
-      .header("Origin", SONARCLOUD_STAGING_URL)
+      .header("Origin", sonarqubeCloudStagingUrl)
       .POST(BodyPublishers.ofString(body))
       .build();
 
@@ -547,5 +618,14 @@ public class SonarCloudConnectedModeTest extends AbstractSonarLintTest {
     serverProjectSelectionPage.waitForProjectsToBeFetched();
     serverProjectSelectionPage.setProjectKey(sonarProjectKey);
     projectBindingWizard.finish();
+  }
+
+  private static void changeSonarQubeCloudRegionEA(boolean enabled) {
+    var preferenceDialog = new WorkbenchPreferenceDialog();
+    preferenceDialog.open();
+    var preferences = new SonarLintPreferences(preferenceDialog);
+    preferenceDialog.select(preferences);
+    preferences.enableSonarQubeCloudRegionEA(enabled);
+    preferenceDialog.ok();
   }
 }

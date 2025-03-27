@@ -20,6 +20,8 @@
 package org.sonarlint.eclipse.core.internal.resources;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import org.eclipse.core.resources.ProjectScope;
@@ -36,8 +38,6 @@ import org.sonarlint.eclipse.tests.common.SonarTestCase;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class SonarLintProjectConfigurationManagerTest extends SonarTestCase {
-
-  private static final String PROJECT_WITH_DEPRECATED_SETTINGS = "DeprecatedModuleBinding";
   private final List<String> infos = new ArrayList<>();
   private final List<String> errors = new ArrayList<>();
 
@@ -55,23 +55,33 @@ public class SonarLintProjectConfigurationManagerTest extends SonarTestCase {
       }
 
       @Override
+      public void error(@Nullable String msg, Throwable t, boolean fromAnalyzer) {
+        var stack = new StringWriter();
+        t.printStackTrace(new PrintWriter(stack));
+        error(msg, fromAnalyzer);
+        error(stack.toString(), fromAnalyzer);
+      }
+
+      @Override
       public void debug(String msg, boolean fromAnalyzer) {
+        // We ignore debug messages in UTs
+      }
+
+      @Override
+      public void debug(@Nullable String msg, Throwable t, boolean fromAnalyzer) {
+        // We ignore debug messages in UTs
       }
 
       @Override
       public void traceIdeMessage(@Nullable String msg) {
         // INFO: We ignore Eclipse-specific tracing in UTs
       }
-    });
-  }
 
-  @Test
-  public void load_deprecated_project_config() throws IOException, CoreException, InterruptedException {
-    var project = importEclipseProject(PROJECT_WITH_DEPRECATED_SETTINGS);
-    // Configure the project
-    var configuration = SonarLintCorePlugin.getInstance().getProjectConfigManager().load(new ProjectScope(project), PROJECT_WITH_DEPRECATED_SETTINGS);
-    assertThat(configuration.getProjectBinding()).isEmpty();
-    assertThat(infos).contains("Binding configuration of project '" + PROJECT_WITH_DEPRECATED_SETTINGS + "' is outdated. Please rebind this project.");
+      @Override
+      public void traceIdeMessage(@Nullable String msg, Throwable t) {
+        // INFO: We ignore Eclipse-specific tracing in UTs
+      }
+    });
   }
 
   @Test
@@ -79,7 +89,7 @@ public class SonarLintProjectConfigurationManagerTest extends SonarTestCase {
     var project = importEclipseProject("SimpleProject");
     var projectScope = new ProjectScope(project);
     assertThat(projectScope.getLocation().append("org.sonarlint.eclipse.core.prefs").toFile()).doesNotExist();
-    var configuration = SonarLintCorePlugin.getInstance().getProjectConfigManager().load(projectScope, "SimpleProject");
+    var configuration = SonarLintCorePlugin.getInstance().getProjectConfigManager().load(projectScope);
     configuration.setAutoEnabled(false);
     configuration.setBindingSuggestionsDisabled(true);
     configuration.setProjectBinding(new EclipseProjectBinding("myServer", "myProjectKey"));

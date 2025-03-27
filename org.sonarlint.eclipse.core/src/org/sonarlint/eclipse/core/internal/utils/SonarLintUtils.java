@@ -44,7 +44,6 @@ import org.sonarlint.eclipse.core.resource.ISonarLintFile;
 import org.sonarlint.eclipse.core.resource.ISonarLintIssuable;
 import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.core.resource.ISonarLintProjectsProvider;
-import org.sonarsource.sonarlint.core.commons.api.SonarLanguage;
 import org.sonarsource.sonarlint.core.rpc.client.ConfigScopeNotFoundException;
 import org.sonarsource.sonarlint.core.rpc.protocol.common.Language;
 
@@ -80,6 +79,18 @@ public class SonarLintUtils {
   public static String getSonarCloudUrl() {
     // For testing we need to allow changing default URL
     return System.getProperty("sonarlint.internal.sonarcloud.url", "https://sonarcloud.io");
+  }
+
+  public static String getSonarQubeCloudUsRegionUrl() {
+    return System.getProperty("sonarlint.internal.sonarcloud.us.url", "https://sonarqube.us");
+  }
+
+  public static String getSonarCloudUrl(@Nullable String sonarCloudRegion) {
+    if (sonarCloudRegion != null && sonarCloudRegion.equalsIgnoreCase("US")) {
+      return getSonarQubeCloudUsRegionUrl();
+    } else {
+      return getSonarCloudUrl();
+    }
   }
 
   public static boolean isSonarLintFileCandidate(IResource resource) {
@@ -136,16 +147,6 @@ public class SonarLintUtils {
   public static SonarLintLanguage convert(Language rpcLanguage) {
     try {
       return SonarLintLanguage.valueOf(rpcLanguage.name());
-    } catch (IllegalArgumentException e) {
-      // The language doesn't exist in SLE
-      return null;
-    }
-  }
-
-  @Nullable
-  public static SonarLintLanguage convert(SonarLanguage engineLanguage) {
-    try {
-      return SonarLintLanguage.valueOf(engineLanguage.name());
     } catch (IllegalArgumentException e) {
       // The language doesn't exist in SLE
       return null;
@@ -305,6 +306,18 @@ public class SonarLintUtils {
     satisfiesCheck = satisfiesCheck || osString.contains("pyvenv");
     satisfiesCheck = satisfiesCheck || osString.contains("virtualenv");
     return satisfiesCheck;
+  }
+
+  /**
+   *  On macOS/Linux Eclipse PDE while working with Maven/Tycho creates folders starting with "file:/" in every Eclipse
+   *  project that contains a `product` definition. In this folder unpacked parts of plug-ins will be saved and
+   *  therefore triggers a lot of events we don't want to react to.
+   *
+   *  @see <a href="https://sonarsource.atlassian.net/browse/SLE-1098">SLE-1098</a>
+   */
+  public static boolean isIncorrectEclipsePDE(IPath path) {
+    var osString = path.makeAbsolute().toOSString();
+    return osString.contains("/file:/");
   }
 
   // This can also be used in sub-plug-ins!

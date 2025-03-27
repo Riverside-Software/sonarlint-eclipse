@@ -40,8 +40,8 @@ import org.sonarlint.eclipse.core.resource.ISonarLintProject;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.connection.ServerConnectionModel.ConnectionType;
 import org.sonarlint.eclipse.ui.internal.binding.wizard.project.ProjectBindingWizard;
 import org.sonarlint.eclipse.ui.internal.util.wizard.SonarLintWizardDialog;
-import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.check.CheckSmartNotificationsSupportedParams;
 import org.sonarsource.sonarlint.core.rpc.protocol.backend.connection.org.ListUserOrganizationsParams;
+import org.sonarsource.sonarlint.core.rpc.protocol.common.SonarCloudRegion;
 
 public class ServerConnectionWizard extends AbstractConnectionWizard {
 
@@ -106,28 +106,9 @@ public class ServerConnectionWizard extends AbstractConnectionWizard {
   protected void actualHandlePageChanging(PageChangingEvent event) {
     var currentPage = (WizardPage) event.getCurrentPage();
     var advance = getNextPage(currentPage) == event.getTargetPage();
-    if (advance && !redirectedAfterNotificationCheck && currentPage == tokenPage) {
-      // When having a username/password based connection and editing it, there is only the option to switch to a token
-      // available. In this case, when a token was generated, we will remove the password and set the authentication
-      // method to "TOKEN" that is then used on the "AbstractConnectionWizard#testConnection(...)" already!
-      model.setPassword(null);
-
-      if (!testConnection(null)) {
-        event.doit = false;
-        return;
-      }
-      // We need to wait for credentials before testing if notifications are supported
-      populateNotificationsSupported();
-      // Next page depends if notifications are supported
-      var newNextPage = getNextPage(currentPage);
-      if (newNextPage != event.getTargetPage()) {
-        // Avoid infinite recursion
-        redirectedAfterNotificationCheck = true;
-        getContainer().showPage(newNextPage);
-        redirectedAfterNotificationCheck = false;
-        event.doit = false;
-        return;
-      }
+    if (advance && currentPage == tokenPage && !testConnection(null)) {
+      event.doit = false;
+      return;
     }
     if (advance && event.getTargetPage() == orgPage) {
       event.doit = tryLoadOrganizations(currentPage);
@@ -186,7 +167,7 @@ public class ServerConnectionWizard extends AbstractConnectionWizard {
       return afterOrgPage();
     }
     if (page == connectionIdPage) {
-      return notifPageIfSupportedOrConfirm();
+      return notifPage;
     }
     if (page == notifPage) {
       return confirmPage;
@@ -208,7 +189,7 @@ public class ServerConnectionWizard extends AbstractConnectionWizard {
       }
 
       if (model.isEdit()) {
-        editedServer.updateConfig(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getPassword(), model.getNotificationsDisabled());
+        editedServer.updateConfig(model.getServerUrl(), model.getOrganization(), model.getUsername(), model.getNotificationsDisabled());
         resultServer = editedServer;
       } else {
         finalizeConnectionCreation();
@@ -229,11 +210,7 @@ public class ServerConnectionWizard extends AbstractConnectionWizard {
   }
 
   private IWizardPage afterOrgPage() {
-    return model.isEdit() ? notifPageIfSupportedOrConfirm() : connectionIdPage;
-  }
-
-  private IWizardPage notifPageIfSupportedOrConfirm() {
-    return model.getNotificationsSupported() ? notifPage : confirmPage;
+    return model.isEdit() ? notifPage : connectionIdPage;
   }
 
   private IWizardPage firstPageAfterConnectionType() {
@@ -257,35 +234,6 @@ public class ServerConnectionWizard extends AbstractConnectionWizard {
     }
   }
 
-  private void populateNotificationsSupported() {
-    if (model.getConnectionType() == ConnectionType.SONARCLOUD) {
-      model.setNotificationsSupported(true);
-      return;
-    }
-    try {
-      getContainer().run(true, false, new IRunnableWithProgress() {
-
-        @Override
-        public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-          monitor.beginTask("Check if notifications are supported", IProgressMonitor.UNKNOWN);
-          try {
-            var future = SonarLintBackendService.get().getBackend().getConnectionService()
-              .checkSmartNotificationsSupported(new CheckSmartNotificationsSupportedParams(modelToTransientConnectionDto()));
-            var response = JobUtils.waitForFutureInIRunnableWithProgress(monitor, future);
-
-            model.setNotificationsSupported(response.isSuccess());
-          } finally {
-            monitor.done();
-          }
-        }
-      });
-    } catch (InvocationTargetException e) {
-      SonarLintLogger.get().debug("Unable to test notifications", e.getCause());
-    } catch (InterruptedException e) {
-      // Nothing to do, the task was simply canceled
-    }
-  }
-
   private boolean tryLoadOrganizations(WizardPage currentPage) {
     currentPage.setMessage(null);
     try {
@@ -295,7 +243,8 @@ public class ServerConnectionWizard extends AbstractConnectionWizard {
         public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
           monitor.beginTask("Fetch organizations", IProgressMonitor.UNKNOWN);
           try {
-            var future = SonarLintBackendService.get().getBackend().getConnectionService().listUserOrganizations(new ListUserOrganizationsParams(modelToCredentialDto()));
+            var future = SonarLintBackendService.get().getBackend().getConnectionService().listUserOrganizations(new ListUserOrganizationsParams(modelToCredentialDto(),
+              model.getSonarCloudRegion() != null ? SonarCloudRegion.valueOf(model.getSonarCloudRegion().name()) : SonarCloudRegion.EU));
             var response = JobUtils.waitForFutureInIRunnableWithProgress(monitor, future);
             model.suggestOrganization(response.getUserOrganizations());
           } finally {

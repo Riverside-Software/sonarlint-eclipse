@@ -17,5 +17,9 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-@org.eclipse.jdt.annotation.NonNullByDefault
-package org.sonarlint.eclipse.core.configurator;
+package org.sonarlint.eclipse.core.internal.utils;
+
+/** Exception to indicate that a progress monitor was canceled */
+public class CanceledException extends RuntimeException {
+  private static final long serialVersionUID = -7006899869164687535L;
+}

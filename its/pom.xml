@@ -31,7 +31,7 @@
     <jdk.min.version>11</jdk.min.version>
 
     <!-- Tycho plug-ins -->
-    <tycho.version>4.0.8</tycho.version>
+    <tycho.version>4.0.10</tycho.version>
 
     <!-- Global properties -->
     <target.platform>latest</target.platform>
@@ -39,6 +39,7 @@
     <!-- http://stackoverflow.com/questions/36317684/eclipse-jsdt-internal-error-noclassdeffounderror-jdk-nashorn-internal-runtime -->
     <tycho.testArgLine>-Dorg.osgi.framework.bundle.parent=ext -Dsonarlint.telemetry.disabled=true</tycho.testArgLine>
     <sonar.runtimeVersion>LATEST_RELEASE</sonar.runtimeVersion>
+    <sonar.region>EU</sonar.region>
   </properties>
 
   <build>
@@ -196,6 +197,7 @@
           <systemProperties>
             <target.platform>${target.platform}</target.platform>
             <sonar.runtimeVersion>${sonar.runtimeVersion}</sonar.runtimeVersion>
+            <sonar.region>${sonar.region}</sonar.region>
             <org.eclipse.swt.browser.UseWebKitGTK>true</org.eclipse.swt.browser.UseWebKitGTK>
             <org.eclipse.swt.browser.DefaultType>webkit</org.eclipse.swt.browser.DefaultType>
           </systemProperties>
@@ -277,7 +279,7 @@
       <activation>
         <property>
           <name>target.platform</name>
-          <value>oldest-java-11_e48</value>
+          <value>oldest-java-11_e417</value>
         </property>
       </activation>
       <build>

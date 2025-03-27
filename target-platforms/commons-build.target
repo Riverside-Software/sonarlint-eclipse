@@ -12,7 +12,7 @@
         <dependency>
           <groupId>org.sonarsource.sonarlint.core</groupId>
           <artifactId>sonarlint-java-client-osgi</artifactId>
-          <version>10.13.99001</version>
+          <version>10.17.99001</version>
           <type>jar</type>
         </dependency>
       </dependencies>
@@ -23,13 +23,13 @@
         <dependency>
           <groupId>org.assertj</groupId>
           <artifactId>assertj-core</artifactId>
-          <version>3.26.3</version>
+          <version>3.27.3</version>
           <type>jar</type>
         </dependency>
         <dependency>
           <groupId>org.mockito</groupId>
           <artifactId>mockito-core</artifactId>
-          <version>5.13.0</version>
+          <version>5.15.2</version>
           <type>jar</type>
         </dependency>
         <dependency>

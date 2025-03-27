@@ -12,7 +12,7 @@
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>10.12.4002</version>
+  <version>11.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -79,20 +79,21 @@
     <jdk.min.version>11</jdk.min.version>
 
     <!-- Maven plug-ins -->
-    <jarsigner.version>3.0.0</jarsigner.version>
+    <jarsigner.version>3.1.0</jarsigner.version>
     <toolchains.version>3.2.0</toolchains.version>
     <os.version>1.7.1</os.version>
 
     <!-- Tycho plug-ins -->
-    <tycho.version>4.0.8</tycho.version>
+    <tycho.version>4.0.10</tycho.version>
 
     <!-- Sloop embedded CLI version for fragment projects -->
-    <sloop.version>10.13.99001</sloop.version>
+    <sloop.version>10.17.99001</sloop.version>
     
     <!-- SonarQube analysis -->
     <sonar.java.source>11</sonar.java.source>
     <sonar.java.target>11</sonar.java.target>
     <sonar.exclusions>**/.tycho-consumer-pom.xml</sonar.exclusions>
+    <sonar.sca.mavenOptions>-Dtycho.target.eager=true</sonar.sca.mavenOptions>
 
     <!-- Global properties -->
     <jarsigner.skip>true</jarsigner.skip>
