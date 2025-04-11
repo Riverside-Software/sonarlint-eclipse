@@ -12,7 +12,7 @@
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>11.3.4401</version>
+  <version>11.4.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -87,13 +87,14 @@
     <tycho.version>4.0.10</tycho.version>
 
     <!-- Sloop embedded CLI version for fragment projects -->
-    <sloop.version>10.17.99001</sloop.version>
+    <sloop.version>10.18.99001</sloop.version>
     
     <!-- SonarQube analysis -->
     <sonar.java.source>11</sonar.java.source>
     <sonar.java.target>11</sonar.java.target>
     <sonar.exclusions>**/.tycho-consumer-pom.xml</sonar.exclusions>
     <sonar.sca.mavenOptions>-Dtycho.target.eager=true</sonar.sca.mavenOptions>
+    <sonar.sca.excludedManifests>org.sonarlint.core.tests/testdata,its/projects</sonar.sca.excludedManifests>
 
     <!-- Global properties -->
     <jarsigner.skip>true</jarsigner.skip>
@@ -192,6 +193,69 @@
           <artifactId>maven-javadoc-plugin</artifactId>
           <configuration>
             <source>8</source>
+          </configuration>
+        </plugin>
+
+        <!--
+          This is the configuration to silence the "Discover m2e connectors" dialog in Eclipse when
+          importing the Maven projects into the workspace because the Parent POM provides Maven
+          plug-ins that cannot be mapped by the Eclipse m2e integration / plug-in. This should
+          simplify the UX for developers of SonarQube for Eclipse!
+
+          Whenever this dialog is popping up again, just add a "<pluginExecution>" configuration
+          block based on the info shown on the dialog (see SLE-1137 for examples). The
+          "versionRange" should be set as below like a wildcard.
+        -->
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>com.github.genthaler</groupId>
+                    <artifactId>beanshell-maven-plugin</artifactId>
+                    <versionRange>[1.0,)</versionRange>
+                    <goals>
+                      <goal>run</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+    						
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.eclipse.tycho</groupId>
+                    <artifactId>tycho-bnd-plugin</artifactId>
+                    <versionRange>[1.0,)</versionRange>
+                    <goals>
+                      <goal>process</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <versionRange>[1.0,)</versionRange>
+                    <goals>
+                      <goal>clean</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore />
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
           </configuration>
         </plugin>
       </plugins>

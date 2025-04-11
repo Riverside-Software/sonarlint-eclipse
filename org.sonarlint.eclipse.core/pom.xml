@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>11.3.4401</version>
+    <version>11.4.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -75,13 +75,13 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>8.10.0.38194</version>
+                  <version>8.11.0.38440</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-symbolic-execution-plugin</artifactId>
-                  <version>8.10.0.38194</version>
+                  <version>8.11.0.38440</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -93,13 +93,13 @@
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>3.44.0.12898</version>
+                  <version>3.45.0.12991</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.python</groupId>
                   <artifactId>sonar-python-plugin</artifactId>
-                  <version>5.1.0.20567</version>
+                  <version>5.2.0.20808</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -129,7 +129,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.text</groupId>
                   <artifactId>sonar-text-plugin</artifactId>
-                  <version>2.21.0.5225</version>
+                  <version>2.22.0.5855</version>
                   <type>jar</type>
                 </artifactItem>
               </artifactItems>
@@ -172,7 +172,7 @@
                     <artifactItem>
                       <groupId>com.sonarsource.cpp</groupId>
                       <artifactId>sonar-cfamily-plugin</artifactId>
-                      <version>6.64.1.81116</version>
+                      <version>6.65.0.81949</version>
                       <type>jar</type>
                     </artifactItem>
                   </artifactItems>
