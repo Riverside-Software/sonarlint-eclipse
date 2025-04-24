@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>11.4.4501</version>
+    <version>11.5.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -29,10 +29,6 @@
         <groupId>org.eclipse.tycho</groupId>
         <artifactId>tycho-surefire-plugin</artifactId>
         <configuration>
-          <environmentVariables>
-            <SONARSOURCE_DOGFOODING>0</SONARSOURCE_DOGFOODING>
-          </environmentVariables>
-          
           <!-- We cannot have it in target/work as well due to Git ignored files not being analyzed! -->
           <osgiDataDirectory>${java.io.tmpdir}/SLE-${maven.build.timestamp}</osgiDataDirectory>
           

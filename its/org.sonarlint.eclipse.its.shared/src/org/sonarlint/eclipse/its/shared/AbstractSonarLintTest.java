@@ -81,6 +81,7 @@ import org.sonarlint.eclipse.its.shared.reddeer.preferences.FileAssociationsPref
 import org.sonarlint.eclipse.its.shared.reddeer.preferences.RuleConfigurationPreferences;
 import org.sonarlint.eclipse.its.shared.reddeer.preferences.SonarLintPreferences;
 import org.sonarlint.eclipse.its.shared.reddeer.views.OnTheFlyView;
+import org.sonarlint.eclipse.its.shared.reddeer.views.ReportView;
 import org.sonarlint.eclipse.its.shared.reddeer.views.SonarLintConsole;
 import org.sonarlint.eclipse.its.shared.reddeer.views.SonarLintConsole.ShowConsoleOption;
 import org.sonarlint.eclipse.its.shared.reddeer.views.SonarLintIssueMarker;
@@ -114,6 +115,7 @@ public abstract class AbstractSonarLintTest {
 
   @BeforeClass
   public static final void setUpBeforeClass() {
+    System.setProperty("sonarlint.internal.disableDogfooding", "true");
     System.setProperty("sonarlint.internal.ignoreEnhancedFeature", "true");
     System.setProperty("sonarlint.internal.ignoreMissingFeature", "true");
     System.setProperty("sonarlint.internal.ignoreNoAutomaticBuildWarning", "true");
@@ -312,6 +314,12 @@ public abstract class AbstractSonarLintTest {
           .extracting(SonarLintIssueMarker::getDescription, SonarLintIssueMarker::getResource, SonarLintIssueMarker::getCreationDate)
           .containsOnly(markers);
       });
+  }
+
+  protected void waitForSonarLintReportIssues(ReportView view, int issues) {
+    Awaitility.await()
+      .atMost(20, TimeUnit.SECONDS)
+      .untilAsserted(() -> assertThat(view.getItems()).hasSize(issues));
   }
 
   protected static final void importExistingProjectIntoWorkspace(String relativePathFromProjectsFolder, boolean isGradle) {

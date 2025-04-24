@@ -12,7 +12,7 @@
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>11.4.4501</version>
+  <version>11.5.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -84,10 +84,10 @@
     <os.version>1.7.1</os.version>
 
     <!-- Tycho plug-ins -->
-    <tycho.version>4.0.10</tycho.version>
+    <tycho.version>4.0.12</tycho.version>
 
     <!-- Sloop embedded CLI version for fragment projects -->
-    <sloop.version>10.18.99001</sloop.version>
+    <sloop.version>10.19.99001</sloop.version>
     
     <!-- SonarQube analysis -->
     <sonar.java.source>11</sonar.java.source>
