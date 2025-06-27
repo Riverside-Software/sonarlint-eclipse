@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>11.7.4802</version>
+    <version>11.8.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -75,25 +75,25 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>8.13.0.38826</version>
+                  <version>8.14.0.39102</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-symbolic-execution-plugin</artifactId>
-                  <version>8.13.0.38826</version>
+                  <version>8.14.0.39102</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>10.22.0.32148</version>
+                  <version>10.23.0.32711</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>3.45.0.12991</version>
+                  <version>3.46.0.13151</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -172,7 +172,7 @@
                     <artifactItem>
                       <groupId>com.sonarsource.cpp</groupId>
                       <artifactId>sonar-cfamily-plugin</artifactId>
-                      <version>6.66.0.83483</version>
+                      <version>6.67.0.84717</version>
                       <type>jar</type>
                     </artifactItem>
                   </artifactItems>
