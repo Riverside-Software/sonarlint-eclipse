@@ -128,7 +128,7 @@ public class SonarLintMarkerUpdater {
         issuesAreOnTheFly ? SonarLintCorePlugin.MARKER_ON_THE_FLY_ID : SonarLintCorePlugin.MARKER_REPORT_ID,
         false,
         IResource.DEPTH_ZERO))
-        .collect(Collectors.toMap(MarkerUtils::getTrackedIssueId, marker -> marker));
+        .collect(Collectors.toMap(MarkerUtils::getTrackedIssueId, marker -> marker, (oldVal, newVal) -> newVal));
 
       var issueIds = issues.stream().map(issue -> issue.getId()).collect(Collectors.toSet());
 
