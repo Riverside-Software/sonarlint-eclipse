@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>11.12.5301</version>
+    <version>11.13.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -75,7 +75,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-plugin</artifactId>
-                  <version>8.17.1.39878</version>
+                  <version>8.18.0.40025</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -87,7 +87,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>11.0.0.33655</version>
+                  <version>11.2.0.34013</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -99,7 +99,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.python</groupId>
                   <artifactId>sonar-python-plugin</artifactId>
-                  <version>5.5.0.23291</version>
+                  <version>5.7.0.24163</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -129,7 +129,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.text</groupId>
                   <artifactId>sonar-text-plugin</artifactId>
-                  <version>2.25.0.7448</version>
+                  <version>2.26.0.7517</version>
                   <type>jar</type>
                 </artifactItem>
               </artifactItems>
@@ -172,7 +172,7 @@
                     <artifactItem>
                       <groupId>com.sonarsource.cpp</groupId>
                       <artifactId>sonar-cfamily-plugin</artifactId>
-                      <version>6.68.0.85760</version>
+                      <version>6.70.0.87073</version>
                       <type>jar</type>
                     </artifactItem>
                   </artifactItems>
