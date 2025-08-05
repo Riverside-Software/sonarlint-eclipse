@@ -43,7 +43,7 @@
                 <artifactItem>
                   <groupId>eu.rssw.openedge.rcode</groupId>
                   <artifactId>rcode-reader</artifactId>
-                  <version>2.26.0</version>
+                  <version>3.3.0</version>
                 </artifactItem>
               </artifactItems>
               <outputDirectory>lib</outputDirectory>
