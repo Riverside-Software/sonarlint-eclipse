@@ -38,3 +38,5 @@ org.sonarlint.eclipse.pdt/lib/*
 
 # Visual Studio
 .vs
+
+**/bin/**

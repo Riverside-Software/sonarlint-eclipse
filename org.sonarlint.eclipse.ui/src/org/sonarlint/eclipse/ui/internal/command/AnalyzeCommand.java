@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
@@ -37,6 +39,7 @@ import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.handlers.HandlerUtil;
 import org.eclipse.ui.texteditor.ITextEditor;
+import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectJob;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectRequest;
@@ -52,41 +55,66 @@ import org.sonarlint.eclipse.ui.internal.util.SelectionUtils;
 
 public class AnalyzeCommand extends AbstractHandler {
 
+  private final ExecutorService analyzeCommandExecutor = Executors.newSingleThreadExecutor(SonarLintUtils.threadFactory("sonarlint-analyze-command", false));
+
   @Nullable
   @Override
   public Object execute(ExecutionEvent event) throws ExecutionException {
-    var selection = HandlerUtil.getCurrentSelectionChecked(event);
-    final Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject;
-    if (selection instanceof IStructuredSelection) {
-      filesPerProject = findSelectedFilesPerProject(event);
-    } else {
-      filesPerProject = new HashMap<>(1);
-      var editedFile = findEditedFile(event);
-      if (editedFile != null) {
-        filesPerProject.put(editedFile.getFile().getProject(), List.of(editedFile));
-      }
-    }
+    var selectedFiles = HandlerUtil.getCurrentSelectionChecked(event);
+    var shell = HandlerUtil.getActiveShell(event);
 
-    if (!filesPerProject.isEmpty()) {
-      runAnalysisJob(HandlerUtil.getActiveShell(event), filesPerProject);
-    }
+    // Run the scheduling of analysis in background thread
+    analyzeCommandExecutor.execute(() -> {
+      try {
+        final Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject;
+        if (selectedFiles instanceof IStructuredSelection) {
+          filesPerProject = findSelectedFilesPerProject((IStructuredSelection) selectedFiles);
+        } else {
+          filesPerProject = new HashMap<>(1);
+          var editedFile = findEditedFile(event);
+          if (editedFile != null) {
+            filesPerProject.put(editedFile.getFile().getProject(), List.of(editedFile));
+          }
+        }
+
+        if (!filesPerProject.isEmpty()) {
+          // Displaying the dialog should be done in UI thread
+          var totalFileCount = filesPerProject.values().stream().mapToInt(Collection::size).sum();
+          var shouldProceed = executeDialogsIfNeeded(shell, totalFileCount);
+
+          if (shouldProceed) {
+            scheduleAnalysisJobs(filesPerProject);
+          }
+        }
+      } catch (Exception e) {
+        SonarLintLogger.get().error(e.getMessage(), e);
+      }
+    });
 
     return null;
   }
 
-  private static void runAnalysisJob(Shell shell, Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject) {
-    var totalFileCount = filesPerProject.values().stream().mapToInt(Collection::size).sum();
+  private static boolean executeDialogsIfNeeded(Shell shell, int totalFileCount) {
+    // Use syncExec to ensure UI operations happen on UI thread and we get the result
+    var result = new boolean[1];
+    shell.getDisplay().syncExec(() -> {
+      if (!SonarLintGlobalConfiguration.ignoreEnhancedFeatureNotifications()) {
+        MessageDialogUtils.enhancedWithConnectedModeInformation(shell, "Are you working with a CI/CD pipeline?",
+          "Running an analysis with SonarQube (Server, Cloud) in your pipeline might be better suited for analyzing "
+            + "multiple files or a whole project!");
+        result[0] = true;
+      } else if (totalFileCount > 10 && !askConfirmation(shell)) {
+        // Asking for a few files (e.g. analyzing a package) is annoying, increasing the threshold in order to not spam
+        // pop-ups to the user
+        result[0] = false;
+      } else {
+        result[0] = true;
+      }
+    });
+    return result[0];
+  }
 
-    if (!SonarLintGlobalConfiguration.ignoreEnhancedFeatureNotifications()) {
-      MessageDialogUtils.enhancedWithConnectedModeInformation(shell, "Are you working with a CI/CD pipeline?",
-        "Running an analysis with SonarQube (Server, Cloud) in your pipeline might be better suited for analyzing "
-          + "multiple files or a whole project!");
-    } else if (totalFileCount > 10 && !askConfirmation(shell)) {
-      // Asking for a few files (e.g. analyzing a package) is annoying, increasing the threshold in order to not spam
-      // pop-ups to the user!
-      return;
-    }
-
+  private static void scheduleAnalysisJobs(Map<ISonarLintProject, Collection<FileWithDocument>> filesPerProject) {
     if (filesPerProject.size() == 1) {
       var entry = filesPerProject.entrySet().iterator().next();
       var req = new AnalyzeProjectRequest(entry.getKey(), entry.getValue(), TriggerType.MANUAL, true);
@@ -130,9 +158,9 @@ public class AnalyzeCommand extends AbstractHandler {
     return proceed;
   }
 
-  protected Map<ISonarLintProject, Collection<FileWithDocument>> findSelectedFilesPerProject(ExecutionEvent event) throws ExecutionException {
+  protected Map<ISonarLintProject, Collection<FileWithDocument>> findSelectedFilesPerProject(IStructuredSelection selectedFiles) {
     var filesToAnalyzePerProject = new LinkedHashMap<ISonarLintProject, Collection<FileWithDocument>>();
-    for (var file : SelectionUtils.allSelectedFiles(HandlerUtil.getCurrentSelectionChecked(event), true)) {
+    for (var file : SelectionUtils.allSelectedFiles(selectedFiles, true)) {
       filesToAnalyzePerProject.putIfAbsent(file.getProject(), new ArrayList<>());
       var editorPart = PlatformUtils.findEditor(file);
       if (editorPart instanceof ITextEditor) {
@@ -160,6 +188,11 @@ public class AnalyzeCommand extends AbstractHandler {
       return sonarLintFile != null ? new FileWithDocument(sonarLintFile, doc) : null;
     }
     return null;
+  }
+
+  @Override
+  public void dispose() {
+    analyzeCommandExecutor.shutdownNow();
   }
 
 }
