@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>11.14.5501</version>
+    <version>11.15.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -81,19 +81,19 @@
                 <artifactItem>
                   <groupId>org.sonarsource.java</groupId>
                   <artifactId>sonar-java-symbolic-execution-plugin</artifactId>
-                  <version>8.16.0.131</version>
+                  <version>8.16.1.344</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.javascript</groupId>
                   <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>11.2.0.34013</version>
+                  <version>11.3.0.34350</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.sonarsource.php</groupId>
                   <artifactId>sonar-php-plugin</artifactId>
-                  <version>3.48.0.13483</version>
+                  <version>3.49.0.13624</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
@@ -172,7 +172,7 @@
                     <artifactItem>
                       <groupId>com.sonarsource.cpp</groupId>
                       <artifactId>sonar-cfamily-plugin</artifactId>
-                      <version>6.70.0.87073</version>
+                      <version>6.71.0.87975</version>
                       <type>jar</type>
                     </artifactItem>
                   </artifactItems>
