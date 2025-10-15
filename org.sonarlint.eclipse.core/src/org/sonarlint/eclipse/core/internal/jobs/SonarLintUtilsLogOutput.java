@@ -28,6 +28,7 @@ public final class SonarLintUtilsLogOutput implements ClientLogOutput {
   public void log(String msg, Level level) {
     switch (level) {
       case TRACE:
+        break;
       case DEBUG:
         SonarLintLogger.get().debug(msg);
         break;

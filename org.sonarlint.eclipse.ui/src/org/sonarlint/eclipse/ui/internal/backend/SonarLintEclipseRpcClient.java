@@ -391,6 +391,7 @@ public class SonarLintEclipseRpcClient extends SonarLintEclipseHeadlessRpcClient
     // This is only to be used for IDE-specific logging (e.g. adaptations, interaction with extension points, ...)
     switch (params.getLevel()) {
       case TRACE:
+        break;
       case DEBUG:
         SonarLintLogger.get().debug(message + stackTrace);
         break;
