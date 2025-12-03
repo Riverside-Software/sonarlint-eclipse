@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.jdt;singleton:=true
-Bundle-Version: 11.18.5904
+Bundle-Version: 11.18.5905
 Bundle-Vendor: %bundle_vendor
 Bundle-ClassPath: .
 Require-Bundle: org.eclipse.core.runtime,
