@@ -117,7 +117,7 @@
                 <artifactItem>
                   <groupId>eu.rssw.sonar.openedge</groupId>
                   <artifactId>sonar-openedge-plugin</artifactId>
-                  <version>3.5.2</version>
+                  <version>3.5.1</version>
                   <type>jar</type>
                 </artifactItem>
                 <artifactItem>
