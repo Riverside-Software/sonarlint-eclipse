@@ -183,9 +183,9 @@ public class SonarLintBackendService {
           embeddedPluginPaths.stream().forEach(p -> SonarLintLogger.get().debug("  - " + p));
 
           Map<String, Path> embeddedPlugins = new HashMap<>();
-          embeddedPlugins.put("javascript", requireNonNull(PluginPathHelper.findEmbeddedJsPlugin(), "JS/TS plugin not found"));
-          embeddedPlugins.put("web", requireNonNull(PluginPathHelper.findEmbeddedHtmlPlugin(), "HTML plugin not found"));
-          embeddedPlugins.put("xml", requireNonNull(PluginPathHelper.findEmbeddedXmlPlugin(), "XML plugin not found"));
+          // embeddedPlugins.put("javascript", requireNonNull(PluginPathHelper.findEmbeddedJsPlugin(), "JS/TS plugin not found"));
+          // embeddedPlugins.put("web", requireNonNull(PluginPathHelper.findEmbeddedHtmlPlugin(), "HTML plugin not found"));
+          // embeddedPlugins.put("xml", requireNonNull(PluginPathHelper.findEmbeddedXmlPlugin(), "XML plugin not found"));
           embeddedPlugins.put("text", requireNonNull(PluginPathHelper.findEmbeddedSecretsPlugin(), "Secrets plugin not found"));
           // embeddedPlugins.put("cpp", requireNonNull(PluginPathHelper.findEmbeddedCFamilyPlugin(), "CFamily plugin not found"));
 

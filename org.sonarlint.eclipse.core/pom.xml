@@ -73,48 +73,6 @@
             <configuration>
               <artifactItems>
                 <artifactItem>
-                  <groupId>org.sonarsource.java</groupId>
-                  <artifactId>sonar-java-plugin</artifactId>
-                  <version>8.19.0.40387</version>
-                  <type>jar</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.sonarsource.java</groupId>
-                  <artifactId>sonar-java-symbolic-execution-plugin</artifactId>
-                  <version>8.16.1.344</version>
-                  <type>jar</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.sonarsource.javascript</groupId>
-                  <artifactId>sonar-javascript-plugin</artifactId>
-                  <version>11.4.1.34873</version>
-                  <type>jar</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.sonarsource.php</groupId>
-                  <artifactId>sonar-php-plugin</artifactId>
-                  <version>3.49.0.13624</version>
-                  <type>jar</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.sonarsource.python</groupId>
-                  <artifactId>sonar-python-plugin</artifactId>
-                  <version>5.11.0.25975</version>
-                  <type>jar</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.sonarsource.html</groupId>
-                  <artifactId>sonar-html-plugin</artifactId>
-                  <version>3.19.0.5695</version>
-                  <type>jar</type>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>org.sonarsource.xml</groupId>
-                  <artifactId>sonar-xml-plugin</artifactId>
-                  <version>2.13.0.5938</version>
-                  <type>jar</type>
-                </artifactItem>
-                <artifactItem>
                   <groupId>eu.rssw.sonar.openedge</groupId>
                   <artifactId>sonar-openedge-plugin</artifactId>
                   <version>3.5.2</version>
