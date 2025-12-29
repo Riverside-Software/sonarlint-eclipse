@@ -50,11 +50,11 @@
             <phase>prepare-package</phase>
             <configuration>
               <keystore>NONE</keystore>
-              <alias>key_1361216169</alias>
-              <storepass>none</storepass>
+              <alias>${env.KEYSTORE_ALIAS}</alias>
+              <storepass>${env.KEYSTORE_PASS}</storepass>
               <providerClass>sun.security.pkcs11.SunPKCS11</providerClass>
               <storetype>PKCS11</storetype>
-              <providerArg>${env.SMTOOLS_PATH}/pkcs11properties.cfg</providerArg>
+              <providerArg>${maven.multiModuleProjectDirectory}/eToken.cfg</providerArg>
               <tsa>http://timestamp.digicert.com</tsa>
               <certs>true</certs>
               <verbose>false</verbose>
@@ -90,25 +90,6 @@
             </configuration>
           </execution>
         </executions>
-        <configuration>          
-          <keystore>NONE</keystore>
-          <storetype>PKCS11</storetype>
-          <alias>${env.KEYSTORE_ALIAS}</alias>
-          <storepass>${env.KEYSTORE_PASS}</storepass>
-          <providerClass>sun.security.pkcs11.SunPKCS11</providerClass>
-          <providerArg>${maven.multiModuleProjectDirectory}/eToken.cfg</providerArg>
-          <tsa>http://timestamp.digicert.com</tsa>
-          <verbose>true</verbose>
-          <skip>${jarsigner.skip}</skip>
-          <archiveDirectory>${project.build.directory}/repository/</archiveDirectory>
-          <includes>
-            <include>features/*</include>
-            <include>plugins/org.sonarlint.*</include>
-            <include>plugins/org.sonarsource.*</include>
-          </includes>
-          <processAttachedArtifacts>false</processAttachedArtifacts>
-          <processMainArtifact>false</processMainArtifact>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.eclipse.tycho</groupId>
