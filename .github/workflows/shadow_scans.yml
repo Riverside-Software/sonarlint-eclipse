@@ -36,16 +36,17 @@ jobs:
           CURRENT_VERSION: skip
           PROJECT_VERSION: skip
         with:
-          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dmaven.test.skip=true -Dsonar.skip=true -Dcyclonedx.skip=false
+          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.test.skip=true -Dsonar.skip=true -Dcyclonedx.skip=false --batch-mode --no-transfer-progress --errors --fail-at-end
           artifactory-reader-role: private-reader
 
       - name: Set project version
         id: version
         run: .github/scripts/set_maven_build_version.sh
+
       - uses: SonarSource/ci-github-actions/build-maven@v1
         with:
           sonar-platform: none
-          maven-args: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -DskipTests -Dmaven.deploy.skip=true
+          maven-args: -Declipse.p2.mirrors=false -Dcyclonedx.skip=false -DskipTests -Djacoco.append=true -Dsonar.coverage.jacoco.xmlReportPaths=org.sonarlint.eclipse.core.tests/target/site/jacoco-aggregate/jacoco.xml
           artifactory-reader-role: private-reader
           artifactory-deployer-role: qa-deployer
 
@@ -83,7 +84,7 @@ jobs:
           PROJECT_VERSION: skip
         with:
           artifactory-reader-role: private-reader
-          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true -Dcyclonedx.skip=false
+          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true -Dcyclonedx.skip=false --batch-mode --no-transfer-progress --errors --fail-at-end
       - name: Run unit tests with Xvfb
         shell: bash
         env:
@@ -101,7 +102,7 @@ jobs:
             -Djacoco.destFile=${GITHUB_WORKSPACE}/ut-coverage.exec
 
       - name: Upload UT coverage
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: ut-coverage
@@ -109,7 +110,7 @@ jobs:
             ${{ github.workspace }}/ut-coverage*.exec
 
       - name: Upload Maven test logs
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: mvn-test-logs
@@ -191,7 +192,7 @@ jobs:
           PROJECT_VERSION: skip
         with:
           artifactory-reader-role: private-reader
-          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true
+          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
 
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
@@ -213,12 +214,7 @@ jobs:
 
       - name: Start Xvfb and recording
         shell: bash
-        run: |
-          Xvfb :10 -screen 0 1920x1080x24 > Xvfb.out 2>&1 &
-          metacity --sm-disable --replace &
-          sleep 10
-          echo 'Recording tests on video'
-          ffmpeg -loglevel warning -f x11grab -video_size 1920x1080 -i ${DISPLAY} -codec:v libx264 -r 12 "$GITHUB_WORKSPACE/recording_${{ matrix.QA_CATEGORY }}.mp4" &
+        run: .github/scripts/start-xvfb-recording.sh "recording_${{ matrix.QA_CATEGORY }}"
 
       - name: Run ITs (Connected Mode with SonarQube) with Xvfb
         shell: bash
@@ -244,10 +240,7 @@ jobs:
       - name: Stop recording and Xvfb
         if: always()
         shell: bash
-        run: |
-          pkill -SIGINT -f ffmpeg || true
-          for i in $(seq 1 30); do pgrep ffmpeg >/dev/null || break; sleep 1; done
-          pkill -f Xvfb || true
+        run: .github/scripts/stop-xvfb-recording.sh
 
       - name: Upload video
         if: failure()
@@ -257,14 +250,14 @@ jobs:
           path: ${{ github.workspace }}/recording_${{ matrix.QA_CATEGORY }}.mp4
 
       - name: Upload IT coverage
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-it-${{ matrix.QA_CATEGORY }}-coverage
           path: ${{ github.workspace }}/it-coverage-${{ matrix.QA_CATEGORY }}.exec
 
       - name: Upload IT logs
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: mvn-it-logs-${{ matrix.QA_CATEGORY }}
@@ -324,7 +317,7 @@ jobs:
           PROJECT_VERSION: skip
         with:
           artifactory-reader-role: private-reader
-          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true
+          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
 
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
@@ -348,12 +341,7 @@ jobs:
 
       - name: Start Xvfb and recording
         shell: bash
-        run: |
-          Xvfb :10 -screen 0 1920x1080x24 > Xvfb.out 2>&1 &
-          metacity --sm-disable --replace &
-          sleep 10
-          echo 'Recording tests on video'
-          ffmpeg -loglevel warning -f x11grab -video_size 1920x1080 -i ${DISPLAY} -codec:v libx264 -r 12 "$GITHUB_WORKSPACE/recording_${{ matrix.SQC_REGION }}.mp4" &
+        run: .github/scripts/start-xvfb-recording.sh "recording_${{ matrix.SQC_REGION }}"
 
       - name: Run ITs (Connected Mode with SonarCloud)
         shell: bash
@@ -380,10 +368,7 @@ jobs:
       - name: Stop recording and Xvfb
         if: always()
         shell: bash
-        run: |
-          pkill -SIGINT -f ffmpeg || true
-          for i in $(seq 1 30); do pgrep ffmpeg >/dev/null || break; sleep 1; done
-          pkill -f Xvfb || true
+        run: .github/scripts/stop-xvfb-recording.sh
 
       - name: Upload video
         if: failure()
@@ -393,14 +378,14 @@ jobs:
           path: ${{ github.workspace }}/recording_${{ matrix.SQC_REGION }}.mp4
 
       - name: Upload IT coverage
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-it-sc-${{ matrix.SQC_REGION }}-coverage
           path: ${{ github.workspace }}/it-coverage-sc-${{ matrix.SQC_REGION }}.exec
 
       - name: Upload IT logs
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: mvn-it-logs-sc-${{ matrix.SQC_REGION }}
@@ -460,7 +445,7 @@ jobs:
           PROJECT_VERSION: skip
         with:
           artifactory-reader-role: private-reader
-          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true
+          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
 
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
@@ -482,12 +467,7 @@ jobs:
 
       - name: Start Xvfb and recording
         shell: bash
-        run: |
-          Xvfb :10 -screen 0 1920x1080x24 > Xvfb.out 2>&1 &
-          metacity --sm-disable --replace &
-          sleep 10
-          echo 'Recording tests on video'
-          ffmpeg -loglevel warning -f x11grab -video_size 1920x1080 -i ${DISPLAY} -codec:v libx264 -r 12 "$GITHUB_WORKSPACE/recording_${{ matrix.TARGET_PLATFORM }}.mp4" &
+        run: .github/scripts/start-xvfb-recording.sh "recording_${{ matrix.TARGET_PLATFORM }}"
 
       - name: Run ITs (Standalone Mode)
         shell: bash
@@ -511,10 +491,7 @@ jobs:
       - name: Stop recording and Xvfb
         if: always()
         shell: bash
-        run: |
-          pkill -SIGINT -f ffmpeg || true
-          for i in $(seq 1 30); do pgrep ffmpeg >/dev/null || break; sleep 1; done
-          pkill -f Xvfb || true
+        run: .github/scripts/stop-xvfb-recording.sh
 
       - name: Upload video
         if: failure()
@@ -524,14 +501,14 @@ jobs:
           path: ${{ github.workspace }}/recording_${{ matrix.TARGET_PLATFORM }}.mp4
 
       - name: Upload IT coverage
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-it-${{ matrix.TARGET_PLATFORM }}-coverage
           path: ${{ github.workspace }}/it-coverage-${{ matrix.TARGET_PLATFORM }}.exec
 
       - name: Upload IT logs
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: mvn-it-logs-${{ matrix.TARGET_PLATFORM }}
@@ -592,7 +569,7 @@ jobs:
           PROJECT_VERSION: skip
         with:
           artifactory-reader-role: private-reader
-          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true
+          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
 
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
@@ -614,12 +591,7 @@ jobs:
 
       - name: Start Xvfb and recording
         shell: bash
-        run: |
-          Xvfb :10 -screen 0 1920x1080x24 > Xvfb.out 2>&1 &
-          metacity --sm-disable --replace &
-          sleep 10
-          echo 'Recording tests on video'
-          ffmpeg -loglevel warning -f x11grab -video_size 1920x1080 -i ${DISPLAY} -codec:v libx264 -r 12 "$GITHUB_WORKSPACE/recording_cdt_${{ matrix.TARGET_PLATFORM }}.mp4" &
+        run: .github/scripts/start-xvfb-recording.sh "recording_cdt_${{ matrix.TARGET_PLATFORM }}"
 
       - name: Run ITs (CDT Integration)
         shell: bash
@@ -643,10 +615,7 @@ jobs:
       - name: Stop recording and Xvfb
         if: always()
         shell: bash
-        run: |
-          pkill -SIGINT -f ffmpeg || true
-          for i in $(seq 1 30); do pgrep ffmpeg >/dev/null || break; sleep 1; done
-          pkill -f Xvfb || true
+        run: .github/scripts/stop-xvfb-recording.sh
 
       - name: Upload video
         if: failure()
@@ -656,14 +625,14 @@ jobs:
           path: ${{ github.workspace }}/recording_cdt_${{ matrix.TARGET_PLATFORM }}.mp4
 
       - name: Upload IT coverage
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-it-cdt-${{ matrix.TARGET_PLATFORM }}-coverage
           path: ${{ github.workspace }}/it-coverage-cdt-${{ matrix.TARGET_PLATFORM }}.exec
 
       - name: Upload IT logs
-        if: always() && !cancelled()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: mvn-it-logs-cdt-${{ matrix.TARGET_PLATFORM }}
@@ -715,7 +684,7 @@ jobs:
           PROJECT_VERSION: skip
         with:
           artifactory-reader-role: private-reader
-          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true
+          common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
 
       - name: Download IT coverage artifacts
         uses: actions/download-artifact@v4.1.8
