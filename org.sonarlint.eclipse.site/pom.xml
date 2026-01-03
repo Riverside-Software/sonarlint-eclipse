@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>11.21.6200</version>
+    <version>11.22.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -67,6 +67,7 @@
               </includes>
               <processAttachedArtifacts>false</processAttachedArtifacts>
               <processMainArtifact>false</processMainArtifact>
+              <verbose>true</verbose>
             </configuration>
           </execution>
           <execution>

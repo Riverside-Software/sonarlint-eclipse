@@ -6,13 +6,13 @@
   <parent>
     <groupId>org.sonarsource.parent</groupId>
     <artifactId>parent</artifactId>
-    <version>84.0.0.3027</version>
+    <version>86.0.0.3040</version>
     <relativePath />
   </parent>
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>11.21.6200</version>
+  <version>11.22.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
@@ -87,7 +87,7 @@
     <tycho.version>4.0.12</tycho.version>
 
     <!-- Sloop embedded CLI version for fragment projects -->
-    <sloop.version>10.37.99001</sloop.version>
+    <sloop.version>10.38.0.83993</sloop.version>
 
     <!-- SonarQube analysis -->
     <sonar.java.source>11</sonar.java.source>

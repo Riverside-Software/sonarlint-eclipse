@@ -2,7 +2,7 @@
 <feature
       id="org.sonarlint.eclipse.feature"
       label="%feature_name"
-      version="11.21.6200"
+      version="11.22.0.qualifier"
       provider-name="%provider_name"
       plugin="org.sonarlint.eclipse.ui">
 
@@ -10,7 +10,7 @@
       %description
    </description>
 
-   <copyright url="https://docs.sonarsource.com/sonarqube-for-eclipse/license/">
+   <copyright url="https://github.com/SonarSource/sonarlint-eclipse/blob/master/LICENSE.txt">
       %copyright
    </copyright>
 

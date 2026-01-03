@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.sonarsource.sonarlint.eclipse</groupId>
     <artifactId>sonarlint-eclipse-parent</artifactId>
-    <version>11.21.6200</version>
+    <version>11.22.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -87,7 +87,7 @@
                 <artifactItem>
                   <groupId>org.sonarsource.text</groupId>
                   <artifactId>sonar-text-plugin</artifactId>
-                  <version>2.32.0.9670</version>
+                  <version>2.34.0.9939</version>
                   <type>jar</type>
                 </artifactItem>
               </artifactItems>
@@ -130,7 +130,7 @@
                     <artifactItem>
                       <groupId>com.sonarsource.cpp</groupId>
                       <artifactId>sonar-cfamily-plugin</artifactId>
-                      <version>6.74.0.91793</version>
+                      <version>6.75.1.93101</version>
                       <type>jar</type>
                     </artifactItem>
                   </artifactItems>
