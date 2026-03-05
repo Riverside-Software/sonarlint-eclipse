@@ -298,7 +298,6 @@ public class OEProjectConfiguratorExtension implements IAnalysisConfigurator, IF
   @Override
   public SonarLintLanguage language(ISonarLintFile file) {
     IFile iFile = file.getResource() instanceof IFile ? (IFile) file.getResource() : null;
-    SonarLintLogger.get().debug("Language on " + iFile);
     String ext = iFile == null ? null : iFile.getFileExtension();
     if (ext == null) {
       return null;
