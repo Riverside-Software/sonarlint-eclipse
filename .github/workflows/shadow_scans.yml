@@ -9,6 +9,9 @@ permissions:
   id-token: write
   contents: write
 
+env:
+  CACHE_BACKEND: s3
+
 jobs:
   build:
     outputs:
@@ -42,6 +45,9 @@ jobs:
       - name: Set project version
         id: version
         run: .github/scripts/set_maven_build_version.sh
+
+      - name: Setup settings.xml
+        run: .github/scripts/setup-settings-xml.sh
 
       - uses: SonarSource/ci-github-actions/build-maven@v1
         with:
@@ -85,6 +91,10 @@ jobs:
         with:
           artifactory-reader-role: private-reader
           common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true -Dcyclonedx.skip=false --batch-mode --no-transfer-progress --errors --fail-at-end
+
+      - name: Setup settings.xml
+        run: .github/scripts/setup-settings-xml.sh
+        
       - name: Run unit tests with Xvfb
         shell: bash
         env:
@@ -144,10 +154,16 @@ jobs:
         include:
           - SQ_VERSION: 'LATEST_RELEASE[9.9]'
             QA_CATEGORY: 'LATEST_RELEASE_99'
+            JAVA_VERSION: '17'
+            TARGET_PLATFORM: 'latest-java-17_e431'
           - SQ_VERSION: 'LATEST_RELEASE'
             QA_CATEGORY: 'LATEST_RELEASE'
+            JAVA_VERSION: '21'
+            TARGET_PLATFORM: 'latest-java-21'
           - SQ_VERSION: 'DEV'
             QA_CATEGORY: 'DEV'
+            JAVA_VERSION: '21'
+            TARGET_PLATFORM: 'latest-java-21'
     env:
       DISPLAY: :10
       MAVEN_OPTS: -Xmx3072m
@@ -169,7 +185,7 @@ jobs:
           echo "Create dir ${ORCHESTRATOR_HOME} if needed"
           mkdir -p "${ORCHESTRATOR_HOME}"
 
-      - uses: SonarSource/ci-github-actions/cache@v1
+      - uses: SonarSource/gh-action_cache@v1
         with:
           path: ${{ github.workspace }}/orchestrator/${{ steps.month.outputs.month }}
           key: cache-${{ runner.os }}-${{ steps.month.outputs.month }}
@@ -193,6 +209,9 @@ jobs:
         with:
           artifactory-reader-role: private-reader
           common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
+
+      - name: Setup settings.xml
+        run: .github/scripts/setup-settings-xml.sh ${{ matrix.TARGET_PLATFORM }}
 
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
@@ -318,6 +337,9 @@ jobs:
         with:
           artifactory-reader-role: private-reader
           common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
+
+      - name: Setup settings.xml
+        run: .github/scripts/setup-settings-xml.sh latest-java-21
 
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
@@ -447,6 +469,9 @@ jobs:
           artifactory-reader-role: private-reader
           common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
 
+      - name: Setup settings.xml
+        run: .github/scripts/setup-settings-xml.sh ${{ matrix.TARGET_PLATFORM }}
+
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
         with:
@@ -571,6 +596,9 @@ jobs:
           artifactory-reader-role: private-reader
           common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true -Dsonar.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
 
+      - name: Setup settings.xml
+        run: .github/scripts/setup-settings-xml.sh ${{ matrix.TARGET_PLATFORM }}
+
       - name: Download site artifact
         uses: actions/download-artifact@v4.1.8
         with:
@@ -685,6 +713,9 @@ jobs:
         with:
           artifactory-reader-role: private-reader
           common-mvn-flags: -Declipse.p2.mirrors=false -Dmaven.install.skip=true --batch-mode --no-transfer-progress --errors --fail-at-end
+
+      - name: Setup settings.xml
+        run: .github/scripts/setup-settings-xml.sh
 
       - name: Download IT coverage artifacts
         uses: actions/download-artifact@v4.1.8
