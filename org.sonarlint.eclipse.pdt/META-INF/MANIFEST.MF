@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: %bundle_name
 Bundle-SymbolicName: org.sonarlint.eclipse.pdt;singleton:=true
-Bundle-Version: 12.3.7401
+Bundle-Version: 12.4.7501
 Bundle-ClassPath: .,
  lib/rcode-reader.jar
 Bundle-Vendor: %bundle_vendor
