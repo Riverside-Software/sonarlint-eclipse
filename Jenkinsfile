@@ -23,5 +23,18 @@ pipeline {
         archiveArtifacts artifacts: 'org.sonarlint.eclipse.site/target/*.zip'
       }
     }
+    stage ('🔍 SonarQube analysis') {
+      steps {
+        script {
+          withEnv(["PATH+MVN=${tool name: 'Maven 3', type: 'maven'}\\bin", "JAVA_HOME=${tool name: 'JDK17', type: 'jdk'}", "JAVA_HOME_11_X64=${tool name: 'Corretto 11', type: 'jdk'}", "JAVA_HOME_17_X64=${tool name: 'JDK17', type: 'jdk'}", "JAVA_HOME_21_X64=${tool name: 'JDK21', type: 'jdk'}"]) {
+            configFileProvider([configFile(fileId: 'MvnSettingsRSSW', variable: 'MAVEN_SETTINGS')]) {
+              withSonarQubeEnv(credentialsId: 'SQToken', installationName: 'RSSW') {
+                bat "mvn -U -s %MAVEN_SETTINGS% --toolchains .github/scripts/toolchains.xml -Dskip-sonarsource-repo -Dmaven.test.skip=true -DARCHITECT_P2_DIR=/C:/Java/architect_p2 -DARCHITECT_DEPS_P2_DIR=/C:/Java/architect_p2 -Dsonar.branch.name=main sonar:sonar"
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
