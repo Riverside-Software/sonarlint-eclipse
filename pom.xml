@@ -12,7 +12,7 @@
 
   <groupId>org.sonarsource.sonarlint.eclipse</groupId>
   <artifactId>sonarlint-eclipse-parent</artifactId>
-  <version>12.6.7701</version>
+  <version>12.6.7702</version>
   <packaging>pom</packaging>
 
   <name>SonarLint for Eclipse</name>
