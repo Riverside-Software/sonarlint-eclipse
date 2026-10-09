@@ -21,19 +21,23 @@ env:
 
 jobs:
   consistency_check:
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs
     name: SLCORE Consistency
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup Maven Toolchains
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+        with:
+          version: 2025.9.12
+
+      - name: Check SLCORE consistency
         shell: bash
         run: .github/scripts/check-slcore-consistency.sh
 
   build:
     outputs:
       project-version: ${{ steps.version.outputs.project-version }}
-    runs-on: github-ubuntu-latest-m
+    runs-on: sonar-m
     name: Build Project
     steps:
       - uses: actions/checkout@v5
@@ -82,7 +86,7 @@ jobs:
 
   validate:
     needs: [ build ]
-    runs-on: github-ubuntu-latest-m
+    runs-on: sonar-m
     name: Validate
     steps:
       - uses: actions/checkout@v5
@@ -175,16 +179,16 @@ jobs:
 
   qa_connectedModeSonarQube:
     needs: [build]
-    runs-on: github-ubuntu-latest-m
+    runs-on: sonar-m
     name: QA Connected Mode SonarQube
     strategy:
       fail-fast: false
       matrix:
         include:
-          - SQ_VERSION: 'LATEST_RELEASE[9.9]'
-            QA_CATEGORY: 'LATEST_RELEASE_99'
-            JAVA_VERSION: '17'
-            TARGET_PLATFORM: 'latest-java-17_e431'
+          - SQ_VERSION: 'LATEST_RELEASE[2025.1]'
+            QA_CATEGORY: 'LATEST_RELEASE_2025_1'
+            JAVA_VERSION: '21'
+            TARGET_PLATFORM: 'latest-java-21'
           - SQ_VERSION: 'LATEST_RELEASE'
             QA_CATEGORY: 'LATEST_RELEASE'
             JAVA_VERSION: '21'
@@ -359,7 +363,7 @@ jobs:
 
   qa_connectedModeSonarCloud:
     needs: [ build ]
-    runs-on: github-ubuntu-latest-m
+    runs-on: sonar-m
     name: QA Connected Mode SonarCloud
     strategy:
       fail-fast: false
@@ -511,7 +515,7 @@ jobs:
 
   qa_standaloneMode:
     needs: [ build ]
-    runs-on: github-ubuntu-latest-m
+    runs-on: sonar-m
     name: QA Standalone Mode
     strategy:
       fail-fast: false
@@ -658,14 +662,13 @@ jobs:
 
   qa_cdtIntegration:
     needs: [ build ]
-    runs-on: github-ubuntu-latest-m
+    runs-on: sonar-m
     name: QA CDT Integration
     strategy:
       fail-fast: false
       matrix:
         include:
           - TARGET_PLATFORM: 'oldest-java-11_e417'
-          - TARGET_PLATFORM: 'latest-java-17_e431'
           - TARGET_PLATFORM: 'latest-java-21'
     env:
       DISPLAY: :10
@@ -806,7 +809,7 @@ jobs:
 
   sonarqube:
     needs: [validate, qa_connectedModeSonarCloud, qa_connectedModeSonarQube, qa_standaloneMode, qa_cdtIntegration]
-    runs-on: github-ubuntu-latest-m
+    runs-on: sonar-m
     name: SonarQube Analysis
     env:
       DEPLOY_PULL_REQUEST: false
@@ -890,7 +893,7 @@ jobs:
 
   inspect-orchestrator-cache:
     needs: [ qa_connectedModeSonarQube ]
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs
     name: Inspect Orchestrator Cache
     steps:
       - name: Compute month key
@@ -925,7 +928,7 @@ jobs:
       - validate
       - sonarqube
     if: github.event_name == 'pull_request' || github.ref_name == 'master' || startsWith(github.ref_name, 'branch-')
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs
     name: Promote
 
     steps:
@@ -940,7 +943,7 @@ jobs:
       - build
       - promote
     if: github.event_name != 'pull_request' || github.ref_name == 'master' || startsWith(github.ref_name, 'branch-')
-    runs-on: github-ubuntu-latest-s
+    runs-on: sonar-xs
     name: Publish Dogfood Site
 
     steps:
